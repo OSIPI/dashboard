@@ -1,0 +1,14 @@
+{
+  "window.title": "∞ OSIPY Dashboard - ${activeEditorShort}",
+  "githubPullRequests.ignoredPullRequestBranches": [
+    "master"
+  ],
+   "workbench.colorCustomizations": {
+    "statusBar.noFolderBackground": "#410A56",
+    "statusBar.noFolderForeground": "#FEFBFF",
+    "titleBar.activeBackground": "#ff0084",
+    "titleBar.activeForeground": "#ffffff",
+    "titleBar.inactiveBackground": "#ff0084",
+    "titleBar.inactiveForeground": "#bababa"
+  }
+}
