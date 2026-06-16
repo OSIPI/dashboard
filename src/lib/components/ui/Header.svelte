@@ -1,10 +1,7 @@
 <script lang="ts">
 	import Logo from '$lib/assets/icons/Logo.svelte';
 	import FeedbackButton from '$lib/components/ui/feedback/FeedbackButton.svelte';
-	import Login from '$lib/components/ui/Login/LoginButton.svelte';
-	import Search from '$lib/components/Search.svelte';
 	import { toggleMenu } from '$lib/stores/menu.store';
-	import IconamoonMenuBurgerHorizontalBold from '~icons/iconamoon/menu-burger-horizontal-bold';
 	import menuItems from '$lib/models/menu-itmes';
 
 	import ThemeChange from '$lib/components/ui/ThemeChange/ThemeChange.svelte';
@@ -13,7 +10,7 @@
 		showSearch?: boolean;
 	}
 
-	let { showSearch = true }: Props = $props();
+	let { showSearch = false }: Props = $props();
 	let activeCategory = $state('');
 </script>
 
@@ -28,19 +25,19 @@
 				onclick={toggleMenu}
 				aria-label="Open menu"
 			>
-				<IconamoonMenuBurgerHorizontalBold class="size-6" />
+				<span class="block text-2xl leading-none">=</span>
 			</button>
 			<a
-				class="no-drag mr-3 h-auto max-w-[140px] flex-initial shrink-0 select-none sm:max-w-[160px]"
+				class="no-drag mr-4 flex flex-initial shrink-0 select-none items-center gap-3"
 				href="/"
+				aria-label="OSIPY dashboard home"
 			>
-				<Logo />
+				<Logo class="h-9 w-9 object-contain sm:h-10 sm:w-10" />
+				<span class="text-lg font-black tracking-[0.22em] text-base-content">OSIPY</span>
 			</a>
-			<div class="flex-1" />
+			<div class="flex-1"></div>
 			{#if showSearch}
-				<div class="mt-4 max-w-2xl px-2 sm:px-0">
-					<Search />
-				</div>
+				<div class="hidden text-sm text-base-content/60 sm:block">Search coming later</div>
 			{/if}
 			<!-- Desktop menu -->
 			<div class="z-10 hidden w-full flex-1 justify-end space-x-4 sm:flex lg:space-x-8">
@@ -56,21 +53,17 @@
 				{/each}
 			</div>
 
-			<FeedbackButton class="hidden sm:block" />
+			<div class="hidden sm:block">
+				<FeedbackButton />
+			</div>
 			<ThemeChange class="z-50 ml-auto sm:ml-14 " />
-
-			<Login />
 		</header>
 	</div>
 </nav>
 
 <style>
-	.menu-link {
-		/* @apply hover:text-secondary font-medium transition; */
-	}
-
 	.menu-link.active {
-		@apply text-[var(--color-primary)];
+		color: var(--color-primary);
 	}
 
 	/* Frosted navigation header */
@@ -104,6 +97,7 @@
 			black var(--cutoff),
 			transparent var(--cutoff)
 		);
+		mask-image: linear-gradient(to bottom, black 0, black var(--cutoff), transparent var(--cutoff));
 	}
 
 	.bien-glass-edge {
@@ -132,5 +126,6 @@
 			black var(--offset),
 			transparent var(--offset)
 		);
+		mask-image: linear-gradient(to bottom, black 0, black var(--offset), transparent var(--offset));
 	}
 </style>

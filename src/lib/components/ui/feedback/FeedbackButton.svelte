@@ -2,7 +2,6 @@
 	import { onMount } from 'svelte';
 	import { writable } from 'svelte/store';
 	import { sendEmail } from '$lib/api';
-	import { page } from '$app/stores';
 	import { toastStore } from '$lib/stores/toast.store';
 
 	interface Props {
@@ -11,8 +10,8 @@
 
 	let { showButton = true }: Props = $props();
 
-	let textarea: HTMLTextAreaElement = $state();
-	let modal: HTMLDialogElement = $state();
+	let textarea: HTMLTextAreaElement | undefined = $state();
+	let modal: HTMLDialogElement | undefined = $state();
 	let browserInfo = $state({
 		browser: '',
 		platform: '',
@@ -45,12 +44,12 @@
 
 		openFeedbackModal.set(() => {
 			updateBrowserInfo();
-			modal.showModal();
+		modal?.showModal();
 		});
 	});
 
 	function closeModal() {
-		modal.close();
+		modal?.close();
 	}
 
 	function getBrowserInfo() {
@@ -63,23 +62,10 @@
 		};
 	}
 
-	function getUserInfo() {
-		const session = $page.data.session;
-		if (session && session.user) {
-			return {
-				id: session.user.id,
-				name: session.user.name,
-				email: session.user.email
-			};
-		}
-		return null;
-	}
-
 	async function sendFeedback() {
-		const feedback = textarea.value;
+		const feedback = textarea?.value ?? '';
 		const browserInfo = getBrowserInfo();
 		const currentUrl = window.location.href;
-		const userInfo = getUserInfo();
 
 		const emailContent = `
 			<html>
@@ -88,18 +74,7 @@
 					<h2>Feedback:</h2>
 					<p style="font-size:18px;">${feedback.replace(/\n/g, '<br>')}</p>
 
-					${
-						userInfo
-							? `
-					<h2>User Information:</h2>
-					<ul>
-						<li><strong>User ID:</strong> ${userInfo.id}</li>
-						<li><strong>Name:</strong> ${userInfo.name}</li>
-						<li><strong>Email:</strong> ${userInfo.email}</li>
-					</ul>
-					`
-							: '<p>User not logged in</p>'
-					}
+					<p>Authentication is disabled for this dashboard.</p>
 
 					<h2>Browser Information:</h2>
 					<ul>
@@ -120,7 +95,7 @@
 			console.log('Feedback result:', result);
 			if (result.success) {
 				toastStore.success(result.message);
-				textarea.value = ''; // Clear the feedback input
+				if (textarea) textarea.value = '';
 				closeModal();
 			} else {
 				toastStore.error(result.message);
@@ -137,7 +112,7 @@
 		class="btn btn-sm"
 		onclick={() => {
 			updateBrowserInfo();
-			modal.showModal();
+			modal?.showModal();
 		}}
 	>
 		Feedback
