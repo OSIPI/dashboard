@@ -1,0 +1,64 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get version from tag
+        id: version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Get previous tag
+        id: prev_tag
+        run: |
+          CURRENT_TAG=${GITHUB_REF#refs/tags/}
+          PREV_TAG=$(git describe --tags --abbrev=0 ${CURRENT_TAG}^ 2>/dev/null || echo "")
+          echo "prev_tag=$PREV_TAG" >> $GITHUB_OUTPUT
+
+      - name: Generate changelog
+        run: |
+          PREV_TAG=${{ steps.prev_tag.outputs.prev_tag }}
+          if [ -z "$PREV_TAG" ]; then
+            COMMITS=$(git log --pretty=format:"- %s (%h)" HEAD)
+          else
+            COMMITS=$(git log --pretty=format:"- %s (%h)" ${PREV_TAG}..HEAD)
+          fi
+
+          BREAKING=$(echo "$COMMITS" | grep -iE "^- (feat|fix|refactor)(\(.+\))?!:|BREAKING CHANGE" || true)
+          FEATURES=$(echo "$COMMITS" | grep -iE "^- feat(\(.+\))?:" | grep -viE "!:" || true)
+          FIXES=$(echo "$COMMITS" | grep -iE "^- fix(\(.+\))?:" | grep -viE "!:" || true)
+          DOCS=$(echo "$COMMITS" | grep -iE "^- docs(\(.+\))?:" || true)
+          CHORES=$(echo "$COMMITS" | grep -iE "^- (chore|ci|build)(\(.+\))?:" || true)
+          OTHER=$(echo "$COMMITS" | grep -viE "^- (feat|fix|docs|chore|ci|build|refactor)(\(.+\))?:" || true)
+
+          CHANGELOG=""
+          [ -n "$BREAKING" ] && CHANGELOG="$CHANGELOG## Breaking Changes\n$BREAKING\n\n"
+          [ -n "$FEATURES" ] && CHANGELOG="$CHANGELOG## Features\n$FEATURES\n\n"
+          [ -n "$FIXES" ] && CHANGELOG="$CHANGELOG## Bug Fixes\n$FIXES\n\n"
+          [ -n "$DOCS" ] && CHANGELOG="$CHANGELOG## Documentation\n$DOCS\n\n"
+          [ -n "$CHORES" ] && CHANGELOG="$CHANGELOG## Maintenance\n$CHORES\n\n"
+          [ -n "$OTHER" ] && CHANGELOG="$CHANGELOG## Other Changes\n$OTHER\n\n"
+
+          echo -e "$CHANGELOG" > changelog.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          body_path: changelog.md
