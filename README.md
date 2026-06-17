@@ -1,6 +1,6 @@
 # OSIPY Dashboard
 
-A small SvelteKit dashboard scaffold for OSIPY projects, copy, and ideas.
+Dashboard scaffold for OSIPY projects
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Deploy GitHub Pages](https://github.com/OSIPI/dashboard/actions/workflows/pages.yml/badge.svg)](https://github.com/OSIPI/dashboard/actions/workflows/pages.yml)
