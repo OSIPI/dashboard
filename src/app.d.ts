@@ -1,3 +1,5 @@
+/// <reference types="unplugin-icons/types/svelte" />
+
 // See https://svelte.dev/docs/kit/types#app.d.ts
 // for information about these interfaces
 declare global {
@@ -8,12 +10,6 @@ declare global {
 		// interface PageState {}
 		// interface Platform {}
 	}
-}
-
-// unplugin-icons type definitions
-declare module '~icons/*' {
-	import type { SvelteComponent } from 'svelte';
-	export default SvelteComponent;
 }
 
 declare const __APP_VERSION__: string;

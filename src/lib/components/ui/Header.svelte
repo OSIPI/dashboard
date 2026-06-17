@@ -3,6 +3,7 @@
 	import Logo from '$lib/assets/icons/Logo.svelte';
 	import { toggleMenu } from '$lib/stores/menu.store';
 	import menuItems from '$lib/models/menu-itmes';
+	import GithubIcon from '~icons/simple-icons/github';
 
 	interface Props {
 		showSearch?: boolean;
@@ -56,6 +57,15 @@
 					</a>
 				{/each}
 			</div>
+			<a
+				class="btn btn-circle btn-ghost btn-sm"
+				href="https://github.com/OSIPI/dashboard"
+				target="_blank"
+				rel="noreferrer"
+				aria-label="Open OSIPY dashboard repository on GitHub"
+			>
+				<GithubIcon class="h-5 w-5" aria-hidden="true" />
+			</a>
 		</header>
 	</div>
 </nav>
