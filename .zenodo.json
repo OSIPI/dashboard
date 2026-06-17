@@ -1,0 +1,23 @@
+{
+	"title": "OSIPY Dashboard",
+	"description": "SvelteKit dashboard for OSIPY perfusion MRI workflows, documentation, and project interaction.",
+	"creators": [
+		{
+			"name": "OSIPY Dashboard contributors",
+			"affiliation": "Open Science Initiative for Perfusion Imaging"
+		}
+	],
+	"license": {
+		"id": "MIT"
+	},
+	"keywords": ["OSIPY", "OSIPI", "dashboard", "SvelteKit", "MRI", "perfusion", "research software"],
+	"upload_type": "software",
+	"access_right": "open",
+	"related_identifiers": [
+		{
+			"identifier": "https://github.com/OSIPI/dashboard",
+			"relation": "isSupplementTo",
+			"scheme": "url"
+		}
+	]
+}

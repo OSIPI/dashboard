@@ -2,7 +2,16 @@
 	"name": "osipy-dashboard",
 	"private": true,
 	"version": "0.0.1",
+	"license": "MIT",
 	"type": "module",
+	"homepage": "https://osipi.github.io/dashboard/",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/OSIPI/dashboard.git"
+	},
+	"bugs": {
+		"url": "https://github.com/OSIPI/dashboard/issues"
+	},
 	"scripts": {
 		"dev": "vite dev",
 		"build": "vite build",

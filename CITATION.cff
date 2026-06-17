@@ -1,0 +1,19 @@
+cff-version: 1.2.0
+message: 'If you use OSIPY Dashboard in your work, please cite it using the metadata from this file.'
+type: software
+title: 'OSIPY Dashboard'
+abstract: 'SvelteKit dashboard for OSIPY perfusion MRI workflows, documentation, and project interaction.'
+authors:
+  - name: 'OSIPY Dashboard contributors'
+repository-code: 'https://github.com/OSIPI/dashboard'
+url: 'https://osipi.github.io/dashboard/'
+license: MIT
+version: '0.0.1'
+keywords:
+  - OSIPY
+  - OSIPI
+  - dashboard
+  - SvelteKit
+  - MRI
+  - perfusion
+  - research software
