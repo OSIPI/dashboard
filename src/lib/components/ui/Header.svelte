@@ -1,10 +1,7 @@
 <script lang="ts">
 	import Logo from '$lib/assets/icons/Logo.svelte';
-	import FeedbackButton from '$lib/components/ui/feedback/FeedbackButton.svelte';
 	import { toggleMenu } from '$lib/stores/menu.store';
 	import menuItems from '$lib/models/menu-itmes';
-
-	import ThemeChange from '$lib/components/ui/ThemeChange/ThemeChange.svelte';
 
 	interface Props {
 		showSearch?: boolean;
@@ -47,16 +44,13 @@
 						onclick={() => (activeCategory = link.title)}
 						class:active={activeCategory === link.title}
 						href={link.path}
+						target={link.path.startsWith('http') ? '_blank' : undefined}
+						rel={link.path.startsWith('http') ? 'noreferrer' : undefined}
 					>
 						{link.displayTitle}
 					</a>
 				{/each}
 			</div>
-
-			<div class="hidden sm:block">
-				<FeedbackButton />
-			</div>
-			<ThemeChange class="z-50 ml-auto sm:ml-14 " />
 		</header>
 	</div>
 </nav>

@@ -1,12 +1,7 @@
-# About OSIPY Dashboard
+# About OSIPY
 
-This SvelteKit dashboard is a lightweight workspace for shaping OSIPY projects, copy, and ideas.
+OSIPY is OSIPI's open-source Python library for perfusion MRI analysis.
 
-The first iteration is deliberately simple:
+It brings community code, standards, and validation into one reproducible package for DCE, DSC, ASL, and IVIM workflows.
 
-- No login
-- No database
-- No account management
-- Bun-powered development through Docker Compose
-
-Persistence and authentication can be added later once the dashboard data model is clear.
+The goal is simple: make quantitative perfusion MRI easier to use, compare, and trust across sites.
