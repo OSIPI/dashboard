@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { base } from '$app/paths';
+
 	const notes = [
 		{
 			title: 'Dashboard scope',
@@ -18,7 +20,7 @@
 				<h1 class="text-4xl font-bold">Notes</h1>
 				<p class="mt-2 text-base-content/70">Static placeholders for future OSIPY updates.</p>
 			</div>
-			<a href="/" class="btn btn-neutral btn-sm">Dashboard</a>
+			<a href="{base}/" class="btn btn-neutral btn-sm">Dashboard</a>
 		</div>
 	</div>
 

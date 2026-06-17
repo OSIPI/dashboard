@@ -16,6 +16,9 @@ const config = {
 		})
 	],
 	kit: {
+		paths: {
+			base: process.env.NODE_ENV === 'production' ? '/dashboard' : ''
+		},
 		// Static adapter for client-side only app
 		adapter: adapter({
 			pages: 'build',

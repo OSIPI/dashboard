@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { base } from '$app/paths';
 	import { page } from '$app/stores';
 </script>
 
@@ -15,10 +16,10 @@
 	</article>
 
 	<div class="mt-8 flex items-center justify-between">
-		<a href="/blog" class="inline-flex items-center text-sm text-base-content/70 hover:text-base-content">
+		<a href="{base}/blog" class="inline-flex items-center text-sm text-base-content/70 hover:text-base-content">
 			Back to notes
 		</a>
-		<a href="/" class="inline-flex items-center text-sm text-base-content/70 hover:text-base-content">
+		<a href="{base}/" class="inline-flex items-center text-sm text-base-content/70 hover:text-base-content">
 			Home
 		</a>
 	</div>

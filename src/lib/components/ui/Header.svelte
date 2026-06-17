@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { base } from '$app/paths';
 	import Logo from '$lib/assets/icons/Logo.svelte';
 	import { toggleMenu } from '$lib/stores/menu.store';
 	import menuItems from '$lib/models/menu-itmes';
@@ -9,6 +10,10 @@
 
 	let { showSearch = false }: Props = $props();
 	let activeCategory = $state('');
+
+	function hrefFor(path: string) {
+		return path.startsWith('http') ? path : `${base}${path}`;
+	}
 </script>
 
 <nav class="bien-nav mb-10">
@@ -26,7 +31,7 @@
 			</button>
 			<a
 				class="no-drag mr-4 flex flex-initial shrink-0 select-none items-center gap-3"
-				href="/"
+				href="{base}/"
 				aria-label="OSIPY dashboard home"
 			>
 				<Logo class="h-9 w-9 object-contain sm:h-10 sm:w-10" />
@@ -43,7 +48,7 @@
 						class="menu-link"
 						onclick={() => (activeCategory = link.title)}
 						class:active={activeCategory === link.title}
-						href={link.path}
+						href={hrefFor(link.path)}
 						target={link.path.startsWith('http') ? '_blank' : undefined}
 						rel={link.path.startsWith('http') ? 'noreferrer' : undefined}
 					>
