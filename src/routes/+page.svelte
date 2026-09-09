@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { base } from '$app/paths';
 	import CrosshairIcon from '~icons/lucide/crosshair';
 	import HandIcon from '~icons/lucide/hand';
 	import RotateCcwIcon from '~icons/lucide/rotate-ccw';
@@ -9,12 +10,9 @@
 	import IvimImage from '$lib/components/IvimImage.svelte';
 	import Header from '$lib/components/ui/Header.svelte';
 	import {
-		B_VALUES,
-		SIZE,
-		SLICES,
 		BOOKMARK_KEY,
-		createVolumes,
-		parametersAt,
+		loadDataset,
+		type Dataset,
 		voxelIndex,
 		parseBookmarks,
 		type Bookmark
@@ -28,11 +26,19 @@
 	};
 	let technique = $state<keyof typeof techniques>('IVIM');
 	let panel = $state('Image');
-	let volumes = $state.raw<Float32Array[]>([]);
+	let volumes = $state.raw<Int16Array[]>([]);
+	let dataset = $state.raw<Dataset>();
+	let dataError = $state('');
+	const B_VALUES = $derived(dataset?.bValues ?? []);
+	const NX = $derived(dataset?.dimensions[0] ?? 0);
+	const NY = $derived(dataset?.dimensions[1] ?? 0);
+	const SLICES = $derived(dataset?.dimensions[2] ?? 0);
+	const maxB = $derived(Math.max(1, ...B_VALUES));
+	const aspect = $derived(dataset ? (NX * dataset.spacing[0]) / (NY * dataset.spacing[1]) : 1);
 	let bIndex = $state(0);
-	let slice = $state(16);
-	let x = $state(35);
-	let y = $state(44);
+	let slice = $state(0);
+	let x = $state(0);
+	let y = $state(0);
 	let zoom = $state(1);
 	let panX = $state(0);
 	let panY = $state(0);
@@ -47,44 +53,68 @@
 	let storageMessage = $state('Saved only in this browser.');
 	let imageLayer = $state<HTMLDivElement>();
 	let drag: { id: number; x: number; y: number; px: number; py: number } | undefined;
-	const p = $derived(parametersAt(x, y, slice));
-	const signals = $derived(volumes.map((volume) => volume[voxelIndex(x, y, slice)]));
+	const signals = $derived(
+		dataset
+			? volumes.map(
+					(volume) =>
+						volume[voxelIndex(x, y, slice, dataset!.dimensions)] * dataset!.slope +
+						dataset!.intercept
+				)
+			: []
+	);
+	const signalMin = $derived(Math.min(0, ...signals));
+	const signalMax = $derived(Math.max(signalMin + 1, ...signals));
+	const signalY = (value: number) => 174 - ((value - signalMin) / (signalMax - signalMin)) * 146;
 	const points = $derived(
-		signals
-			.map((value, i) => `${42 + (B_VALUES[i] / 800) * 270},${174 - (value / 1100) * 146}`)
-			.join(' ')
+		signals.map((value, i) => `${42 + (B_VALUES[i] / maxB) * 270},${signalY(value)}`).join(' ')
 	);
 	const filtered = $derived(
 		B_VALUES.map((b, index) => ({ b, index })).filter(
-			({ b }) =>
-				`ivim b ${b} synthetic axial`.includes(search.trim().toLowerCase()) &&
+			({ b, index }) =>
+				`ivim b ${b} in-vivo brain volume ${index + 1}`.includes(search.trim().toLowerCase()) &&
 				(range === 'all' || (range === 'low' ? b <= 100 : b > 100))
 		)
 	);
 
 	onMount(() => {
-		volumes = createVolumes();
-		try {
-			const saved = localStorage.getItem(BOOKMARK_KEY);
-			if (saved) bookmarks = parseBookmarks(saved);
-		} catch {
-			storageMessage = 'Saved views could not be loaded. New views still work for this session.';
-		}
+		const controller = new AbortController();
+		loadDataset(`${base}/datasets/ivim-brain`, controller.signal)
+			.then((loaded) => {
+				if (controller.signal.aborted) return;
+				dataset = loaded.dataset;
+				x = Math.floor(dataset.dimensions[0] / 2);
+				y = Math.floor(dataset.dimensions[1] / 2);
+				slice = Math.floor(dataset.dimensions[2] / 2);
+				resetView();
+				volumes = loaded.volumes;
+				try {
+					const saved = localStorage.getItem(BOOKMARK_KEY);
+					if (saved) bookmarks = parseBookmarks(saved, dataset);
+				} catch {
+					storageMessage =
+						'Saved views unavailable or for another dataset. New views work for this session.';
+				}
+			})
+			.catch((error) => {
+				if (!controller.signal.aborted)
+					dataError = error instanceof Error ? error.message : 'Dataset could not be loaded';
+			});
+		return () => controller.abort();
 	});
 
 	function resetView() {
 		zoom = 1;
 		panX = 0;
 		panY = 0;
-		center = 500;
-		width = 1000;
+		center = dataset?.window[0] ?? 500;
+		width = dataset?.window[1] ?? 1000;
 	}
 	function selectVoxel(event: PointerEvent) {
 		if (!imageLayer) return;
 		const bounds = imageLayer.getBoundingClientRect();
-		const nextX = Math.floor(((event.clientX - bounds.left) / bounds.width) * SIZE);
-		const nextY = Math.floor(((event.clientY - bounds.top) / bounds.height) * SIZE);
-		if (nextX >= 0 && nextX < SIZE && nextY >= 0 && nextY < SIZE) {
+		const nextX = Math.floor(((event.clientX - bounds.left) / bounds.width) * NX);
+		const nextY = Math.floor(((event.clientY - bounds.top) / bounds.height) * NY);
+		if (nextX >= 0 && nextX < NX && nextY >= 0 && nextY < NY) {
 			x = nextX;
 			y = nextY;
 		}
@@ -115,8 +145,8 @@
 			panX += move[0] * 12;
 			panY += move[1] * 12;
 		} else {
-			x = Math.max(0, Math.min(SIZE - 1, x + move[0]));
-			y = Math.max(0, Math.min(SIZE - 1, y + move[1]));
+			x = Math.max(0, Math.min(NX - 1, x + move[0]));
+			y = Math.max(0, Math.min(NY - 1, y + move[1]));
 		}
 	}
 	function persist(next: Bookmark[]) {
@@ -129,9 +159,18 @@
 		}
 	}
 	function saveView() {
+		if (!dataset) return;
 		persist([
 			...bookmarks,
-			{ id: crypto.randomUUID(), b: bIndex, z: slice, x, y, note: note.trim() }
+			{
+				id: crypto.randomUUID(),
+				datasetId: dataset.id,
+				b: bIndex,
+				z: slice,
+				x,
+				y,
+				note: note.trim()
+			}
 		]);
 		note = '';
 	}
@@ -147,18 +186,18 @@
 </script>
 
 <svelte:head>
-	<title>Synthetic IVIM Viewer | OSIPY Dashboard</title>
+	<title>In-Vivo IVIM Viewer | OSIPY Dashboard</title>
 	<meta
 		name="description"
-		content="Explore synthetic IVIM image volumes and voxel signal curves locally. Educational phantom only, not for diagnosis."
+		content="Explore the public OSIPI in-vivo brain IVIM series and acquired voxel signals. Research viewing only, not for diagnosis."
 	/>
 </svelte:head>
 
 <Header bind:technique>
 	<h1 class="workspace-title text-xs font-semibold">
-		{technique} / {technique === 'IVIM' ? 'Synthetic phantom 01' : 'Not implemented'}
+		{technique} / {technique === 'IVIM' ? 'In-vivo brain' : 'Not implemented'}
 	</h1>
-	{#if technique === 'IVIM'}
+	{#if technique === 'IVIM' && dataset && volumes.length}
 		<div class="viewer-tools flex items-center gap-1">
 			<button
 				class="button {tool === 'inspect' ? 'button-primary' : 'button-ghost'}"
@@ -178,8 +217,8 @@
 </Header>
 <main class="viewer-main">
 	<p class="safety-notice">
-		<strong>Synthetic only. Not for diagnosis.</strong> No patient data, uploads or DICOM / NIfTI / BIDS
-		import.
+		<strong>Public in-vivo brain. Not for diagnosis.</strong> Viewing only; no fitting or uploads.
+		<a class="underline" href="https://doi.org/10.5281/zenodo.14605039">OSIPI TF2.4 · CC BY 4.0</a>
 	</p>
 	{#if technique !== 'IVIM'}
 		<section class="modality-state card space-y-3 p-6 text-center">
@@ -189,14 +228,27 @@
 			<h2 class="text-2xl font-semibold">{techniques[technique]}</h2>
 			<p class="mx-auto max-w-lg text-sm leading-6 text-muted-foreground">
 				No acquisition data, signal model, or analysis workflow is implemented for {technique}. The
-				working example currently covers synthetic IVIM only.
+				working viewer currently covers acquired IVIM only.
 			</p>
 			<button class="button button-primary mx-auto mt-3" onclick={() => (technique = 'IVIM')}
 				>Explore the IVIM demo</button
 			>
 		</section>
-	{:else if !volumes.length}
-		<p class="card p-10 text-center" role="status">Generating synthetic IVIM volumes...</p>
+	{:else if dataError}
+		<section class="modality-state card space-y-3 p-6" role="alert">
+			<h2 class="font-semibold">Brain dataset unavailable</h2>
+			<p>{dataError}</p>
+			<p class="text-sm">
+				Prepare the static dataset with scripts/prepare_ivim.py before serving or deploying, then
+				reload. No mock data is substituted.
+			</p>
+			<button class="button button-outline" onclick={() => location.reload()}>Reload dataset</button
+			>
+		</section>
+	{:else if !dataset || !volumes.length}
+		<p class="card p-10 text-center" role="status">
+			Loading and verifying acquired IVIM volumes (119 MB)...
+		</p>
 	{:else}
 		<nav class="panel-switcher" aria-label="Workspace panels">
 			{#each ['Image', 'Controls', 'Series', 'Inspector'] as name (name)}
@@ -214,7 +266,7 @@
 				<div class="border-b p-3">
 					<div class="mb-3 flex items-center justify-between">
 						<h2 class="text-sm font-semibold">
-							Series browser <span class="text-muted-foreground">/ 09</span>
+							Series browser <span class="text-muted-foreground">/ {B_VALUES.length}</span>
 						</h2>
 						<div class="flex">
 							<button
@@ -240,32 +292,36 @@
 					<label class="mt-3 flex items-center gap-2 text-xs text-muted-foreground"
 						>Filter<select class="input min-w-0 flex-1 py-1.5 text-xs" bind:value={range}
 							><option value="all">All b-values</option><option value="low">Low b (0-100)</option
-							><option value="high">High b (200-800)</option></select
+							><option value="high">High b (&gt;100)</option></select
 						></label
 					>
 				</div>
 				<div class="series-grid p-3" class:list={layout === 'list'}>
-					{#each filtered as series (series.b)}
+					{#each filtered as series (series.index)}
 						<button
 							class="series-card"
 							class:selected={bIndex === series.index}
 							aria-pressed={bIndex === series.index}
-							aria-label="Select b-value {series.b} s/mm²"
+							aria-label="Select volume {series.index + 1}, b-value {series.b} s/mm²"
 							onclick={() => {
 								bIndex = series.index;
 								panel = 'Image';
 							}}
 						>
-							<div class="thumbnail">
+							<div class="thumbnail" style:aspect-ratio={aspect}>
 								<IvimImage
 									volume={volumes[series.index]}
-									slice={16}
-									label="Synthetic IVIM b={series.b} overview, slice 17"
+									{dataset}
+									center={dataset.window[0]}
+									width={dataset.window[1]}
+									slice={Math.floor(SLICES / 2)}
+									label="IVIM volume {series.index + 1}, b={series.b}, middle native slice"
 								/>
 							</div>
 							<div class="px-2 py-2 text-left">
 								<span class="block text-xs font-semibold">b = {series.b}</span><span
-									class="block text-[10px] text-muted-foreground">s/mm² · 32 slices</span
+									class="block text-[10px] text-muted-foreground"
+									>Vol {series.index + 1} · {SLICES} slices</span
 								>
 							</div>
 						</button>
@@ -280,8 +336,11 @@
 						</p>{/each}
 				</div>
 				<p class="border-t px-3 py-3 text-[11px] leading-5 text-muted-foreground">
-					{filtered.length} of 9 volumes · Axial only<br />96 × 96 × 32 voxels · Noise-free phantom<br
-					/>Previews use slice 17 and default window.
+					{filtered.length} of {B_VALUES.length} volumes · Native slices<br />{NX} × {NY} × {SLICES}
+					voxels<br />
+					{dataset.spacing.map((s) => s.toFixed(6)).join(' × ')} mm<br />
+					Repeated b-values are separate acquired volumes. Previews use the middle slice and default
+					window.
 				</p>
 			</aside>
 
@@ -290,7 +349,7 @@
 					<button
 						class="image-interaction"
 						class:panning={tool === 'pan'}
-						aria-label="Synthetic axial image. In voxel mode, click to select or use arrow keys. In pan mode, drag or use arrow keys."
+						aria-label="Native oblique brain image. In voxel mode, click to select or use arrow keys. In pan mode, drag or use arrow keys."
 						onpointerdown={pointerDown}
 						onpointermove={pointerMove}
 						onpointerup={() => (drag = undefined)}
@@ -301,16 +360,23 @@
 						<div
 							class="image-layer"
 							bind:this={imageLayer}
+							style:width="min(86cqw, {86 * aspect}cqh)"
+							style:aspect-ratio={aspect}
 							style:transform="translate({panX}px, {panY}px) scale({zoom})"
 						>
 							<IvimImage
 								volume={volumes[bIndex]}
+								{dataset}
 								{slice}
 								{center}
 								{width}
-								label="Synthetic axial slice {slice + 1}, b={B_VALUES[bIndex]} s/mm²"
+								label="Native slice {slice + 1}, volume {bIndex + 1}, b={B_VALUES[bIndex]} s/mm²"
 							/>
-							<svg class="crosshair" viewBox="0 0 96 96" aria-hidden="true"
+							<svg
+								class="crosshair"
+								viewBox="0 0 {NX} {NY}"
+								preserveAspectRatio="none"
+								aria-hidden="true"
 								><circle cx={x + 0.5} cy={y + 0.5} r="2.4" /><path
 									d="M {x - 4} {y + 0.5} h 3 M {x + 2} {y + 0.5} h 3 M {x + 0.5} {y - 4} v 3 M {x +
 										0.5} {y + 2} v 3"
@@ -319,10 +385,10 @@
 						</div>
 					</button>
 					<div class="stage-label top-3 left-3">
-						SYNTHETIC / IVIM<br />b {B_VALUES[bIndex]} s/mm²
+						IN-VIVO / IVIM<br />Vol {bIndex + 1} · b {B_VALUES[bIndex]} s/mm²
 					</div>
 					<div class="stage-label top-3 right-3 text-right">
-						AXIAL · z {slice}<br />{Math.round(zoom * 100)}%
+						NATIVE · z {slice}<br />{Math.round(zoom * 100)}%
 					</div>
 					<div class="stage-label bottom-3 left-3">
 						x {x} / y {y}<br />S {signals[bIndex].toFixed(1)} a.u.
@@ -365,19 +431,19 @@
 								bind:value={zoom}
 							/></label
 						><label class="control"
-							><span>Window <strong>{width} a.u.</strong></span><input
+							><span>Window <strong>{width.toFixed(1)} a.u.</strong></span><input
 								type="range"
-								min="100"
-								max="2000"
-								step="10"
+								min="1"
+								max={2 * (dataset.signalRange[1] - dataset.signalRange[0])}
+								step="any"
 								bind:value={width}
 							/></label
 						><label class="control"
-							><span>Level <strong>{center} a.u.</strong></span><input
+							><span>Level <strong>{center.toFixed(1)} a.u.</strong></span><input
 								type="range"
-								min="0"
-								max="1200"
-								step="10"
+								min={dataset.signalRange[0]}
+								max={dataset.signalRange[1]}
+								step="any"
 								bind:value={center}
 							/></label
 						>
@@ -386,7 +452,9 @@
 						{tool === 'inspect'
 							? 'Click the image to inspect a voxel. Arrow keys move the selection when the image is focused.'
 							: 'Drag to pan. Arrow keys pan when the image is focused.'} Reset restores zoom, pan, window
-						and level. Coordinates are phantom indices, not patient orientation.
+						and level. Coordinates are original NIfTI indices. Oblique native plane, not a resliced anatomical
+						axial view. Increasing x / y / z points approximately {dataset.axisCodes.join(' / ')}; x
+						runs right and y runs down on screen. No reorientation.
 					</p>
 				</div>
 			</section>
@@ -401,21 +469,25 @@
 				<section class="card overflow-hidden">
 					<div class="border-b p-3">
 						<h2 class="text-sm font-semibold">Voxel signal</h2>
-						<p class="mt-1 text-xs text-muted-foreground">({x}, {y}, {slice}) · {p.region}</p>
+						<p class="mt-1 text-xs text-muted-foreground">({x}, {y}, {slice}) · acquired signal</p>
+						<p class="mt-1 text-xs text-muted-foreground">
+							b-vector: {dataset.bVectors[bIndex].join(', ')}
+						</p>
 					</div>
 					<svg
 						class="w-full text-primary"
 						viewBox="0 0 340 214"
 						role="img"
-						aria-label="Selected voxel signal over nine b-values. Exact values are in the table below."
-						><title>Synthetic voxel signal, not a fitted curve</title>
-						{#each [0, 500, 1000] as tick (tick)}<line
+						aria-label="Selected voxel signal over all acquired volumes. Values are in the table below."
+						><title>Acquired voxel signal, not a fitted curve</title>
+						{#each [signalMin, (signalMin + signalMax) / 2, signalMax] as tick (tick)}<line
 								x1="42"
 								x2="312"
-								y1={174 - (tick / 1100) * 146}
-								y2={174 - (tick / 1100) * 146}
+								y1={signalY(tick)}
+								y2={signalY(tick)}
 								stroke="var(--border)"
-							/><text x="35" y={178 - (tick / 1100) * 146} text-anchor="end">{tick}</text>{/each}
+							/><text x="35" y={signalY(tick) + 4} text-anchor="end">{tick.toPrecision(3)}</text
+							>{/each}
 						<text x="42" y="17">Signal (a.u.)</text><line
 							x1="42"
 							x2="312"
@@ -423,15 +495,15 @@
 							y2="174"
 							stroke="var(--muted-foreground)"
 						/>
-						{#each [0, 200, 400, 600, 800] as tick (tick)}<text
-								x={42 + (tick / 800) * 270}
+						{#each [0, maxB / 4, maxB / 2, maxB * 0.75, maxB] as tick (tick)}<text
+								x={42 + (tick / maxB) * 270}
 								y="191"
 								text-anchor="middle">{tick}</text
 							>{/each}<text x="180" y="208" text-anchor="middle">b-value (s/mm²)</text>
 						<polyline {points} fill="none" stroke="currentColor" stroke-width="2" />
 						{#each signals as value, i (i)}<circle
-								cx={42 + (B_VALUES[i] / 800) * 270}
-								cy={174 - (value / 1100) * 146}
+								cx={42 + (B_VALUES[i] / maxB) * 270}
+								cy={signalY(value)}
 								r={i === bIndex ? 5 : 2.5}
 								fill={i === bIndex ? 'var(--primary)' : 'var(--card)'}
 								stroke="currentColor"
@@ -440,50 +512,24 @@
 					</svg>
 					<div class="px-3 pb-3">
 						<p class="text-[11px] text-muted-foreground">
-							Noise-free samples; lines connect b-values. No fitting.
+							Acquired samples; lines connect original volume order, including repeated b-values. No
+							averaging or fitting.
 						</p>
 						<details class="mt-3 text-xs">
 							<summary class="cursor-pointer font-medium">Signal values</summary>
 							<table class="mt-2 w-full text-right">
 								<caption class="sr-only">Selected voxel values</caption><thead
-									><tr><th class="py-1 text-left">b (s/mm²)</th><th>Signal (a.u.)</th></tr></thead
+									><tr
+										><th>Vol</th><th class="py-1 text-left">b (s/mm²)</th><th>Signal (a.u.)</th></tr
+									></thead
 								><tbody
 									>{#each signals as value, i (i)}<tr class="border-t"
-											><td class="py-1 text-left">{B_VALUES[i]}</td><td>{value.toFixed(3)}</td></tr
+											><td>{i + 1}</td><td class="py-1 text-left">{B_VALUES[i]}</td><td>{value}</td
+											></tr
 										>{/each}</tbody
 								>
 							</table>
 						</details>
-					</div>
-					<div class="border-t bg-muted/40 p-3">
-						<h3 class="text-xs font-semibold">Synthetic ground truth</h3>
-						<p class="mt-1 text-[11px] text-muted-foreground">
-							Generator inputs at the selected voxel, not estimates.
-						</p>
-						<dl class="mt-3 grid grid-cols-2 gap-3 text-xs">
-							<div>
-								<dt class="text-muted-foreground">S₀</dt>
-								<dd class="mt-1 font-mono font-semibold">{p.s0.toFixed(1)} a.u.</dd>
-							</div>
-							<div>
-								<dt class="text-muted-foreground">f · fraction</dt>
-								<dd class="mt-1 font-mono font-semibold">{(p.f * 100).toFixed(1)} %</dd>
-							</div>
-							<div>
-								<dt class="text-muted-foreground">D · diffusion</dt>
-								<dd class="mt-1 font-mono font-semibold">{p.d.toFixed(4)} mm²/s</dd>
-							</div>
-							<div>
-								<dt class="text-muted-foreground">D* · pseudo-diffusion</dt>
-								<dd class="mt-1 font-mono font-semibold">{p.dStar.toFixed(3)} mm²/s</dd>
-							</div>
-						</dl>
-						{#if p.s0 === 0}<p class="mt-3 text-xs text-muted-foreground">
-								Outside the phantom. Zero parameters denote background.
-							</p>{/if}
-						<p class="mt-3 font-mono text-[10px] leading-5 break-words text-muted-foreground">
-							S(b) = S₀ [(1-f) exp(-bD) + f exp(-bD*)]
-						</p>
 					</div>
 				</section>
 				<section class="card p-3">
@@ -512,7 +558,7 @@
 									class="w-full text-left text-xs hover:text-primary"
 									onclick={() => restore(view)}
 									><span class="font-semibold"
-										>b {B_VALUES[view.b]} · Slice {view.z + 1} · ({view.x}, {view.y})</span
+										>Vol {view.b + 1} · b {B_VALUES[view.b]} · Slice {view.z + 1} · ({view.x}, {view.y})</span
 									><span class="mt-1 block break-words text-muted-foreground"
 										>{view.note || 'Saved voxel'}</span
 									><span class="mt-1 block text-[10px] text-primary">Restore selection</span

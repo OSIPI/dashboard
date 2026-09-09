@@ -38,7 +38,7 @@
 					<button
 						class="button {technique === key ? 'button-primary' : 'button-ghost'}"
 						aria-pressed={technique === key}
-						title={key === 'IVIM' ? 'Synthetic IVIM demo' : `${key}: not implemented`}
+						title={key === 'IVIM' ? 'In-vivo IVIM viewer' : `${key}: not implemented`}
 						onclick={() => (technique = key as typeof technique)}>{key}</button
 					>
 				{/each}

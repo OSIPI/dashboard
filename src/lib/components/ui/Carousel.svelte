@@ -1,5 +1,7 @@
 <script>
 	import { fade } from 'svelte/transition';
+	import ChevronLeftIcon from '~icons/lucide/chevron-left';
+	import ChevronRightIcon from '~icons/lucide/chevron-right';
 
 	const gallery_items = [
 		{
@@ -46,7 +48,9 @@
 		</button>
 	{/each}
 	<div class="carousel-buttons flex gap-1">
-		<button onclick={() => prevImage()}>◀</button>
+		<button class="button button-ghost button-icon" type="button" onclick={prevImage} aria-label="Previous image">
+			<ChevronLeftIcon class="size-4" aria-hidden="true" />
+		</button>
 		{#each gallery_items as item, i (i)}
 			<button
 				type="button"
@@ -58,6 +62,8 @@
 				<img src={item.url} alt={item.description} width={50} height={50} />
 			</button>
 		{/each}
-		<button onclick={() => nextImage()}>▶</button>
+		<button class="button button-ghost button-icon" type="button" onclick={nextImage} aria-label="Next image">
+			<ChevronRightIcon class="size-4" aria-hidden="true" />
+		</button>
 	</div>
 </div>

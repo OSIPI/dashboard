@@ -1,60 +1,110 @@
-export const SIZE = 96;
-export const SLICES = 32;
-export const B_VALUES = [0, 10, 20, 50, 100, 200, 400, 600, 800] as const;
+export type Dataset = {
+	schema: number;
+	id: string;
+	name: string;
+	dimensions: [number, number, number, number];
+	spacing: [number, number, number];
+	spatialUnit: string;
+	affine: number[][];
+	axisCodes: string[];
+	slope: number;
+	intercept: number;
+	bValues: number[];
+	bVectors: number[][];
+	dtype: string;
+	order: string;
+	byteLength: number;
+	sha256: string;
+	signalRange: [number, number];
+	window: [number, number];
+};
 
-export type Parameters = { s0: number; f: number; d: number; dStar: number; region: string };
-
-export function signal(b: number, p: Parameters): number {
-	return p.s0 * ((1 - p.f) * Math.exp(-b * p.d) + p.f * Math.exp(-b * p.dStar));
+export function validateDataset(value: unknown): Dataset {
+	if (!value || typeof value !== 'object') throw new Error('Invalid dataset manifest');
+	const d = value as Dataset;
+	const numbers = (v: unknown, length: number): v is number[] =>
+		Array.isArray(v) && v.length === length && v.every(Number.isFinite);
+	if (
+		d.schema !== 1 ||
+		typeof d.id !== 'string' ||
+		!d.id ||
+		typeof d.name !== 'string' ||
+		!numbers(d.dimensions, 4) ||
+		!d.dimensions.every((n) => Number.isInteger(n) && n > 0) ||
+		!numbers(d.spacing, 3) ||
+		!d.spacing.every((n) => n > 0) ||
+		d.spatialUnit !== 'mm' ||
+		!Array.isArray(d.affine) ||
+		d.affine.length !== 4 ||
+		!d.affine.every((r) => numbers(r, 4)) ||
+		!Array.isArray(d.axisCodes) ||
+		d.axisCodes.length !== 3 ||
+		!d.axisCodes.every((c, i) => ['LR', 'AP', 'SI'][i].includes(c) && c.length === 1) ||
+		!Number.isFinite(d.slope) ||
+		d.slope <= 0 ||
+		!Number.isFinite(d.intercept) ||
+		!numbers(d.bValues, d.dimensions[3]) ||
+		!d.bValues.every((b) => b >= 0) ||
+		!Array.isArray(d.bVectors) ||
+		d.bVectors.length !== d.dimensions[3] ||
+		!d.bVectors.every((r) => numbers(r, 3)) ||
+		d.dtype !== 'int16-le' ||
+		d.order !== 'x-y-z-volume' ||
+		d.byteLength !== d.dimensions.reduce((a, b) => a * b, 2) ||
+		d.byteLength > 512 * 1024 * 1024 ||
+		typeof d.sha256 !== 'string' ||
+		!/^[a-f0-9]{64}$/.test(d.sha256) ||
+		!numbers(d.signalRange, 2) ||
+		d.signalRange[1] <= d.signalRange[0] ||
+		!numbers(d.window, 2) ||
+		d.window[1] <= 0
+	)
+		throw new Error('Invalid or unsupported dataset manifest');
+	return d;
 }
 
-// A geometric phantom, not an anatomical model. Coordinates and parameters are deterministic.
-export function parametersAt(x: number, y: number, z: number): Parameters {
-	const nx = (x - 47.5) / 39;
-	const ny = (y - 47.5) / 42;
-	const nz = (z - 15.5) / 20;
-	const r = nx * nx + ny * ny + nz * nz;
-	if (r > 1) return { s0: 0, f: 0, d: 0, dStar: 0, region: 'Background' };
-	if (((nx + 0.32) / 0.28) ** 2 + ((ny + 0.1) / 0.35) ** 2 + (nz / 0.8) ** 2 < 1)
-		return { s0: 1000, f: 0.24, d: 0.0012, dStar: 0.025, region: 'High-fraction insert' };
-	if (((nx - 0.34) / 0.23) ** 2 + ((ny - 0.14) / 0.3) ** 2 + (nz / 0.7) ** 2 < 1)
-		return { s0: 850, f: 0.06, d: 0.0007, dStar: 0.012, region: 'Low-diffusion insert' };
-	if (r > 0.83) return { s0: 650, f: 0.08, d: 0.0016, dStar: 0.018, region: 'Outer shell' };
-	return {
-		s0: 900 + 45 * Math.cos(nx * 12) * Math.sin(ny * 10) * Math.cos(nz * 3),
-		f: 0.14,
-		d: 0.001,
-		dStar: 0.02,
-		region: 'Phantom matrix'
-	};
-}
-
-export function voxelIndex(x: number, y: number, z: number): number {
-	return z * SIZE * SIZE + y * SIZE + x;
-}
-
-export function createVolumes(): Float32Array[] {
-	const volumes = B_VALUES.map(() => new Float32Array(SIZE * SIZE * SLICES));
-	for (let z = 0; z < SLICES; z++) {
-		for (let y = 0; y < SIZE; y++) {
-			for (let x = 0; x < SIZE; x++) {
-				const p = parametersAt(x, y, z);
-				const index = voxelIndex(x, y, z);
-				B_VALUES.forEach((b, i) => (volumes[i][index] = signal(b, p)));
-			}
-		}
+export async function loadDataset(root: string, signal?: AbortSignal) {
+	const manifest = await fetch(`${root}/manifest.json`, { signal });
+	if (!manifest.ok) throw new Error(`Dataset manifest unavailable (HTTP ${manifest.status})`);
+	const dataset = validateDataset(await manifest.json());
+	const response = await fetch(`${root}/signal.i16`, { signal });
+	if (!response.ok) throw new Error(`Dataset samples unavailable (HTTP ${response.status})`);
+	const buffer = await response.arrayBuffer();
+	if (buffer.byteLength !== dataset.byteLength) throw new Error('Dataset sample size mismatch');
+	const hash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', buffer)), (b) =>
+		b.toString(16).padStart(2, '0')
+	).join('');
+	if (hash !== dataset.sha256) throw new Error('Dataset sample checksum mismatch');
+	const samples = new Int16Array(buffer);
+	if (new Uint8Array(new Uint16Array([1]).buffer)[0] !== 1) {
+		const view = new DataView(buffer);
+		for (let i = 0; i < samples.length; i++) samples[i] = view.getInt16(i * 2, true);
 	}
-	return volumes;
+	const count = dataset.dimensions.slice(0, 3).reduce((a, b) => a * b, 1);
+	const volumes = dataset.bValues.map((_, i) => samples.subarray(i * count, (i + 1) * count));
+	return { dataset, volumes };
+}
+
+export function voxelIndex(x: number, y: number, z: number, dimensions: number[]): number {
+	return (z * dimensions[1] + y) * dimensions[0] + x;
 }
 
 export function windowPixel(value: number, center: number, width: number): number {
 	return Math.round(Math.max(0, Math.min(1, (value - (center - width / 2)) / width)) * 255);
 }
 
-export type Bookmark = { id: string; b: number; z: number; x: number; y: number; note: string };
-export const BOOKMARK_KEY = 'osipy.synthetic-ivim.bookmarks.v1';
+export type Bookmark = {
+	id: string;
+	datasetId: string;
+	b: number;
+	z: number;
+	x: number;
+	y: number;
+	note: string;
+};
+export const BOOKMARK_KEY = 'osipy.ivim.bookmarks.v2';
 
-export function parseBookmarks(raw: string): Bookmark[] {
+export function parseBookmarks(raw: string, dataset: Dataset): Bookmark[] {
 	const value: unknown = JSON.parse(raw);
 	if (!Array.isArray(value)) throw new Error('Invalid saved views');
 	const ids = new Set<string>();
@@ -62,23 +112,19 @@ export function parseBookmarks(raw: string): Bookmark[] {
 		if (!item || typeof item !== 'object') throw new Error('Invalid saved view');
 		const b = item as Bookmark;
 		if (
+			b.datasetId !== dataset.id ||
 			typeof b.id !== 'string' ||
+			!b.id ||
 			b.id.length > 100 ||
 			ids.has(b.id) ||
 			typeof b.note !== 'string' ||
 			b.note.length > 240 ||
-			![b.b, b.z, b.x, b.y].every(Number.isInteger) ||
-			b.b < 0 ||
-			b.b >= B_VALUES.length ||
-			b.z < 0 ||
-			b.z >= SLICES ||
-			b.x < 0 ||
-			b.x >= SIZE ||
-			b.y < 0 ||
-			b.y >= SIZE
+			![b.x, b.y, b.z, b.b].every(
+				(n, i) => Number.isInteger(n) && n >= 0 && n < dataset.dimensions[i]
+			)
 		)
-			throw new Error('Invalid saved view');
+			throw new Error('Invalid saved view or mismatched dataset');
 		ids.add(b.id);
-		return { id: b.id, b: b.b, z: b.z, x: b.x, y: b.y, note: b.note };
+		return { id: b.id, datasetId: b.datasetId, b: b.b, z: b.z, x: b.x, y: b.y, note: b.note };
 	});
 }

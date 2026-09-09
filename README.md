@@ -1,22 +1,24 @@
 # OSIPY Dashboard
 
-An inspectable synthetic IVIM MRI workspace for OSIPY projects.
+An inspectable in-vivo IVIM MRI workspace for OSIPY projects.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Deploy GitHub Pages](https://github.com/OSIPI/dashboard/actions/workflows/pages.yml/badge.svg)](https://github.com/OSIPI/dashboard/actions/workflows/pages.yml)
 [![Metadata](https://github.com/OSIPI/dashboard/actions/workflows/metadata.yml/badge.svg)](https://github.com/OSIPI/dashboard/actions/workflows/metadata.yml)
 [![Citation File Format](https://img.shields.io/badge/citation-CFF-blue.svg)](CITATION.cff)
 
-The dashboard is frontend-only. The home page generates a noise-free geometric IVIM phantom locally: no patient images, backend, uploads or runtime network requests are needed for the demo. It is an educational interface, not a medical device or diagnostic tool.
+The dashboard is frontend-only. The home page loads the public OSIPI TF2.4 acquired brain series from prepared static assets. No backend, uploads or fitting are implemented. It is a research interface, not a medical device or diagnostic tool. Missing or corrupt assets produce a visible error, never mock images.
 
 ## MRI Viewer
 
-- Browse nine b-value volumes in a searchable, filterable grid or list; inspect 32 axial slices with voxel selection, zoom, pan, window/level and reset.
-- Inspect the selected voxel's actual volume samples as a signal graph and accessible value table. Displayed S0, f, D and D\* are synthetic ground truth, not fitted parameters.
+- Browse all 85 acquired volumes (including repeated b-values) in a searchable, filterable grid or list; inspect 56 native oblique slices with voxel selection, zoom, pan, window/level and reset.
+- Inspect the selected voxel's scaled NIfTI samples as a signal graph and accessible value table. No ground truth or parameter estimates are displayed.
 - Save voxel coordinates, b-value, slice and an optional note in this browser; restore or delete them locally. Restoring a voxel resets image display controls. Storage failures are reported in the interface.
-- DCE, DSC and ASL are selectable **unimplemented** workflows. Real DICOM, NIfTI and BIDS import, parameter fitting, ROI averaging, freehand drawing and non-axial reconstruction are not implemented.
+- DCE, DSC and ASL are selectable **unimplemented** workflows. User DICOM, NIfTI and BIDS import, parameter fitting, ROI averaging, freehand drawing and anatomical reconstruction are not implemented.
 
-`src/lib/ivim.ts` generates nine 96 x 96 x 32 Float32 volumes from `S(b) = S0 * ((1-f) * exp(-b*D) + f * exp(-b*Dstar))`, with b in s/mm² and diffusion coefficients in mm²/s. A geometric matrix, outer shell and two inserts provide different signal behaviors. These are not anatomical or patient-orientation claims. `src/lib/components/IvimImage.svelte` renders the same data with canvas windowing; `src/routes/+page.svelte` owns the Svelte 5 workspace and browser-local saved views.
+`scripts/prepare_ivim.py` uses nibabel and numpy to preserve the original 112 x 112 x 56 x 85 int16 samples, scaling, spacing, affine and diffusion metadata. `src/lib/ivim.ts` validates and loads those assets; canvas and signal inspection share the same samples and scaling. The image remains in native index order, with physical pixel aspect and explicit oblique orientation information. Saved views validate dataset identity and dynamic bounds; old phantom views are not migrated.
+
+**Prepare data before development or deployment:** follow [data/README.md](data/README.md). All downloaded, extracted and prepared imaging assets are gitignored. The static host must serve the prepared `static/datasets/` assets, which are copied into the build. An unprepared checkout still builds but displays “Brain dataset unavailable”. The existing Pages workflow does not automatically prepare data.
 
 The series-grid and local saved-frame interaction concepts were informed by [MRI Grid Viewer](https://github.com/MarvinSchwaibold/mri-grid-viewer), with permission reported by the requester. This is an original Svelte implementation; no reference source code or clinical screenshots are bundled.
 
