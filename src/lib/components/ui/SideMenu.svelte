@@ -95,12 +95,12 @@
 <div bind:this={containerElement} class="side-menu-container sm:hidden">
 	<!-- Background overlay (max 60% opacity) -->
 	<div
-		class="pointer-events-none fixed inset-0 z-40 bg-base-300 sm:hidden"
+		class="pointer-events-none fixed inset-0 z-40 bg-foreground sm:hidden"
 		style="opacity: var(--overlay-opacity);"
 	></div>
 
 	<nav
-		class="bg-base-100 fixed top-0 bottom-0 left-0 z-50 grid w-64 grid-rows-[1fr_auto] overflow-hidden p-4 shadow-lg sm:hidden"
+		class="fixed top-0 bottom-0 left-0 z-50 grid w-64 grid-rows-[1fr_auto] overflow-hidden border-r bg-background p-4 shadow-lg sm:hidden"
 	>
 		<div class="flex-1 overflow-y-auto pt-16">Content here</div>
 

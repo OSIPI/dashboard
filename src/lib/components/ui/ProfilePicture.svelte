@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { base } from '$app/paths';
+	import { resolve } from '$app/paths';
 	import ctwhomeProfile from '$lib/assets/images/ctwhome-profile.webp';
 	interface Props {
 		subtitle?: string;
@@ -10,14 +10,14 @@
 
 <!-- Profile picture -->
 <a
-	href="{base}/about"
-	class="border-base-200 hover:decoration-primary flex items-center gap-3 rounded-lg border p-2 decoration-transparent"
+	href={resolve('/about')}
+	class="flex items-center gap-3 rounded-lg border p-2 decoration-transparent hover:bg-accent hover:decoration-primary"
 >
 	<img
 		id="cover"
 		width="40"
 		height="40"
-		class="mask mask-hexagon my-2"
+		class="my-2 rounded-full"
 		src={ctwhomeProfile}
 		alt="J. Gonzalez Ctwhome profile picture"
 		aria-hidden="true"

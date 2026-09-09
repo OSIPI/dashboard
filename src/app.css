@@ -1,127 +1,160 @@
 @import './lib/assets/css/scrollbar-color.css';
-
 @import 'tailwindcss';
 
-@plugin "daisyui" {
-  themes: all;
+@plugin '@tailwindcss/typography';
+@plugin '@tailwindcss/forms';
+@plugin '@tailwindcss/container-queries';
+
+/* shadcn's semantic token model, translated for the OSIPY scientific workspace. */
+:root {
+	--background: oklch(0.985 0.003 247.86);
+	--foreground: oklch(0.21 0.025 249.07);
+	--card: oklch(1 0 0);
+	--card-foreground: oklch(0.21 0.025 249.07);
+	--popover: oklch(1 0 0);
+	--popover-foreground: oklch(0.21 0.025 249.07);
+	--primary: oklch(0.48 0.115 192.7);
+	--primary-foreground: oklch(0.985 0.003 247.86);
+	--secondary: oklch(0.955 0.009 247.9);
+	--secondary-foreground: oklch(0.29 0.03 248.5);
+	--muted: oklch(0.955 0.009 247.9);
+	--muted-foreground: oklch(0.54 0.025 250.2);
+	--accent: oklch(0.94 0.025 191.3);
+	--accent-foreground: oklch(0.32 0.073 193.3);
+	--destructive: oklch(0.58 0.22 27.3);
+	--destructive-foreground: oklch(0.985 0.003 247.86);
+	--border: oklch(0.9 0.012 247.9);
+	--input: oklch(0.9 0.012 247.9);
+	--ring: oklch(0.55 0.12 192.7);
+	--warning: oklch(0.68 0.16 65.4);
+	--warning-foreground: oklch(0.31 0.07 48.7);
+	--radius: 0.625rem;
 }
 
-@plugin "@tailwindcss/typography";
-@plugin "@tailwindcss/forms";
-@plugin "@tailwindcss/container-queries";
-
-@plugin "daisyui/theme" {
-  name: 'ctw';
-  default: false;
-  /* set as default */
-  prefersdark: false;
-  /* set as default dark mode (prefers-color-scheme:dark) */
-  color-scheme: dark;
-  /* color of browser-provided UI */
-
-  --color-primary: #ffb83d;
-  --color-primary-focus: #db8b00;
-  --color-primary-content: black;
-  --color-secondary: #5e9c91;
-  --color-secondary-focus: #3e655f;
-  --color-secondary-content: #ffffff;
-  --color-accent: #37cdbe;
-  --color-accent-focus: #2aa79b;
-  --color-accent-content: #ffffff;
-  --color-neutral: #3d4451;
-  --color-neutral-focus: #2a2e37;
-  --color-neutral-content: #ffffff;
-  --color-base-100: #171717;
-  --color-base-200: #333;
-  --color-base-300: #555;
-  --color-base-content: #e8e8e8;
-  --color-info: #2094f3;
-  --color-success: #009485;
-  --color-warning: #ff9900;
-  --color-error: #ff5724;
+@theme inline {
+	--color-background: var(--background);
+	--color-foreground: var(--foreground);
+	--color-card: var(--card);
+	--color-card-foreground: var(--card-foreground);
+	--color-popover: var(--popover);
+	--color-popover-foreground: var(--popover-foreground);
+	--color-primary: var(--primary);
+	--color-primary-foreground: var(--primary-foreground);
+	--color-secondary: var(--secondary);
+	--color-secondary-foreground: var(--secondary-foreground);
+	--color-muted: var(--muted);
+	--color-muted-foreground: var(--muted-foreground);
+	--color-accent: var(--accent);
+	--color-accent-foreground: var(--accent-foreground);
+	--color-destructive: var(--destructive);
+	--color-destructive-foreground: var(--destructive-foreground);
+	--color-border: var(--border);
+	--color-input: var(--input);
+	--color-ring: var(--ring);
+	--color-warning: var(--warning);
+	--color-warning-foreground: var(--warning-foreground);
+	--radius-sm: calc(var(--radius) - 4px);
+	--radius-md: calc(var(--radius) - 2px);
+	--radius-lg: var(--radius);
+	--radius-xl: calc(var(--radius) + 4px);
 }
 
-/*
-  The default border color has changed to `currentcolor` in Tailwind CSS v4,
-  so we've added these compatibility styles to make sure everything still
-  looks the same as it did with Tailwind CSS v3.
-
-  If we ever want to remove these styles, we need to add an explicit border
-  color utility to any element that depends on these defaults.
-*/
 @layer base {
+	* {
+		@apply border-border;
+	}
 
-  *,
-  ::after,
-  ::before,
-  ::backdrop,
-  ::file-selector-button {
-    border-color: var(--color-gray-200, currentcolor);
-  }
+	html {
+		font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+	}
+
+	body {
+		@apply min-h-screen bg-background text-foreground antialiased;
+	}
+
+	button,
+	a {
+		@apply focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none;
+	}
 }
 
-div {
-  color: var(--color-base-content);
+@layer components {
+	.card {
+		@apply rounded-xl border bg-card text-card-foreground shadow-sm;
+	}
+
+	.button {
+		@apply inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-md px-4 text-sm font-medium whitespace-nowrap transition-colors disabled:pointer-events-none disabled:opacity-50;
+	}
+
+	.button-primary {
+		@apply bg-primary text-primary-foreground shadow-sm hover:bg-primary/90;
+	}
+
+	.button-outline {
+		@apply border bg-background shadow-sm hover:bg-accent hover:text-accent-foreground;
+	}
+
+	.button-ghost {
+		@apply hover:bg-accent hover:text-accent-foreground;
+	}
+
+	.button-icon {
+		@apply h-9 w-9 p-0;
+	}
+
+	.badge {
+		@apply inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium;
+	}
+
+	.input {
+		@apply rounded-md border-input bg-background text-foreground shadow-sm placeholder:text-muted-foreground focus:border-ring focus:ring-ring;
+	}
 }
 
 pre code {
-  @apply font-mono text-base;
+	@apply font-mono text-base;
 }
 
-a[target='_blank'] {
-  @apply underline;
-}
-
-/* Target tables within prose to make them scrollable */
 .prose {
-  overflow-x: auto;
-  /* Allows horizontal scrolling on the prose container */
+	max-width: none;
+	overflow-x: auto;
+	--tw-prose-body: var(--foreground);
+	--tw-prose-headings: var(--foreground);
+	--tw-prose-links: var(--primary);
 }
 
 .prose table {
-  min-width: 100%;
-  /* Ensures tables are not less than the width of their container */
-  display: block;
-  /* Changes table display from table to block to work with overflow */
-  white-space: nowrap;
-  /* Prevents wrapping within the table cells */
+	display: block;
+	min-width: 100%;
+	white-space: nowrap;
 }
 
 .prose table td,
 .prose table th {
-  white-space: normal;
-  /* Allows text to wrap within the cell */
-  word-wrap: break-word;
-  /* Breaks long words if necessary to fit within the cell */
-  min-width: 120px;
-  /* Ensures a minimum width for smaller content */
-  max-width: 250px;
-  /* Limits the width to prevent extremely wide cells */
+	min-width: 120px;
+	max-width: 250px;
+	white-space: normal;
+	overflow-wrap: break-word;
 }
 
-/* Global toast styles */
 .toaster {
-  margin-top: 60px;
+	margin-top: 60px;
 }
 
-/* Floating label form styles */
 .form-control-float {
-  @apply relative;
+	@apply relative;
 }
 
 .form-control-float input {
-  @apply border-base-300 h-12 w-full rounded-lg border bg-transparent px-3 pt-4 pb-1;
+	@apply h-12 w-full rounded-md border-input bg-background px-3 pt-4 pb-1 text-foreground shadow-sm placeholder:text-muted-foreground focus:border-ring focus:ring-ring;
 }
 
 .form-control-float label {
-  @apply text-base-content/70 pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-sm transition-all duration-200;
+	@apply pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-sm text-muted-foreground transition-all duration-200;
 }
 
-.form-control-float input:focus-within~label,
-.form-control-float input:not(:placeholder-shown)~label {
-  @apply text-primary -translate-y-3/4 transform text-xs;
-}
-
-.form-control-float input:focus-within {
-  @apply border-primary outline-none;
+.form-control-float input:focus-within ~ label,
+.form-control-float input:not(:placeholder-shown) ~ label {
+	@apply -translate-y-3/4 transform text-xs text-primary;
 }

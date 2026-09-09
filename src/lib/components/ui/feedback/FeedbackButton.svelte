@@ -44,7 +44,7 @@
 
 		openFeedbackModal.set(() => {
 			updateBrowserInfo();
-		modal?.showModal();
+			modal?.showModal();
 		});
 	});
 
@@ -109,7 +109,7 @@
 
 {#if showButton}
 	<button
-		class="btn btn-sm"
+		class="button button-outline"
 		onclick={() => {
 			updateBrowserInfo();
 			modal?.showModal();
@@ -119,27 +119,27 @@
 	</button>
 {/if}
 
-<dialog id="feedback_modal" class="modal">
-	<div class="modal-box">
-		<h3 class="text-lg font-bold">Feedback</h3>
+<dialog
+	id="feedback_modal"
+	class="m-auto w-[calc(100%-2rem)] max-w-lg rounded-xl border bg-background p-0 text-foreground shadow-xl backdrop:bg-foreground/50"
+>
+	<div class="p-6">
+		<h3 class="text-lg font-semibold">Feedback</h3>
 		<textarea
 			bind:this={textarea}
-			class="textarea mt-10 w-full"
+			class="input mt-6 w-full resize-y px-3 py-2"
 			name="feedback"
 			id="feedback"
 			placeholder="Write your feedback here"
 			rows="6"
 		></textarea>
-		<div class="text-base-content/50 mt-2 text-xs">
+		<div class="mt-2 text-xs text-muted-foreground">
 			<div>Page: {browserInfo.currentPath}</div>
 			<div>Browser: {browserInfo.browser} • Platform: {browserInfo.platform}</div>
 		</div>
-		<div class="modal-action justify-between">
-			<button class="btn" onclick={closeModal}>Cancel</button>
-			<button class="btn btn-primary" onclick={sendFeedback}>Send Feedback</button>
+		<div class="mt-6 flex justify-between">
+			<button class="button button-outline" onclick={closeModal}>Cancel</button>
+			<button class="button button-primary" onclick={sendFeedback}>Send feedback</button>
 		</div>
 	</div>
-	<form method="dialog" class="modal-backdrop">
-		<button onclick={closeModal}>Cancel</button>
-	</form>
 </dialog>

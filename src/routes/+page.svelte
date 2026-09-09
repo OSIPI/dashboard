@@ -1,32 +1,38 @@
 <script lang="ts">
+	import ArrowRightIcon from '~icons/lucide/arrow-right';
+	import BarChartIcon from '~icons/lucide/bar-chart-3';
+	import CheckIcon from '~icons/lucide/check';
+	import DatabaseIcon from '~icons/lucide/database';
+	import FileCodeIcon from '~icons/lucide/file-code-2';
+	import FolderOpenIcon from '~icons/lucide/folder-open';
+	import PlayIcon from '~icons/lucide/play';
+	import ShieldCheckIcon from '~icons/lucide/shield-check';
+	import TerminalIcon from '~icons/lucide/terminal';
+	import UploadIcon from '~icons/lucide/upload-cloud';
+
 	const runCommand = 'osipy config.yaml /path/to/data --output results/';
-	const bridgeCommand = 'osipy-dashboard serve --port 9090';
 	const modalities = ['DCE', 'DSC', 'ASL', 'IVIM'];
 	const importTypes = ['DICOM', 'NIfTI', 'BIDS'];
 	const steps = [
 		{
-			title: 'Import',
-			subtitle: 'Drop data or choose a local path.',
-			detail: 'OSIPY can load DICOM folders, NIfTI files, and BIDS datasets. The dashboard should hand the selected path to the local runner.',
-			accent: 'bg-primary'
+			title: 'Import data',
+			subtitle: 'Select source imaging data',
+			detail: 'Load a DICOM folder, NIfTI file, or BIDS dataset from your local workspace.'
 		},
 		{
 			title: 'Configure',
-			subtitle: 'Choose modality and YAML settings.',
-			detail: 'The current Python package runs from a validated YAML config. This screen should expose the important fields without hiding the generated config.',
-			accent: 'bg-secondary'
+			subtitle: 'Set modality and parameters',
+			detail: 'Choose the analysis modality and review the generated YAML configuration.'
 		},
 		{
-			title: 'Run',
-			subtitle: 'Execute the OSIPY CLI locally.',
-			detail: `Current command shape: ${runCommand}`,
-			accent: 'bg-accent'
+			title: 'Run analysis',
+			subtitle: 'Execute the local workflow',
+			detail: `Review the command before running it locally: ${runCommand}`
 		},
 		{
-			title: 'Review',
-			subtitle: 'Inspect maps, metrics, and logs.',
-			detail: 'Results are saved as NIfTI parameter maps with run metadata. This screen should preview outputs and surface validation warnings.',
-			accent: 'bg-info'
+			title: 'Review results',
+			subtitle: 'Inspect maps and validation',
+			detail: 'Preview NIfTI parameter maps, quality masks, run metadata, and validation warnings.'
 		}
 	];
 
@@ -38,143 +44,210 @@
 	<title>OSIPY Dashboard</title>
 	<meta
 		name="description"
-		content="Local OSIPY dashboard for running reproducible perfusion MRI workflows."
+		content="Local OSIPY dashboard for reproducible perfusion MRI workflows."
 	/>
 </svelte:head>
 
-<main class="container mx-auto max-w-6xl px-4 pb-16 pt-6">
-	<section class="relative overflow-hidden rounded-[2rem] bg-base-200 px-6 py-14 shadow-sm md:px-12 md:py-20">
-		<div class="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-primary/15 blur-3xl"></div>
-		<div class="absolute -bottom-28 left-8 h-64 w-64 rounded-full bg-secondary/15 blur-3xl"></div>
-
-		<div class="relative grid gap-10 md:grid-cols-[1.1fr_0.9fr] md:items-center">
-			<div>
-				<p class="mb-4 text-sm font-semibold uppercase tracking-[0.4em] text-primary">OSIPY</p>
-				<h1 class="max-w-3xl text-5xl font-black tracking-tight text-base-content md:text-7xl">
-					Run perfusion MRI workflows locally
-				</h1>
-				<p class="mt-6 max-w-2xl text-lg leading-8 text-base-content/70">
-					A local dashboard for reproducible, standardized, community-led perfusion MRI analysis.
-				</p>
+<main class="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+	<div class="flex flex-col gap-4 border-b pb-6 sm:flex-row sm:items-end sm:justify-between">
+		<div>
+			<div class="mb-2 flex items-center gap-2 text-sm text-muted-foreground">
+				<span>Workspace</span><span>/</span><span class="text-foreground">New analysis</span>
 			</div>
+			<h1 class="text-2xl font-semibold tracking-tight sm:text-3xl">New perfusion analysis</h1>
+			<p class="mt-1.5 text-sm text-muted-foreground">
+				Prepare and review a reproducible OSIPY workflow.
+			</p>
+		</div>
+		<div class="flex items-center gap-2">
+			<span class="badge border-warning/30 bg-warning/10 text-warning-foreground"
+				>Interface preview</span
+			>
+			<button class="button button-primary" type="button">
+				<PlayIcon class="h-4 w-4" /> Run analysis
+			</button>
+		</div>
+	</div>
 
-			<div class="rounded-[1.5rem] border border-base-300 bg-base-100/80 p-5 shadow-sm backdrop-blur">
-				<div class="mb-4 flex items-center justify-between gap-4">
-					<span class="text-sm font-semibold text-base-content/60">Local bridge</span>
-					<span class="badge badge-warning">planned</span>
-				</div>
-				<p class="text-sm leading-6 text-base-content/70">
-					The browser cannot run OSIPY directly. A small local bridge should expose the Python runner to this dashboard.
-				</p>
-				<code class="mt-4 block rounded-xl bg-base-300/70 px-3 py-2 text-xs text-base-content/70">
-					{bridgeCommand}
-				</code>
-				<div class="mt-5 grid grid-cols-4 gap-2">
-					{#each modalities as modality}
-						<span class="rounded-xl bg-base-200 py-3 text-center text-sm font-black">{modality}</span>
-					{/each}
-				</div>
+	<div class="mt-6 grid gap-4 sm:grid-cols-3">
+		<div class="card flex items-center gap-4 p-4">
+			<div class="rounded-lg bg-accent p-2.5 text-accent-foreground">
+				<DatabaseIcon class="h-5 w-5" />
+			</div>
+			<div>
+				<p class="text-xs font-medium text-muted-foreground">Input</p>
+				<p class="mt-0.5 text-sm font-semibold">No dataset selected</p>
 			</div>
 		</div>
-	</section>
-
-	<section class="mt-8 rounded-[2rem] border border-base-300 bg-base-100 p-5 shadow-sm md:p-8">
-		<div class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-			<div>
-				<p class="text-sm font-semibold uppercase tracking-[0.32em] text-primary">Workflow</p>
-				<h2 class="mt-2 text-3xl font-black tracking-tight md:text-4xl">Analysis stages</h2>
+		<div class="card flex items-center gap-4 p-4">
+			<div class="rounded-lg bg-secondary p-2.5 text-secondary-foreground">
+				<FileCodeIcon class="h-5 w-5" />
 			</div>
-			<div class="text-sm text-base-content/60">
-				Hint: <code class="rounded bg-base-200 px-2 py-1">{runCommand}</code>
+			<div>
+				<p class="text-xs font-medium text-muted-foreground">Configuration</p>
+				<p class="mt-0.5 text-sm font-semibold">Default parameters</p>
 			</div>
 		</div>
+		<div class="card flex items-center gap-4 p-4">
+			<div class="rounded-lg bg-secondary p-2.5 text-secondary-foreground">
+				<ShieldCheckIcon class="h-5 w-5" />
+			</div>
+			<div>
+				<p class="text-xs font-medium text-muted-foreground">Environment</p>
+				<p class="mt-0.5 text-sm font-semibold">Local execution</p>
+			</div>
+		</div>
+	</div>
 
-		<div class="mt-8 grid gap-6 lg:grid-cols-[320px_1fr]">
-			<div class="space-y-3">
-				{#each steps as step, index}
-					<button
-						class="group w-full rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md"
-						class:border-primary={activeStep === index}
-						class:bg-base-200={activeStep === index}
-						class:border-base-300={activeStep !== index}
-						onclick={() => (activeStep = index)}
+	<div class="mt-6 grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
+		<aside class="card h-fit p-2" aria-label="Analysis workflow">
+			<div class="px-3 pt-3 pb-2">
+				<p class="text-xs font-semibold tracking-wider text-muted-foreground uppercase">Workflow</p>
+			</div>
+			{#each steps as step, index (step.title)}
+				<button
+					type="button"
+					class="flex w-full items-start gap-3 rounded-lg px-3 py-3 text-left transition-colors hover:bg-muted"
+					class:bg-accent={activeStep === index}
+					onclick={() => (activeStep = index)}
+					aria-current={activeStep === index ? 'step' : undefined}
+				>
+					<span
+						class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-xs font-semibold"
+						class:border-primary={activeStep >= index}
+						class:bg-primary={activeStep > index}
+						class:text-primary-foreground={activeStep > index}
+						class:text-primary={activeStep === index}
 					>
-						<div class="flex items-center gap-3">
-							<span class="flex h-9 w-9 items-center justify-center rounded-full text-sm font-black text-primary-content {step.accent}">
-								{index + 1}
-							</span>
-							<div>
-								<div class="font-black">{step.title}</div>
-								<div class="text-sm text-base-content/60">{step.subtitle}</div>
-							</div>
-						</div>
-					</button>
-				{/each}
+						{#if activeStep > index}<CheckIcon class="h-3.5 w-3.5" />{:else}{index + 1}{/if}
+					</span>
+					<span class="min-w-0">
+						<span class="block text-sm font-medium">{step.title}</span>
+						<span class="mt-0.5 block text-xs leading-5 text-muted-foreground">{step.subtitle}</span
+						>
+					</span>
+				</button>
+			{/each}
+		</aside>
+
+		<section class="card min-w-0 overflow-hidden">
+			<div
+				class="flex flex-col gap-4 border-b px-5 py-5 sm:flex-row sm:items-start sm:justify-between sm:px-6"
+			>
+				<div>
+					<p class="text-xs font-medium text-primary">STEP {activeStep + 1} OF {steps.length}</p>
+					<h2 class="mt-1.5 text-xl font-semibold tracking-tight">{active.title}</h2>
+					<p class="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">{active.detail}</p>
+				</div>
+				<button class="button button-outline" type="button">
+					Continue <ArrowRightIcon class="h-4 w-4" />
+				</button>
 			</div>
 
-			<div class="min-h-[440px] rounded-[1.5rem] border border-base-300 bg-base-200 p-5 md:p-7">
-				<div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-					<div>
-						<p class="text-sm font-semibold uppercase tracking-[0.24em] text-primary">Step {activeStep + 1}</p>
-						<h3 class="mt-2 text-4xl font-black">{active.title}</h3>
-						<p class="mt-3 max-w-2xl text-base-content/70">{active.detail}</p>
-					</div>
-					<button class="btn btn-primary">Continue</button>
-				</div>
-
+			<div class="min-h-[390px] bg-muted/25 p-5 sm:p-6">
 				{#if activeStep === 0}
-					<div class="mt-8 grid gap-5 md:grid-cols-[1fr_0.8fr]">
-						<div class="flex min-h-56 flex-col items-center justify-center rounded-[1.5rem] border-2 border-dashed border-base-content/30 bg-base-100 p-8 text-center">
-							<h4 class="text-2xl font-black uppercase">Import data</h4>
-							<p class="mt-2 text-sm text-base-content/60">Drag a file or folder here</p>
-						</div>
-						<div class="rounded-[1.5rem] bg-base-100 p-5">
-							<p class="font-black">Accepted now</p>
+					<div class="grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(240px,0.65fr)]">
+						<button
+							class="group flex min-h-64 flex-col items-center justify-center rounded-xl border border-dashed bg-card p-8 text-center transition-colors hover:border-primary/50 hover:bg-accent/30"
+							type="button"
+						>
+							<span class="rounded-xl border bg-background p-3 shadow-sm group-hover:text-primary"
+								><UploadIcon class="h-6 w-6" /></span
+							>
+							<span class="mt-4 text-sm font-semibold">Choose imaging data</span>
+							<span class="mt-1 text-sm text-muted-foreground"
+								>Select a file or folder from this device</span
+							>
+							<span class="button button-outline mt-5"
+								><FolderOpenIcon class="h-4 w-4" /> Browse files</span
+							>
+						</button>
+						<div class="card p-5 shadow-none">
+							<h3 class="text-sm font-semibold">Supported inputs</h3>
 							<div class="mt-3 flex flex-wrap gap-2">
-								{#each importTypes as type}
-									<span class="badge badge-outline">{type}</span>
-								{/each}
+								{#each importTypes as type (type)}<span
+										class="badge bg-secondary text-secondary-foreground">{type}</span
+									>{/each}
 							</div>
-							<p class="mt-4 text-sm leading-6 text-base-content/70">
-								Examples: a DICOM series directory, a <code>.nii.gz</code> file with JSON sidecar, or a BIDS root with <code>dataset_description.json</code>.
-							</p>
+							<div class="my-5 border-t"></div>
+							<dl class="space-y-4 text-sm">
+								<div>
+									<dt class="font-medium">DICOM</dt>
+									<dd class="mt-1 text-muted-foreground">A complete series directory</dd>
+								</div>
+								<div>
+									<dt class="font-medium">NIfTI</dt>
+									<dd class="mt-1 text-muted-foreground"><code>.nii.gz</code> with JSON sidecar</dd>
+								</div>
+								<div>
+									<dt class="font-medium">BIDS</dt>
+									<dd class="mt-1 text-muted-foreground">Dataset root directory</dd>
+								</div>
+							</dl>
 						</div>
 					</div>
 				{:else if activeStep === 1}
-					<div class="mt-8 grid gap-4 md:grid-cols-2">
-						<div class="rounded-2xl bg-base-100 p-5">
-							<p class="text-sm text-base-content/60">Modality</p>
-							<div class="mt-3 flex flex-wrap gap-2">
-								{#each modalities as modality}
-									<span class="badge badge-lg {modality === 'DCE' ? 'badge-primary' : 'badge-outline'}">{modality}</span>
-								{/each}
+					<div class="grid gap-5 md:grid-cols-2">
+						<div class="card p-5 shadow-none">
+							<h3 class="text-sm font-semibold">Imaging modality</h3>
+							<p class="mt-1 text-sm text-muted-foreground">Select the acquisition type.</p>
+							<div class="mt-5 grid grid-cols-2 gap-2">
+								{#each modalities as modality (modality)}<button
+										class="button button-outline"
+										class:border-primary={modality === 'DCE'}
+										class:bg-accent={modality === 'DCE'}
+										type="button">{modality}</button
+									>{/each}
 							</div>
 						</div>
-						<div class="rounded-2xl bg-base-100 p-5">
-							<p class="text-sm text-base-content/60">Config</p>
-							<p class="mt-2 font-mono text-sm">model: extended_tofts</p>
-							<p class="font-mono text-sm">format: auto</p>
+						<div class="card p-5 shadow-none">
+							<h3 class="text-sm font-semibold">Generated configuration</h3>
+							<div
+								class="mt-5 rounded-lg bg-foreground p-4 font-mono text-xs leading-6 text-background"
+							>
+								<p>model: extended_tofts</p>
+								<p>format: auto</p>
+								<p>validate: true</p>
+							</div>
 						</div>
 					</div>
 				{:else if activeStep === 2}
-					<div class="mt-8 rounded-[1.5rem] bg-base-100 p-5">
-						<div class="mb-3 flex items-center gap-2">
-							<span class="loading loading-spinner loading-sm text-primary"></span>
-							<span class="font-black">Ready to execute locally</span>
+					<div class="card p-5 shadow-none">
+						<div class="flex items-center gap-3">
+							<span class="rounded-lg bg-accent p-2 text-accent-foreground"
+								><TerminalIcon class="h-5 w-5" /></span
+							>
+							<div>
+								<h3 class="text-sm font-semibold">Command preview</h3>
+								<p class="text-xs text-muted-foreground">Ready for local execution</p>
+							</div>
 						</div>
-						<code class="block rounded-xl bg-base-200 p-3 text-xs md:text-sm">{runCommand}</code>
+						<code
+							class="mt-5 block overflow-x-auto rounded-lg bg-foreground p-4 text-xs text-background sm:text-sm"
+							>{runCommand}</code
+						>
+						<div class="mt-5 flex justify-end">
+							<button class="button button-primary" type="button"
+								><PlayIcon class="h-4 w-4" /> Run locally</button
+							>
+						</div>
 					</div>
 				{:else}
-					<div class="mt-8 grid gap-4 md:grid-cols-3">
-						{#each ['Parameter maps', 'Quality mask', 'Run metadata'] as output}
-							<div class="rounded-2xl bg-base-100 p-5">
-								<p class="font-black">{output}</p>
-								<p class="mt-2 text-sm text-base-content/60">Preview and export</p>
+					<div class="grid gap-4 md:grid-cols-3">
+						{#each ['Parameter maps', 'Quality mask', 'Run metadata'] as output (output)}
+							<div class="card p-5 shadow-none">
+								<BarChartIcon class="h-5 w-5 text-primary" />
+								<h3 class="mt-4 text-sm font-semibold">{output}</h3>
+								<p class="mt-1 text-sm text-muted-foreground">Preview and export</p>
 							</div>
 						{/each}
 					</div>
 				{/if}
 			</div>
-		</div>
-	</section>
+		</section>
+	</div>
+
+	<p class="mt-5 text-center text-xs text-muted-foreground">
+		This interface is a frontend preview and does not start or manage analysis jobs.
+	</p>
 </main>

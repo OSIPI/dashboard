@@ -24,7 +24,7 @@ Run the app through Docker Compose with Bun:
 make dev
 ```
 
-`make dev` uses the fixed dashboard port `37183` and prints the URL before starting Docker Compose.
+`make dev` opens the dashboard at `http://localhost:60010`. Docker Compose maps host port `60010` to the frontend container's fixed port `37183`.
 
 You can also run it locally without Docker:
 
@@ -32,6 +32,8 @@ You can also run it locally without Docker:
 bun install
 bun run dev
 ```
+
+Direct Vite development uses `http://localhost:60010`. After `bun run build`, `bun run preview` uses `http://localhost:60014`. Both ports are strict, so Vite exits if the configured port is unavailable.
 
 Before opening a pull request, run:
 
@@ -43,7 +45,7 @@ bun run build
 
 ## Configuration
 
-Copy `.env.example` to `.env` if you want to use Docker Compose directly with the same frontend port:
+Copy `.env.example` to `.env` if you want to use Docker Compose directly. `FRONTEND_PORT` controls only the host side of the `60010:37183` mapping:
 
 ```sh
 cp .env.example .env

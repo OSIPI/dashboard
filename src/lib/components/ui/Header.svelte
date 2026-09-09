@@ -1,140 +1,72 @@
 <script lang="ts">
-	import { base } from '$app/paths';
+	import { resolve } from '$app/paths';
 	import Logo from '$lib/assets/icons/Logo.svelte';
-	import { toggleMenu } from '$lib/stores/menu.store';
-	import menuItems from '$lib/models/menu-itmes';
 	import GithubIcon from '~icons/simple-icons/github';
+	import MenuIcon from '~icons/lucide/menu';
+	import XIcon from '~icons/lucide/x';
 
-	interface Props {
-		showSearch?: boolean;
-	}
-
-	let { showSearch = false }: Props = $props();
-	let activeCategory = $state('');
-
-	function hrefFor(path: string) {
-		return path.startsWith('http') ? path : `${base}${path}`;
-	}
+	let menuOpen = $state(false);
 </script>
 
-<nav class="bien-nav mb-10">
-	<div class="bien-glass"></div>
-	<div class="bien-glass-edge"></div>
-	<div class="relative container mx-auto py-2">
-		<!--Desktop Header-->
-		<header class="flex items-center gap-3 px-2 sm:px-0">
-			<button
-				class="rounded-md p-2 transition-colors duration-200 hover:bg-base-200 sm:hidden"
-				onclick={toggleMenu}
-				aria-label="Open menu"
-			>
-				<span class="block text-2xl leading-none">=</span>
-			</button>
+<header
+	class="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80"
+>
+	<div class="mx-auto flex h-14 max-w-7xl items-center gap-4 px-4 sm:px-6 lg:px-8">
+		<a
+			class="flex shrink-0 items-center gap-2.5 rounded-sm"
+			href={resolve('/')}
+			aria-label="OSIPY dashboard home"
+		>
+			<Logo class="h-8 w-8 rounded-md object-contain" />
+			<span class="font-semibold tracking-tight">OSIPY</span>
+			<span class="hidden border-l pl-2 text-xs text-muted-foreground sm:inline">Dashboard</span>
+		</a>
+
+		<nav class="ml-auto hidden items-center gap-1 sm:flex" aria-label="Main navigation">
 			<a
-				class="no-drag mr-4 flex flex-initial shrink-0 select-none items-center gap-3"
-				href="{base}/"
-				aria-label="OSIPY dashboard home"
+				class="button button-ghost"
+				href="https://osipy.readthedocs.io"
+				target="_blank"
+				rel="noreferrer">Documentation</a
 			>
-				<Logo class="h-9 w-9 object-contain sm:h-10 sm:w-10" />
-				<span class="text-lg font-black tracking-[0.22em] text-base-content">OSIPY</span>
-			</a>
-			<div class="flex-1"></div>
-			{#if showSearch}
-				<div class="hidden text-sm text-base-content/60 sm:block">Search coming later</div>
-			{/if}
-			<!-- Desktop menu -->
-			<div class="z-10 hidden w-full flex-1 justify-end space-x-4 sm:flex lg:space-x-8">
-				{#each menuItems as link}
-					<a
-						class="menu-link"
-						onclick={() => (activeCategory = link.title)}
-						class:active={activeCategory === link.title}
-						href={hrefFor(link.path)}
-						target={link.path.startsWith('http') ? '_blank' : undefined}
-						rel={link.path.startsWith('http') ? 'noreferrer' : undefined}
-					>
-						{link.displayTitle}
-					</a>
-				{/each}
-			</div>
+			<a class="button button-ghost" href={resolve('/about')}>About</a>
+			<div class="mx-1 h-5 border-l"></div>
 			<a
-				class="btn btn-circle btn-ghost btn-sm"
+				class="button button-ghost button-icon"
 				href="https://github.com/OSIPI/dashboard"
 				target="_blank"
 				rel="noreferrer"
 				aria-label="Open OSIPY dashboard repository on GitHub"
 			>
-				<GithubIcon class="h-5 w-5" aria-hidden="true" />
+				<GithubIcon class="h-4 w-4" aria-hidden="true" />
 			</a>
-		</header>
+		</nav>
+
+		<button
+			class="button button-ghost button-icon ml-auto sm:hidden"
+			type="button"
+			onclick={() => (menuOpen = !menuOpen)}
+			aria-label={menuOpen ? 'Close navigation' : 'Open navigation'}
+			aria-expanded={menuOpen}
+		>
+			{#if menuOpen}<XIcon class="h-5 w-5" />{:else}<MenuIcon class="h-5 w-5" />{/if}
+		</button>
 	</div>
-</nav>
 
-<style>
-	.menu-link.active {
-		color: var(--color-primary);
-	}
-
-	/* Frosted navigation header */
-	nav {
-		z-index: 10000;
-		position: sticky;
-		left: 0;
-		right: 0;
-		top: 0;
-		/* height: 100px; */
-	}
-
-	/* Frosted Navigation bar */
-	.bien-glass {
-		position: absolute;
-		inset: 0;
-		/*   Extend the backdrop to the bottom for it to "collect the light" outside of the nav */
-		--extended-by: 100px;
-		bottom: calc(-1 * var(--extended-by));
-
-		--filter: blur(30px);
-		-webkit-backdrop-filter: var(--filter);
-		backdrop-filter: var(--filter);
-		pointer-events: none;
-
-		/*   Cut the part of the backdrop that falls outside of <nav /> */
-		--cutoff: calc(100% - var(--extended-by));
-		-webkit-mask-image: linear-gradient(
-			to bottom,
-			black 0,
-			black var(--cutoff),
-			transparent var(--cutoff)
-		);
-		mask-image: linear-gradient(to bottom, black 0, black var(--cutoff), transparent var(--cutoff));
-	}
-
-	.bien-glass-edge {
-		position: absolute;
-		z-index: -1;
-		left: 0;
-		right: 0;
-
-		--extended-by: 80px;
-		--offset: 20px;
-		--thickness: 2px;
-		height: calc(var(--extended-by) + var(--offset));
-		/*   Offset is used to snuck the border backdrop slightly under the main backdrop for  smoother effect */
-		top: calc(100% - var(--offset) + var(--thickness));
-
-		/*   Make the blur bigger so that the light bleed effect spreads wider than blur on the first backdrop */
-		/*   Increase saturation and brightness to fake smooth chamfered edge reflections */
-		--filter: blur(90px) saturate(160%) brightness(1.3);
-		-webkit-backdrop-filter: var(--filter);
-		backdrop-filter: var(--filter);
-		pointer-events: none;
-
-		-webkit-mask-image: linear-gradient(
-			to bottom,
-			black 0,
-			black var(--offset),
-			transparent var(--offset)
-		);
-		mask-image: linear-gradient(to bottom, black 0, black var(--offset), transparent var(--offset));
-	}
-</style>
+	{#if menuOpen}
+		<nav class="border-t bg-background px-4 py-3 sm:hidden" aria-label="Mobile navigation">
+			<a
+				class="flex rounded-md px-3 py-2 text-sm font-medium hover:bg-accent"
+				href="https://osipy.readthedocs.io"
+				target="_blank"
+				rel="noreferrer"
+				onclick={() => (menuOpen = false)}>Documentation</a
+			>
+			<a
+				class="flex rounded-md px-3 py-2 text-sm font-medium hover:bg-accent"
+				href={resolve('/about')}
+				onclick={() => (menuOpen = false)}>About</a
+			>
+		</nav>
+	{/if}
+</header>

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { base } from '$app/paths';
+	import { resolve } from '$app/paths';
 
 	const notes = [
 		{
@@ -8,7 +8,8 @@
 		},
 		{
 			title: 'No database yet',
-			content: 'The template blog no longer depends on PocketBase while the dashboard model is undecided.'
+			content:
+				'The template blog no longer depends on PocketBase while the dashboard model is undecided.'
 		}
 	];
 </script>
@@ -18,17 +19,17 @@
 		<div class="mb-6 flex items-center justify-between">
 			<div>
 				<h1 class="text-4xl font-bold">Notes</h1>
-				<p class="mt-2 text-base-content/70">Static placeholders for future OSIPY updates.</p>
+				<p class="mt-2 text-muted-foreground">Static placeholders for future OSIPY updates.</p>
 			</div>
-			<a href="{base}/" class="btn btn-neutral btn-sm">Dashboard</a>
+			<a href={resolve('/')} class="button button-outline">Dashboard</a>
 		</div>
 	</div>
 
 	<div class="space-y-6">
-		{#each notes as note}
-			<article class="rounded-lg border border-base-300 bg-base-100 p-6 shadow-sm">
-				<h2 class="text-2xl font-semibold text-base-content">{note.title}</h2>
-				<p class="mt-3 text-base-content/70">{note.content}</p>
+		{#each notes as note (note.title)}
+			<article class="card p-6">
+				<h2 class="text-2xl font-semibold">{note.title}</h2>
+				<p class="mt-3 text-muted-foreground">{note.content}</p>
 			</article>
 		{/each}
 	</div>

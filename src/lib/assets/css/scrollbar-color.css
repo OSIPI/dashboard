@@ -1,21 +1,17 @@
-/* width */
 ::-webkit-scrollbar {
 	width: 8px;
 }
 
-/* Track */
 ::-webkit-scrollbar-track {
-	@apply bg-[var(--color-base-100)];
+	@apply bg-background;
 	border-radius: 2px;
 }
 
-/* Handle */
 ::-webkit-scrollbar-thumb {
-	@apply bg-[var(--color-base-300)]/50;
+	@apply bg-border;
 	border-radius: 2px;
 }
 
-/* Handle on hover */
 ::-webkit-scrollbar-thumb:hover {
-	@apply bg-[var(--color-base-300)];
+	@apply bg-muted-foreground/40;
 }

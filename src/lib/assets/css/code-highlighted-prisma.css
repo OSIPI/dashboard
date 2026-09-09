@@ -39,7 +39,7 @@ pre[class*='language-'] {
 
 :not(pre) > code[class*='language-'],
 pre[class*='language-'] {
-	@apply bg-[var(--color-base-200)];
+	@apply bg-muted;
 }
 
 /* Inline code */
