@@ -43,7 +43,7 @@
 						title={key === 'IVIM' ? 'In-vivo IVIM viewer' : `${key}: not implemented`}
 						onclick={() => (technique = key as typeof technique)}>{key}</button
 					>{/each}
-			</nav>{:else}<a class="button button-outline" href={resolve('/')}>Open viewer</a>{/if}
+			</nav>{:else}<a class="button button-ghost" href={resolve('/')}>Datasets</a>{/if}
 		<nav
 			class="ml-auto flex gap-4 text-xs text-muted-foreground max-[899px]:gap-3.5 [&>*]:flex [&>*]:min-h-9 [&>*]:items-center max-[899px]:[&>*]:min-h-11"
 			aria-label="Resources"

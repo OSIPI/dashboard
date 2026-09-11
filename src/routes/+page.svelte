@@ -1,445 +1,252 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { base } from '$app/paths';
-	import { persistedPreference } from '$lib/persisted-preference.svelte';
-	import {
-		DEFAULT_LAYOUT,
-		parseLayout,
-		parsePanes,
-		type PaneSelection
-	} from '$lib/layout-preferences';
+	import { goto } from '$app/navigation';
+	import { base, resolve } from '$app/paths';
 	import Header from '$lib/components/ui/Header.svelte';
-	import SeriesBrowser from '$lib/components/viewer/SeriesBrowser.svelte';
-	import ViewerPanel from '$lib/components/viewer/ViewerPanel.svelte';
-	import ImageControls from '$lib/components/viewer/ImageControls.svelte';
-	import SignalPanel from '$lib/components/viewer/SignalPanel.svelte';
-	import SavedVoxels from '$lib/components/viewer/SavedVoxels.svelte';
-	import WorkspaceFiles from '$lib/components/viewer/WorkspaceFiles.svelte';
-	import DatasetDetails from '$lib/components/viewer/DatasetDetails.svelte';
-	import PanelDivider from '$lib/components/viewer/PanelDivider.svelte';
+	import ScanLibrary from '$lib/components/viewer/ScanLibrary.svelte';
+	import StoredDatasetCard from '$lib/components/StoredDatasetCard.svelte';
+	import OfflineStatus from '$lib/components/OfflineStatus.svelte';
 	import {
-		autoWindow,
-		defaultDisplay,
-		replaceActiveVolume,
-		type Display,
-		type Workspace
-	} from '$lib/workspace';
-	import {
-		BOOKMARK_KEY,
-		loadDataset,
-		parseBookmarks,
-		type Dataset,
-		type Bookmark
-	} from '$lib/ivim';
-
-	const techniques = {
-		DCE: 'Dynamic contrast-enhanced',
-		DSC: 'Dynamic susceptibility contrast',
-		ASL: 'Arterial spin labeling',
-		IVIM: 'Intravoxel incoherent motion'
-	};
-	const panels = ['Image', 'Controls', 'Series', 'Inspector'] as const;
-	let technique = $state<keyof typeof techniques>('IVIM');
-	const preferences = persistedPreference(
-		'osipy.viewer.layout',
-		{ ...DEFAULT_LAYOUT },
-		parseLayout
+		listStoredScans,
+		saveScan,
+		deleteStoredScan,
+		updateStoredMetadata,
+		storageError,
+		type StoredScanSummary
+	} from '$lib/local-library';
+	import { loadDataset } from '$lib/ivim';
+	import type { Scan, ScanMetadata } from '$lib/imports/scan';
+	import UploadIcon from '~icons/lucide/upload';
+	import ShieldIcon from '~icons/lucide/shield-check';
+	let saved = $state.raw<StoredScanSummary[]>([]),
+		session = $state.raw<Scan[]>([]);
+	let search = $state(''),
+		filter = $state('all'),
+		loading = $state(true),
+		error = $state(''),
+		demoBusy = $state(false);
+	let removal = $state<StoredScanSummary>();
+	let dialog: HTMLDialogElement;
+	const filtered = $derived(
+		saved.filter(
+			(s) =>
+				`${s.name} ${s.metadata.subject} ${s.metadata.study} ${s.metadata.session}`
+					.toLowerCase()
+					.includes(search.toLowerCase()) &&
+				(filter === 'all' || s.metadata.technique === filter)
+		)
 	);
-	let paneStorage = $state.raw<{ current: PaneSelection }>();
-	let dataset = $state.raw<Dataset>();
-	let volumes = $state.raw<Int16Array[]>([]);
-	let dataError = $state('');
-	let active = $state(0);
-	let slice = $state(0);
-	let x = $state(0);
-	let y = $state(0);
-	let display = $state<Display>({ zoom: 1, panX: 0, panY: 0, center: 500, width: 1000 });
-	let tiles = $state<Record<string, Display>>({});
-	let selected = $state<number[]>([0]);
-	let tool = $state<'inspect' | 'pan'>('inspect');
-	let scope = $state<'slice' | 'volume'>('slice');
-	let search = $state('');
-	let range = $state('all');
-	let bookmarks = $state<Bookmark[]>([]);
-	let compared = $state<string[]>([]);
-	let note = $state('');
-	let storageMessage = $state('Saved only in this browser.');
-	let message = $state('');
-	let workspaceWidth = $state(900);
-	const activeDisplay = $derived(preferences.current.linked ? display : (tiles[active] ?? display));
-	$effect(() => {
-		if (paneStorage) paneStorage.current = { active, selected: [...selected] };
-	});
-
-	onMount(() => {
-		const controller = new AbortController();
-		loadDataset(`${base}/datasets/ivim-brain`, controller.signal)
-			.then((loaded) => {
-				if (controller.signal.aborted) return;
-				dataset = loaded.dataset;
-				paneStorage = persistedPreference(
-					`osipy.viewer.panes.${dataset.sha256}`,
-					{ active: 0, selected: [0] },
-					(raw) => parsePanes(raw, loaded.dataset)
-				);
-				active = paneStorage.current.active;
-				selected = [...paneStorage.current.selected];
-				x = Math.floor(dataset.dimensions[0] / 2);
-				y = Math.floor(dataset.dimensions[1] / 2);
-				slice = Math.floor(dataset.dimensions[2] / 2);
-				display = defaultDisplay(dataset);
-				resetView();
-				volumes = loaded.volumes;
-				try {
-					const saved = localStorage.getItem(BOOKMARK_KEY);
-					if (saved) bookmarks = parseBookmarks(saved, dataset);
-				} catch {
-					storageMessage =
-						'Saved views unavailable or for another dataset. New views work for this session.';
-				}
-			})
-			.catch((error) => {
-				if (!controller.signal.aborted)
-					dataError = error instanceof Error ? error.message : 'Dataset could not be loaded';
-			});
-		return () => controller.abort();
-	});
-	function setDisplay(next: Display, index = active) {
-		if (preferences.current.linked) display = next;
-		else tiles[index] = next;
-	}
-	function resetView() {
-		if (dataset) setDisplay(defaultDisplay(dataset));
-	}
-	function toggleLink() {
-		if (preferences.current.linked) {
-			tiles = Object.fromEntries(dataset!.bValues.map((_, i) => [i, { ...display }]));
-			preferences.current.linked = false;
-		} else {
-			display = { ...activeDisplay };
-			preferences.current.linked = true;
-		}
-	}
-	function selectVolume(index: number) {
-		if (!preferences.current.linked && !selected.includes(index))
-			tiles[index] = { ...activeDisplay };
-		selected = replaceActiveVolume(selected, active, index);
-		active = index;
-	}
-	function toggleVolume(index: number) {
-		selected = selected.includes(index)
-			? selected.filter((i) => i !== index)
-			: [...selected, index];
-		if (selected.length && !selected.includes(active)) active = selected[0];
-	}
-	function selectMany(indices: number[]) {
-		selected = [...new Set([...selected, ...indices])];
-		if (selected.length && !selected.includes(active)) active = selected[0];
-	}
-	function applyWindow(robust: boolean) {
-		if (!dataset) return;
-		setDisplay({
-			...activeDisplay,
-			...autoWindow(volumes[active], dataset, scope === 'slice' ? slice : undefined, robust)
-		});
-		message = `${robust ? '2–98% percentile' : 'Full-range'} window applied to ${preferences.current.linked ? 'linked views' : 'active volume'} from ${scope === 'slice' ? 'current slice' : 'whole volume'}.`;
-	}
-	function resetLayout() {
-		display = { ...activeDisplay };
-		preferences.current = { ...DEFAULT_LAYOUT };
-	}
-	function workspaceData(): Workspace {
-		return {
-			version: 1,
-			datasetId: dataset!.id,
-			sha256: dataset!.sha256,
-			x,
-			y,
-			slice,
-			volume: active,
-			selected,
-			gridLayout: preferences.current.gridLayout,
-			linked: preferences.current.linked,
-			display,
-			tiles,
-			bookmarks,
-			compared: compared.filter((id) => bookmarks.some((b) => b.id === id)),
-			seriesWidth: preferences.current.seriesWidth,
-			inspectorWidth: preferences.current.inspectorWidth,
-			search,
-			range,
-			list: preferences.current.seriesLayout === 'list',
-			note
-		};
-	}
-	function applyWorkspace(w: Workspace) {
-		x = w.x;
-		y = w.y;
-		slice = w.slice;
-		active = w.volume;
-		selected = w.selected;
-		preferences.current.gridLayout = w.gridLayout;
-		preferences.current.linked = w.linked;
-		display = w.display;
-		tiles = w.tiles;
-		compared = w.compared;
-		preferences.current.seriesWidth = w.seriesWidth;
-		preferences.current.inspectorWidth = w.inspectorWidth;
-		search = w.search;
-		range = w.range;
-		preferences.current.seriesLayout = w.list ? 'list' : 'grid';
-		note = w.note;
-		persist(w.bookmarks);
-		message = 'Workspace restored. ' + storageMessage;
-	}
-	function persist(next: Bookmark[]) {
-		bookmarks = next;
+	async function refresh() {
 		try {
-			localStorage.setItem(BOOKMARK_KEY, JSON.stringify(next));
-			storageMessage = 'Saved only in this browser.';
-		} catch {
-			storageMessage = 'Browser storage unavailable. Changes last for this session only.';
+			saved = await listStoredScans();
+			error = '';
+		} catch (e) {
+			error = storageError(e);
+		} finally {
+			loading = false;
 		}
 	}
-	function saveView() {
-		if (!dataset) return;
-		persist([
-			...bookmarks,
-			{
-				id: crypto.randomUUID(),
-				datasetId: dataset.id,
-				b: active,
-				z: slice,
-				x,
-				y,
-				note: note.trim()
-			}
-		]);
-		note = '';
+	onMount(() => {
+		void refresh();
+	});
+	async function add(scan: Scan) {
+		try {
+			await saveScan(scan);
+			session = [...session, scan];
+			await refresh();
+		} catch (e) {
+			error = storageError(e);
+			throw new Error(error);
+		}
 	}
-	function restore(view: Bookmark) {
-		selectVolume(view.b);
-		slice = view.z;
-		x = view.x;
-		y = view.y;
-		resetView();
-		tool = 'inspect';
-		preferences.current.panel = 'Image';
+	function open(id: string) {
+		void goto(`${resolve('/viewer')}?scan=${encodeURIComponent(id)}`);
 	}
-	function deleteView(id: string) {
-		compared = compared.filter((key) => key !== id);
-		persist(bookmarks.filter((b) => b.id !== id));
+	async function metadata(id: string, value: ScanMetadata) {
+		try {
+			await updateStoredMetadata(id, value);
+			session = session.map((s) => (s.id === id ? { ...s, metadata: value } : s));
+			await refresh();
+		} catch (e) {
+			error = storageError(e);
+		}
+	}
+	async function demo() {
+		if (saved.some((s) => s.id === 'osipi-demo')) {
+			open('osipi-demo');
+			return;
+		}
+		demoBusy = true;
+		error = '';
+		try {
+			const loaded = await loadDataset(`${base}/datasets/ivim-brain`);
+			await add({
+				...loaded,
+				id: 'osipi-demo',
+				metadata: {
+					subject: 'OSIPI reference',
+					study: 'TF2.4',
+					session: 'In-vivo brain',
+					date: '',
+					technique: 'IVIM',
+					coordinateFrame: ''
+				},
+				issues: [
+					{
+						severity: 'info',
+						message: 'Public OSIPI dataset, saved locally. Original sample checksum verified.'
+					}
+				]
+			});
+			open('osipi-demo');
+		} catch (e) {
+			error = `Demo could not be saved. ${storageError(e)} You can still import your own local files.`;
+		} finally {
+			demoBusy = false;
+		}
+	}
+	async function remove() {
+		if (!removal) return;
+		try {
+			await deleteStoredScan(removal.id);
+			session = session.filter((s) => s.id !== removal!.id);
+			removal = undefined;
+			dialog.close();
+			await refresh();
+		} catch (e) {
+			error = storageError(e);
+			dialog.close();
+		}
 	}
 </script>
 
-<svelte:head>
-	<title>In-Vivo IVIM Viewer | OSIPY Dashboard</title>
-	<meta
+<svelte:head
+	><title>Your local datasets | OSIPY</title><meta
 		name="description"
-		content="Explore the public OSIPI in-vivo brain IVIM series and acquired voxel signals. Research viewing only, not for diagnosis."
-	/>
-</svelte:head>
-
-<Header bind:technique>
-	<h1 class="min-w-0 text-sm font-semibold max-[899px]:w-full max-[899px]:text-xs">
-		{technique} explorer <span class="text-muted-foreground">/</span>
-		<span class="inline-block first-letter:uppercase"
-			>{technique === 'IVIM'
-				? (dataset?.name.replace(/^OSIPI TF2\.4 /, '') ?? 'Loading dataset')
-				: 'Not implemented'}</span
-		>
-	</h1>
-	{#if technique === 'IVIM' && dataset && volumes.length}<div
-			class="flex flex-wrap gap-2 text-muted-foreground max-[899px]:gap-1"
-		>
-			<span class="badge">{dataset.bValues.length} volumes</span><span class="badge"
-				>{dataset.dimensions[2]} slices</span
-			>
-		</div>{/if}
-	<span
-		class="badge ml-auto whitespace-nowrap text-muted-foreground"
-		title="Not for diagnosis. Viewing only; no fitting or uploads.">Research only</span
-	>
-</Header>
-<main
-	class="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-3 max-[899px]:gap-1 max-[899px]:p-1"
+		content="Open saved MRI datasets or import new scans. Data stays on your device, with no cloud uploads and offline viewing."
+	/></svelte:head
 >
-	{#if technique !== 'IVIM'}
-		<section class="card m-auto min-h-0 space-y-3 overflow-auto p-6 text-center">
-			<span class="text-xs font-semibold tracking-widest text-primary"
-				>{technique} / NOT IMPLEMENTED</span
-			>
-			<h2 class="text-2xl font-semibold">{techniques[technique]}</h2>
-			<p class="mx-auto max-w-lg text-sm leading-6 text-muted-foreground">
-				No acquisition data, signal model, or analysis workflow is implemented for {technique}. The
-				working viewer currently covers acquired IVIM only.
-			</p>
-			<button class="button button-primary mx-auto mt-3" onclick={() => (technique = 'IVIM')}
-				>Explore the IVIM demo</button
-			>
-		</section>
-	{:else if dataError}
-		<section class="card m-auto min-h-0 space-y-3 overflow-auto p-6" role="alert">
-			<h2 class="font-semibold">Brain dataset unavailable</h2>
-			<p>{dataError}</p>
-			<p class="text-sm">
-				Prepare the static dataset with scripts/prepare_ivim.py before serving or deploying, then
-				reload. No mock data is substituted.
-			</p>
-			<button class="button button-outline" onclick={() => location.reload()}>Reload dataset</button
-			>
-		</section>
-	{:else if !dataset || !volumes.length}<p class="card p-10 text-center" role="status">
-			Loading and verifying acquired IVIM volumes...
-		</p>
-	{:else}
-		<nav class="flex shrink-0 min-[900px]:hidden" aria-label="Workspace panels">
-			{#each panels as name (name)}<button
-					class="button h-11 flex-1 px-2 text-xs {preferences.current.panel === name
-						? 'button-primary'
-						: 'button-ghost'}"
-					aria-pressed={preferences.current.panel === name}
-					onclick={() => (preferences.current.panel = name)}>{name}</button
-				>{/each}
-		</nav>
-		<div
-			class="workspace grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] min-[900px]:grid-cols-[min(var(--series-width),26%)_8px_minmax(0,1fr)_8px_min(var(--inspector-width),35%)]"
-			style:--series-width="{preferences.current.seriesWidth}px"
-			style:--inspector-width="{preferences.current.inspectorWidth}px"
-			bind:clientWidth={workspaceWidth}
-		>
-			<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-			<aside
-				class="series-panel card min-h-0 min-w-0 overflow-auto overscroll-contain [scrollbar-width:thin] {preferences
-					.current.panel === 'Series'
-					? ''
-					: 'hidden min-[900px]:block'}"
-				aria-label="Series browser"
-				tabindex="0"
-			>
-				<SeriesBrowser
-					{dataset}
-					{volumes}
-					{selected}
-					{active}
-					bind:search
-					bind:range
-					bind:layout={preferences.current.seriesLayout}
-					onselect={(i) => {
-						selectVolume(i);
-						preferences.current.panel = 'Image';
-					}}
-					ontoggle={toggleVolume}
-					onselectmany={selectMany}
-					onclear={() => (selected = [])}
-				/>
-			</aside>
-			<PanelDivider
-				side="series"
-				bind:value={preferences.current.seriesWidth}
-				other={preferences.current.inspectorWidth}
-				{workspaceWidth}
-				onreset={resetLayout}
-			/>
-			<ViewerPanel
-				{dataset}
-				{volumes}
-				bind:active
-				{selected}
-				{slice}
-				{x}
-				{y}
-				{display}
-				{tiles}
-				linked={preferences.current.linked}
-				bind:gridLayout={preferences.current.gridLayout}
-				bind:tool
-				panel={preferences.current.panel}
-				onselect={(vx, vy) => {
-					x = vx;
-					y = vy;
-				}}
-				onspatialselect={(vx, vy, vz) => {
-					x = vx;
-					y = vy;
-					slice = vz;
-				}}
-				ondisplay={setDisplay}
-				onreset={resetView}
-			>
-				{#snippet controls()}<ImageControls
-						dataset={dataset!}
-						{slice}
-						{active}
-						display={activeDisplay}
-						linked={preferences.current.linked}
-						bind:navigationOpen={preferences.current.navigationOpen}
-						bind:scope
-						{tool}
-						onslice={(value) => (slice = value)}
-						onvolume={selectVolume}
-						ondisplay={setDisplay}
-						onlink={toggleLink}
-						onauto={applyWindow}
-					/>{/snippet}
-			</ViewerPanel>
-			<PanelDivider
-				side="inspector"
-				bind:value={preferences.current.inspectorWidth}
-				other={preferences.current.seriesWidth}
-				{workspaceWidth}
-				onreset={resetLayout}
-			/>
-			<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-			<aside
-				class="inspector-panel min-h-0 min-w-0 space-y-4 overflow-auto overscroll-contain [overflow-wrap:anywhere] [scrollbar-width:thin] max-[899px]:[&_button]:min-h-11 max-[899px]:[&_summary]:min-h-11 {preferences
-					.current.panel === 'Inspector'
-					? ''
-					: 'hidden min-[900px]:block'}"
-				aria-label="Signal and saved views"
-				tabindex="0"
-			>
-				<SignalPanel
-					{dataset}
-					{volumes}
-					{active}
-					{x}
-					{y}
-					{slice}
-					{bookmarks}
-					{compared}
-					bind:valuesOpen={preferences.current.signalValuesOpen}
-					onerror={(text) => (message = text)}
-				/>
-				<SavedVoxels
-					{dataset}
-					{bookmarks}
-					bind:compared
-					bind:note
-					message={storageMessage}
-					onsave={saveView}
-					onrestore={restore}
-					ondelete={deleteView}
-				/>
-				<WorkspaceFiles
-					{dataset}
-					getworkspace={workspaceData}
-					onapply={applyWorkspace}
-					onresetlayout={resetLayout}
-					onmessage={(text) => (message = text)}
-				/>
-				<DatasetDetails {dataset} {active} bind:open={preferences.current.metadataOpen} />
-			</aside>
+<Header
+	><span class="text-sm font-semibold">Local dataset library</span><span class="ml-auto"
+		><OfflineStatus /></span
+	></Header
+>
+<main class="flex min-h-0 flex-1 flex-col overflow-hidden">
+	<section class="shrink-0 border-b px-4 py-5 sm:px-6 sm:py-7">
+		<div class="mx-auto flex max-w-7xl flex-wrap items-start justify-between gap-5">
+			<div class="max-w-2xl">
+				<h1 class="text-2xl font-semibold tracking-tight sm:text-3xl">
+					Pick up where you left off
+				</h1>
+				<p class="mt-2 text-sm leading-6 text-muted-foreground">
+					Open a saved dataset or bring in a new scan. Your data stays on this device—nothing is
+					uploaded to remote servers.
+				</p>
+				<div class="mt-3 flex items-start gap-2 text-xs leading-5 text-muted-foreground">
+					<ShieldIcon class="mt-0.5 size-4 shrink-0 text-selection" /><span
+						>Import, storage and visualization happen in your browser. Offline access is available
+						after the app is cached. Optional fitting runs through your local OSIPY companion.</span
+					>
+				</div>
+			</div>
+			<div class="flex flex-wrap items-center gap-2">
+				<ScanLibrary
+					scans={session}
+					activeId=""
+					onadd={add}
+					onselect={open}
+					onmetadata={metadata}
+					onremove={(id) => (session = session.filter((s) => s.id !== id))}
+					triggerLabel="Import data"
+				/><button class="button button-ghost" disabled={demoBusy} onclick={demo}
+					>{demoBusy ? 'Saving demo…' : 'Try public demo'}</button
+				>
+			</div>
 		</div>
-	{/if}
-	{#if message}<div
-			class="flex max-h-[90px] shrink-0 items-center gap-2 overflow-auto border bg-card px-2 py-1 text-xs"
-			role="status"
+	</section>
+	<div
+		class="mx-auto flex w-full max-w-7xl shrink-0 flex-wrap items-center gap-3 px-4 py-3 sm:px-6"
+	>
+		<h2 class="mr-auto text-sm font-semibold">
+			Saved dashboards <span class="font-normal text-muted-foreground">({saved.length})</span>
+		</h2>
+		<label class="sr-only" for="library-search">Search saved datasets</label><input
+			id="library-search"
+			class="input h-9 min-w-0 flex-1 px-3 text-sm sm:max-w-xs"
+			type="search"
+			placeholder="Search datasets, subjects or studies"
+			bind:value={search}
+		/><select class="input h-9 text-xs" aria-label="Filter by technique" bind:value={filter}
+			><option value="all">All techniques</option
+			>{#each ['IVIM', 'DCE', 'DSC', 'ASL', 'Unassigned'] as technique (technique)}<option
+					>{technique}</option
+				>{/each}</select
 		>
-			<span>{message}</span><button
-				class="button button-ghost"
-				aria-label="Dismiss message"
-				onclick={() => (message = '')}>×</button
+	</div>
+	{#if error}<p
+			class="mx-4 shrink-0 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive sm:mx-6"
+			role="alert"
+		>
+			{error}
+		</p>{/if}
+	<div class="min-h-0 flex-1 overflow-auto overscroll-contain px-4 pb-6 sm:px-6">
+		{#if loading}<p class="py-12 text-center text-sm text-muted-foreground" role="status">
+				Opening local storage…
+			</p>
+		{:else if !saved.length}<div
+				class="mx-auto mt-6 max-w-2xl rounded-2xl border border-dashed bg-card px-6 py-10 text-center"
 			>
-		</div>{/if}
+				<UploadIcon class="mx-auto size-9 text-muted-foreground" />
+				<h2 class="mt-4 text-lg font-semibold">Your first dataset starts here</h2>
+				<p class="mx-auto mt-2 max-w-lg text-sm leading-6 text-muted-foreground">
+					Import NIfTI scans with b-values, or discover a BIDS/DICOM folder. Saved image datasets
+					will appear here whenever you return to this browser.
+				</p>
+				<div class="mt-5 flex justify-center">
+					<ScanLibrary
+						scans={session}
+						activeId=""
+						onadd={add}
+						onselect={open}
+						onmetadata={metadata}
+						onremove={(id) => (session = session.filter((s) => s.id !== id))}
+						triggerLabel="Import your first dataset"
+					/>
+				</div>
+			</div>
+		{:else}<div class="mx-auto grid max-w-7xl gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+				{#each filtered as scan (scan.id)}<StoredDatasetCard
+						{scan}
+						ondelete={(s) => {
+							removal = s;
+							dialog.showModal();
+						}}
+					/>{/each}{#if !filtered.length}<p
+						class="col-span-full py-10 text-center text-sm text-muted-foreground"
+					>
+						No datasets match these filters.
+					</p>{/if}
+			</div>{/if}
+		<p class="mx-auto mt-6 max-w-7xl text-xs leading-5 text-muted-foreground">
+			Saved in this browser on this device, for this app address. Clearing site data removes local
+			datasets. Keep exported backups of important work.
+		</p>
+	</div>
 </main>
+<dialog
+	bind:this={dialog}
+	class="m-auto max-h-[calc(100dvh-24px)] w-[min(460px,calc(100vw-24px))] overflow-auto rounded-xl border bg-card p-5 text-foreground backdrop:bg-black/65"
+	aria-labelledby="delete-dataset-title"
+>
+	<h2 id="delete-dataset-title" class="font-semibold">Remove this local dataset?</h2>
+	<p class="my-3 text-sm break-words text-muted-foreground">
+		{removal?.name} and its locally saved dashboard state will be removed from this browser. Your original
+		files and exported backups are unaffected.
+	</p>
+	<div class="flex gap-2">
+		<button class="button button-primary" onclick={remove}>Remove dataset</button><button
+			class="button button-outline"
+			onclick={() => dialog.close()}>Keep dataset</button
+		>
+	</div>
+</dialog>

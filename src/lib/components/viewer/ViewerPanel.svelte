@@ -1,8 +1,10 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import type { Dataset } from '$lib/ivim';
+	import type { Dataset, VoxelVolume } from '$lib/ivim';
 	import { GRID_LAYOUTS, gridVolumes, type GridLayout, type Display } from '$lib/workspace';
 	import ViewerTile from '../ViewerTile.svelte';
+	import type { ImageOverlay } from '$lib/analysis';
+	import type { ViewerTool, PixelPoint, RoiOverlay } from '$lib/roi';
 	import SpatialViewer from './SpatialViewer.svelte';
 	import CrosshairIcon from '~icons/lucide/crosshair';
 	import HandIcon from '~icons/lucide/hand';
@@ -17,8 +19,13 @@
 		x,
 		y,
 		display,
+		overlay,
+		roi,
+		onroi,
+		onundo,
 		tiles,
 		linked,
+		singleScan = false,
 		gridLayout = $bindable('auto'),
 		tool = $bindable('inspect'),
 		panel,
@@ -29,17 +36,22 @@
 		onreset
 	}: {
 		dataset: Dataset;
-		volumes: Int16Array[];
+		volumes: VoxelVolume[];
 		active: number;
 		selected: number[];
 		slice: number;
 		x: number;
 		y: number;
 		display: Display;
+		overlay?: ImageOverlay;
+		roi?: RoiOverlay;
+		onroi?: (points: PixelPoint[], slice: number, rectangle: boolean) => void;
+		onundo?: () => void;
 		tiles: Record<string, Display>;
 		linked: boolean;
+		singleScan?: boolean;
 		gridLayout: GridLayout;
-		tool: 'inspect' | 'pan';
+		tool: ViewerTool;
 		panel: string;
 		controls: Snippet;
 		onselect: (x: number, y: number) => void;
@@ -48,20 +60,18 @@
 		onreset: () => void;
 	} = $props();
 	let layoutMenu: HTMLDivElement;
+	const menuId = $props.id();
 	let imageStage = $state<HTMLDivElement>();
 	let spacePan = $state(false);
 	let spatial = $state(false);
+	$effect(() => {
+		if (overlay || roi) spatial = false;
+		if (tool === 'rectangle' || tool === 'freehand') spatial = false;
+	});
 	function startSpacePan(event: KeyboardEvent) {
-		if (
-			event.code !== 'Space' ||
-			event.altKey ||
-			event.ctrlKey ||
-			event.metaKey ||
-			event.defaultPrevented
-		)
-			return;
+		if (event.defaultPrevented) return;
 		const target = event.target instanceof Element ? event.target : undefined;
-		const imageFocused = target?.closest('[data-viewer-tile]');
+		const imageFocused = target?.closest('[data-viewer-tile]') && imageStage?.contains(target);
 		if (
 			!imageFocused &&
 			(!imageStage?.matches(':hover') ||
@@ -70,6 +80,17 @@
 				))
 		)
 			return;
+		if (
+			onundo &&
+			(event.ctrlKey || event.metaKey) &&
+			event.key.toLowerCase() === 'z' &&
+			!event.shiftKey
+		) {
+			event.preventDefault();
+			onundo();
+			return;
+		}
+		if (event.code !== 'Space' || event.altKey || event.ctrlKey || event.metaKey) return;
 		event.preventDefault();
 		spacePan = true;
 	}
@@ -117,18 +138,22 @@
 	<div
 		class="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b px-3 py-2.5 max-[899px]:px-2 max-[899px]:py-1"
 	>
-		<button
-			class="button button-ghost"
-			popovertarget="grid-layout-menu"
-			aria-label="Choose view layout"
-			onclick={() => (spatial = false)}
-			><GridIcon class="size-4" />{montage ? 'Multiview' : 'Native view'} ▾</button
-		>
-		<button
-			class="button button-ghost text-xs max-[899px]:h-11"
-			aria-pressed={spatial}
-			onclick={() => (spatial = !spatial)}>3D + slices</button
-		>
+		{#if singleScan}<h3 class="text-xs font-semibold">Native view</h3>{:else}<button
+				class="button button-ghost"
+				popovertarget={menuId}
+				aria-label="Choose view layout"
+				onclick={() => (spatial = false)}
+				><GridIcon class="size-4" />{montage ? 'Multiview' : 'Native view'} ▾</button
+			>
+			<button
+				class="button button-ghost text-xs max-[899px]:h-11"
+				aria-pressed={spatial}
+				disabled={!!overlay || !!roi}
+				title={overlay || roi
+					? 'Hide parameter/ROI overlays to open spatial exploration'
+					: 'Open linked spatial views'}
+				onclick={() => (spatial = !spatial)}>3D + slices</button
+			>{/if}
 		{#if !spatial && gridPages > 1}<div class="flex items-center gap-1 text-xs">
 				<button
 					class="button button-ghost"
@@ -197,6 +222,9 @@
 		>
 			{#each visible as index (index)}<div class="min-h-0 min-w-0">
 					<ViewerTile
+						{roi}
+						{onroi}
+						{overlay}
 						volume={volumes[index]}
 						{dataset}
 						{index}
@@ -211,7 +239,9 @@
 						onactivate={() => (active = index)}
 						{onselect}
 						onview={(v) => ondisplay(v, index)}
-						onlayout={() => layoutMenu.showPopover()}
+						onlayout={() => {
+							if (!singleScan) layoutMenu.showPopover();
+						}}
 					/>
 				</div>{/each}
 		</div>
@@ -230,7 +260,7 @@
 </section>
 
 <div
-	id="grid-layout-menu"
+	id={menuId}
 	bind:this={layoutMenu}
 	popover="auto"
 	class="fixed inset-auto top-[110px] left-1/2 m-0 max-h-[calc(100dvh-130px)] w-[min(340px,calc(100vw-24px))] -translate-x-1/2 overflow-auto rounded-xl border bg-card p-4 text-foreground shadow-[0_8px_32px_#0005]"

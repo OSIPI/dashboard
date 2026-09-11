@@ -1,4 +1,5 @@
 <script lang="ts">
+	import PanelsIcon from '~icons/lucide/panels-top-left';
 	import { download, parseWorkspace, type Workspace } from '$lib/workspace';
 	import type { Dataset } from '$lib/ivim';
 	let {
@@ -39,7 +40,9 @@
 </script>
 
 <section class="card space-y-3 p-3">
-	<h2 class="text-sm font-semibold">Workspace</h2>
+	<h2 class="flex items-center gap-2 text-sm font-semibold">
+		<PanelsIcon class="size-4 shrink-0" aria-hidden="true" />Workspace
+	</h2>
 	<p class="text-xs text-muted-foreground">
 		Export settings, selections and notes. MRI data is not included.
 	</p>

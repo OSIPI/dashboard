@@ -26,3 +26,10 @@ vite.config.ts.timestamp-*
 data/*
 !data/README.md
 /static/datasets/
+
+# Local Python companion and test tooling
+__pycache__/
+*.py[cod]
+.venv/
+.ruff_cache/
+.pytest_cache/

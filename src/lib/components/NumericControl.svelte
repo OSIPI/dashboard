@@ -19,6 +19,7 @@
 		compact?: boolean;
 		onchange: (value: number) => void;
 	} = $props();
+	const decimals = $derived(Math.min(12, Math.max(1, -Math.floor(Math.log10(step)))));
 	function commit(input: HTMLInputElement) {
 		const next = boundedNumber(input.value, value, min, max, step);
 		input.value = String(next);
@@ -66,9 +67,9 @@
 				{min}
 				{max}
 				{step}
-				value={Number(value.toFixed(1))}
+				value={Number(value.toFixed(decimals))}
 				onchange={(event) => commit(event.currentTarget)}
-				onblur={(event) => (event.currentTarget.value = String(Number(value.toFixed(1))))}
+				onblur={(event) => (event.currentTarget.value = String(Number(value.toFixed(decimals))))}
 				onkeydown={(event) => {
 					if (event.key === 'Enter') commit(event.currentTarget);
 				}}

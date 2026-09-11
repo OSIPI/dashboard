@@ -23,7 +23,7 @@
 		onselect
 	}: {
 		dataset: Dataset;
-		volume: Int16Array;
+		volume: import('$lib/ivim').VoxelVolume;
 		active: number;
 		voxel: Point;
 		display: Display;

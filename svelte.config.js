@@ -16,6 +16,7 @@ const config = {
 		})
 	],
 	kit: {
+		serviceWorker: { register: false, files: (path) => !path.startsWith('datasets/') },
 		paths: {
 			base: process.env.NODE_ENV === 'production' ? '/dashboard' : ''
 		},

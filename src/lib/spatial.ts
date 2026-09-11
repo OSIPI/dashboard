@@ -1,4 +1,4 @@
-import { voxelIndex, windowPixel, type Dataset } from './ivim';
+import { voxelIndex, windowPixel, type Dataset, type VoxelVolume } from './ivim';
 
 export type Point = [number, number, number];
 export type Axis = 0 | 1 | 2;
@@ -85,7 +85,7 @@ export function planeWorld(plane: Plane, u: number, v: number): Point {
 }
 
 export function reslice(
-	volume: Int16Array,
+	volume: VoxelVolume,
 	dataset: Dataset,
 	geometry: Geometry,
 	plane: Plane,

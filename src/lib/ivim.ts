@@ -1,3 +1,12 @@
+export type VoxelVolume =
+	| Int8Array
+	| Uint8Array
+	| Int16Array
+	| Uint16Array
+	| Int32Array
+	| Uint32Array
+	| Float32Array
+	| Float64Array;
 export type Dataset = {
 	schema: number;
 	id: string;
@@ -17,6 +26,8 @@ export type Dataset = {
 	sha256: string;
 	signalRange: [number, number];
 	window: [number, number];
+	source?: 'local';
+	xformCode?: number;
 };
 
 export function validateDataset(value: unknown): Dataset {

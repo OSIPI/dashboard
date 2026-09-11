@@ -11,6 +11,9 @@ export type LayoutPreferences = {
 	navigationOpen: boolean;
 	signalValuesOpen: boolean;
 	metadataOpen: boolean;
+	roiVisible: boolean;
+	roiOpacity: number;
+	roiMean: boolean;
 };
 export const DEFAULT_LAYOUT: LayoutPreferences = {
 	panel: 'Image',
@@ -21,7 +24,10 @@ export const DEFAULT_LAYOUT: LayoutPreferences = {
 	linked: true,
 	navigationOpen: false,
 	signalValuesOpen: false,
-	metadataOpen: false
+	metadataOpen: false,
+	roiVisible: true,
+	roiOpacity: 0.25,
+	roiMean: false
 };
 
 export function parseLayout(raw: string): LayoutPreferences {
@@ -37,7 +43,16 @@ export function parseLayout(raw: string): LayoutPreferences {
 			result.seriesWidth = Math.max(180, Math.min(420, value.seriesWidth));
 		if (Number.isFinite(value.inspectorWidth))
 			result.inspectorWidth = Math.max(240, Math.min(600, value.inspectorWidth));
-		for (const key of ['linked', 'navigationOpen', 'signalValuesOpen', 'metadataOpen'] as const)
+		if (Number.isFinite(value.roiOpacity))
+			result.roiOpacity = Math.max(0, Math.min(1, value.roiOpacity));
+		for (const key of [
+			'linked',
+			'navigationOpen',
+			'signalValuesOpen',
+			'metadataOpen',
+			'roiVisible',
+			'roiMean'
+		] as const)
 			if (typeof value[key] === 'boolean') result[key] = value[key];
 		return result;
 	} catch {

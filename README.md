@@ -7,14 +7,26 @@ An inspectable in-vivo IVIM MRI workspace for OSIPY projects.
 [![Metadata](https://github.com/OSIPI/dashboard/actions/workflows/metadata.yml/badge.svg)](https://github.com/OSIPI/dashboard/actions/workflows/metadata.yml)
 [![Citation File Format](https://img.shields.io/badge/citation-CFF-blue.svg)](CITATION.cff)
 
-The dashboard is frontend-only. The home page loads the public OSIPI TF2.4 acquired brain series from prepared static assets. No backend, uploads or fitting are implemented. It is a research interface, not a medical device or diagnostic tool. Missing or corrupt assets produce a visible error, never mock images.
+The dashboard loads the public OSIPI TF2.4 brain series or local diffusion MRI files, supports ROI exploration, and can run real IVIM fitting through an authenticated local Python companion. Images are never sent to a remote analysis service. It is a research interface, not a medical device or diagnostic tool. Missing or corrupt assets produce a visible error, never mock images or fits.
 
 ## MRI Viewer
 
 - Browse all 85 acquired volumes (including repeated b-values) in a searchable, filterable grid or list; inspect 56 native oblique slices with voxel selection, zoom, pan, window/level and reset.
-- Inspect the selected voxel's scaled NIfTI samples as a signal graph and accessible value table. No ground truth or parameter estimates are displayed.
+- Inspect scaled NIfTI samples as a signal graph and accessible value table. Actual fitted estimates, residuals and quality flags appear when a matching companion result is available.
 - Save voxel coordinates, b-value, slice and an optional note in this browser; restore or delete them locally. Restoring a voxel resets image display controls. Storage failures are reported in the interface.
-- DCE, DSC and ASL are selectable **unimplemented** workflows. User DICOM, NIfTI and BIDS import, parameter fitting, ROI averaging, freehand drawing and segmented surface reconstruction are not implemented.
+- DCE, DSC and ASL remain **unimplemented analysis workflows**; scans can be catalogued under those techniques. IVIM NIfTI loading and DICOM/BIDS discovery are available as described below.
+
+### Local datasets and timepoints (Section B)
+
+Open **Scans / Import** to choose `.nii`/`.nii.gz` plus `.bval`, optional FSL `.bvec` (3 rows), and matching JSON metadata, or discover a BIDS/DICOM directory. The viewer accepts scalar NIfTI-1/2 3D/4D uint8/int8/uint16/int16/uint32/int32/float32/float64 data. It preserves sample values, scaling, acquisition order and affine geometry; it normalizes spatial units to mm. RGB, complex, 64-bit integer and higher-dimensional images need preparation outside this viewer.
+
+Validation blocks count mismatches, invalid geometry/units, truncated images and non-finite samples. Missing b=0 or b-vectors are warnings; unknown vectors are not replaced with fabricated directions. Parsing runs in a cancellable worker, bounded at 512 MiB decoded data and 768 MiB total session image memory.
+
+BIDS discovery pairs per-image sidecars, reads `dataset_description.json` names and `scans.tsv` acquisition dates, and extracts subject/session entities. It does not implement the full BIDS inheritance/validation specification. DICOM discovery groups readable headers by patient, study and series; **pixel decoding/conversion is not implemented**. Convert those series to NIfTI+b-values using a validated converter before opening them.
+
+The library lets you edit subject, study, timepoint, date and technique. Dates remain unknown unless supplied. Loaded timepoints are selectable and retain independent viewer state. **Compare** opens two scans side by side (with a compact switcher on mobile). Displays remain independent; linked navigation is enabled only for a declared, verified common coordinate frame within the same subject/study. Points map through physical RAS millimetres to nearest native voxels; out-of-field points are reported, not clamped. Registration itself is not inferred from equal image dimensions or matching affine values.
+
+Local files and subject/date metadata are session-only: reselect files after reload. Dataset-local notes/layout preferences can still persist, but MRI samples never enter localStorage. The public demo retains its own attribution; local imports are never labelled as the OSIPI public dataset.
 
 ### Linked 3D exploration
 
@@ -24,12 +36,46 @@ All views share the original voxel selection and acquired signal plot. Reformats
 
 The vtk.js renderer loads only when spatial viewing opens and releases its graphics resources on exit. WebGL 2 is required for 3D; linked 2D reformats remain usable without it. This milestone renders **slice planes**, not a segmented anatomy model or a volume-rendered scan. Volume rendering, named anatomy and advanced Slicer workflows are tracked in [issue #8](https://github.com/OSIPI/dashboard/issues/8).
 
+### Local IVIM fitting (Section C)
+
+Start the companion using an environment with the OSIPY checkout installed (tested with OSIPY 0.1.1):
+
+```sh
+../osipy/.venv/bin/python companion/server.py
+```
+
+For a new environment, see [companion/README.md](companion/README.md). Copy the session token printed by the companion into **IVIM analysis → Local companion & fitting settings**, then connect to `http://127.0.0.1:60016`. The token stays in browser memory. Viewing and imports still work without the companion.
+
+The implemented method is OSIPY's biexponential model with Levenberg–Marquardt fitting, data-dependent initialization, optional initial values, bounds, iteration/tolerance controls and quality thresholds. Fit the selected voxel, selected ROI **voxelwise**, or the full dataset. All acquired repetitions are retained; fitting needs a b=0 baseline and at least four distinct b-values. Progress, cancellation, errors and the last ten companion runs are available.
+
+Results include S₀, D, D\*, f, RMSE, R², adjusted R², validity and status maps, with opacity/range controls on the native reference image. Estimates failing quality checks stay flagged; they are not silently made valid. A labelled model curve and residual plot accompany available voxel estimates. Reports record source identity, OSIPY version, model/settings, timing and quality policy. Maps/report can be exported individually or in a bundle.
+
+### ROIs, masks and registration (Section D)
+
+Use **Regions of interest → New ROI** to draw rectangles or freehand regions on native slices, or enter numeric rectangle bounds. Erase, clear, delete, rename, recolor and undo up to ten edits. Regions can span slices but are not automatically propagated. Current ROI overlays and mean-signal comparison are optional. Statistics show count, mean, median, population SD, min and max; parameter-map statistics use finite quality-valid voxels. ROI spatial means are not fits, and averaged voxelwise parameters are not parameters fitted to a mean signal.
+
+Import/export integer-label NIfTI masks with matching dimensions and affine (1e-4 mm tolerance). Mismatched masks require external registration/resampling. Up to 32 labels are supported, with a two-million-voxel per-ROI limit and five-million-voxel editing grid limit. ROI data is session-local; export masks/bundles before reloading. Hide ROI/parameter overlays to return to linked 3D source exploration.
+
+Scan comparison accepts an explicit affine transform through **Registration transform**: a checksum-bound JSON matrix in RAS millimetres or a single ITK affine `.tfm` in LPS coordinates. The direction is **primary physical coordinates → comparison physical coordinates**; use Invert when the supplied transform has the opposite direction. The dashboard does not compute registration. Nonlinear/composite transforms are not supported. Out-of-field positions are reported instead of clamped.
+
+### Export and external tools (Section E)
+
+**Export analysis/viewer bundle** creates a ZIP in a worker containing source NIfTI/b-values, optional b-vectors, actual maps and quality/run-selection masks when fitted, current ROI masks, notes, CSV, reports and per-file checksums. NIfTI-1 is used for interoperable image files; full source geometry/scaling metadata is also included in JSON. Separate ROI files preserve overlaps. Current annotations may differ from the immutable region used for a previous run, which is exported separately.
+
+The ZIP includes `load-in-slicer.py` and ITK-SNAP loading/return instructions. No external application is launched. The Slicer helper loads images, maps, ROI segments and saved voxel markers; edited ITK-SNAP masks can be reimported if geometry matches. The bundled `workspace.json` references the original input identity, so restore it with the original dataset loaded. ZIP preparation is capped at 512 MiB before compression; larger outputs can be exported as individual maps/ROIs.
+
+Verify an exported archive without launching either application:
+
+```sh
+../osipy/.venv/bin/python companion/verify_bundle.py /path/to/osipy-viewer-bundle.zip
+```
+
 ### Exploration workspace (roadmap Section A)
 
 - Drag the panel dividers or focus them and use arrow keys to resize; Home or **Reset layout** restores defaults. Width preferences are remembered locally. The document never scrolls; individual panels do.
 - Checking volumes or **Select filtered** immediately splits the view, preserving every repeated b-value acquisition. Unchecking down to one restores a single view. Use the visual **View layout** menu (also available by right-clicking an image) for automatic arrangement, side-by-side, 4-tile or 8-tile grids. Fixed grids page through additional selections; automatic arrangement scrolls internally. Tiles share slice and voxel coordinates. Toggle display linking in Controls to share or independently adjust zoom, pan and window/level; click a tile to make it active. Workspace files preserve the chosen grid layout.
 - Clicking a thumbnail replaces the acquisition in the active pane without adding panes. If it is already displayed, its existing pane becomes active. Volume-step controls follow the same rule; only checkbox/bulk selection adds panes.
-- **Expand chart** opens a keyboard-dismissible focus view. Compare up to four saved voxels with the current voxel, using distinct colors/markers. Raw acquisitions remain separate without averaging, connecting lines, jitter or fitting.
+- **Expand chart** opens a keyboard-dismissible focus view. Compare up to four saved voxels with the current voxel, using distinct colors/markers. Raw acquisitions remain separate; actual model curves and ROI spatial means are explicitly labelled.
 - Download the displayed plot as **SVG/PNG**, or **Voxel CSV** for all acquisitions at the current coordinate. SVG includes dataset/checksum metadata; plots include dataset name, voxel labels, units and comparison legends. CSV preserves acquisition order and repeated b-values.
 - **Auto 2–98%**, **Full range**, and **Dataset preset** adjust display only. Auto uses scaled intensities from the active volume, with an explicit current-slice/whole-volume scope. Linked display settings apply to every tile; the underlying samples never change.
 - **Export workspace** saves a JSON file containing selections, display states, layout, bookmarks, comparisons, filters and the draft note—not MRI data. Import checks dataset ID and sample checksum, validates every field, and asks before replacing the current workspace/notes. Files are limited to 100 KB. Export first to retain a previous workspace.

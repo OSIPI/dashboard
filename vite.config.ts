@@ -14,6 +14,8 @@ const getVersion = (): string => {
 };
 
 export default defineConfig({
+	// Discover worker dependencies at startup, rather than reloading a session after its first export.
+	optimizeDeps: { include: ['nifti-reader-js', 'dicom-parser', 'fflate'] },
 	server: {
 		host: '0.0.0.0',
 		port: 60010,

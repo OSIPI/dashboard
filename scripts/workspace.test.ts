@@ -144,3 +144,23 @@ test('scatter and CSV keep repeated acquisitions; exports escape user text and i
 	expect(rows[2]).toContain('"1","0","1","2","10","65"');
 	expect(rows[3]).toContain('"1","0","1","3","10","60"');
 });
+
+test('compact charts preserve real fits and acquisitions while expanded exports include residuals', () => {
+	const series = [{ label: 'Current voxel', values: [100, 65, 60] }];
+	const fit = {
+		parameters: { S0: 100, D: 0.001, 'D*': 0.02, f: 0.2 },
+		valid: false,
+		model: 'OSIPY biexponential'
+	};
+	const preview = chartSvg(dataset, series, 2, true, fit, true);
+	expect(preview.match(/<circle /g)).toHaveLength(3);
+	expect(preview).toContain('<polyline');
+	expect(preview).toContain('stroke-dasharray="6 4"');
+	expect(preview).toContain('fit · flagged');
+	expect(preview).not.toContain('Residuals (');
+	expect(preview).not.toMatch(/NaN|Infinity/);
+	const expanded = chartSvg(dataset, series, 2, false, fit);
+	expect(expanded).toContain('Residuals (');
+	expect(expanded).toContain('flagged estimate');
+	expect(chartSvg(dataset, series, 2, true, undefined, true)).not.toContain('<polyline');
+});

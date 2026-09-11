@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Dataset } from '$lib/ivim';
+	import type { Dataset, VoxelVolume } from '$lib/ivim';
 	import IvimImage from '../IvimImage.svelte';
 	import GridIcon from '~icons/lucide/layout-grid';
 	import ListIcon from '~icons/lucide/list';
@@ -17,7 +17,7 @@
 		onclear
 	}: {
 		dataset: Dataset;
-		volumes: Int16Array[];
+		volumes: VoxelVolume[];
 		active: number;
 		selected: number[];
 		search: string;
@@ -33,7 +33,9 @@
 			.map((b, index) => ({ b, index }))
 			.filter(
 				({ b, index }) =>
-					`ivim b ${b} in-vivo brain volume ${index + 1}`.includes(search.trim().toLowerCase()) &&
+					`ivim b ${b} ${dataset.name} volume ${index + 1}`
+						.toLowerCase()
+						.includes(search.trim().toLowerCase()) &&
 					(range === 'all' ||
 						(range === 'low' ? b <= 100 : range === 'high' ? b > 100 : b === Number(range)))
 			)
@@ -132,6 +134,7 @@
 					style:aspect-ratio={aspect}
 				>
 					<IvimImage
+						thumbnail
 						volume={volumes[series.index]}
 						{dataset}
 						center={dataset.window[0]}
