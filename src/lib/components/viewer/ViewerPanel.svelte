@@ -10,6 +10,7 @@
 	import HandIcon from '~icons/lucide/hand';
 	import RotateCcwIcon from '~icons/lucide/rotate-ccw';
 	import GridIcon from '~icons/lucide/layout-grid';
+	import BoxIcon from '~icons/lucide/box';
 	let {
 		dataset,
 		volumes,
@@ -60,6 +61,19 @@
 		onreset: () => void;
 	} = $props();
 	let layoutMenu: HTMLDivElement;
+	let layoutTrigger = $state<HTMLButtonElement>();
+	let menuPosition = $state({ left: 12, top: 12, width: 340, height: 400 });
+	function positionLayoutMenu() {
+		if(!layoutTrigger||!layoutMenu?.matches(':popover-open'))return;
+		const trigger=layoutTrigger.getBoundingClientRect();
+		const width=Math.min(340,window.innerWidth-24);
+		const below=window.innerHeight-trigger.bottom-20;
+		const above=trigger.top-20;
+		const flip=below<120&&above>below;
+		const height=Math.max(0,flip?above:below);
+		const top=flip?Math.max(12,trigger.top-Math.min(layoutMenu.scrollHeight,height)-8):trigger.bottom+8;
+		menuPosition={left:Math.max(12,Math.min(trigger.left,window.innerWidth-width-12)),top,width,height};
+	}
 	const menuId = $props.id();
 	let imageStage = $state<HTMLDivElement>();
 	let spacePan = $state(false);
@@ -111,6 +125,8 @@
 </script>
 
 <svelte:window
+	onresize={positionLayoutMenu}
+	onscroll={positionLayoutMenu}
 	onkeydown={startSpacePan}
 	onkeyup={endSpacePan}
 	onblur={() => (spacePan = false)}
@@ -136,11 +152,12 @@
 	aria-label="Image viewer"
 >
 	<div
-		class="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b px-3 py-2.5 max-[899px]:px-2 max-[899px]:py-1"
+		class="flex shrink-0 flex-wrap items-center gap-2 border-b px-3 py-2.5 max-[899px]:px-2 max-[899px]:py-1"
 	>
-		{#if singleScan}<h3 class="text-xs font-semibold">Native view</h3>{:else}<button
+		{#if singleScan}<h3 class="text-xs font-semibold">Native view</h3>{:else}<div class="flex items-center gap-1" role="group" aria-label="View modes"><button
 				class="button button-ghost"
 				popovertarget={menuId}
+				bind:this={layoutTrigger}
 				aria-label="Choose view layout"
 				onclick={() => (spatial = false)}
 				><GridIcon class="size-4" />{montage ? 'Multiview' : 'Native view'} ▾</button
@@ -152,8 +169,8 @@
 				title={overlay || roi
 					? 'Hide parameter/ROI overlays to open spatial exploration'
 					: 'Open linked spatial views'}
-				onclick={() => (spatial = !spatial)}>3D + slices</button
-			>{/if}
+				onclick={() => (spatial = !spatial)}><BoxIcon class="size-4" aria-hidden="true"/>3D + slices</button
+			></div>{/if}
 		{#if !spatial && gridPages > 1}<div class="flex items-center gap-1 text-xs">
 				<button
 					class="button button-ghost"
@@ -168,7 +185,7 @@
 				>
 			</div>{/if}
 		{#if !spatial}<div
-				class="flex items-center gap-1 max-[899px]:ml-auto [&_.button]:px-2.5 [&_.button]:text-xs max-[899px]:[&_.button]:h-11 max-[899px]:[&_.button]:gap-1 max-[899px]:[&_.button]:px-1"
+				class="ml-auto flex items-center gap-1 [&_.button]:px-2.5 [&_.button]:text-xs max-[899px]:[&_.button]:h-11 max-[899px]:[&_.button]:gap-1 max-[899px]:[&_.button]:px-1"
 			>
 				<button
 					class="button button-ghost"
@@ -263,7 +280,12 @@
 	id={menuId}
 	bind:this={layoutMenu}
 	popover="auto"
-	class="fixed inset-auto top-[110px] left-1/2 m-0 max-h-[calc(100dvh-130px)] w-[min(340px,calc(100vw-24px))] -translate-x-1/2 overflow-auto rounded-xl border bg-card p-4 text-foreground shadow-[0_8px_32px_#0005]"
+	ontoggle={positionLayoutMenu}
+	style:left="{menuPosition.left}px"
+	style:top="{menuPosition.top}px"
+	style:width="{menuPosition.width}px"
+	style:max-height="{menuPosition.height}px"
+	class="fixed inset-auto m-0 overflow-auto rounded-xl border bg-card p-4 text-foreground shadow-[0_8px_32px_#0005]"
 	aria-label="View layout"
 >
 	<h2 class="mb-3 text-sm font-semibold">Arrange selected volumes</h2>
