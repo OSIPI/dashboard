@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { base } from '$app/paths';
+	import { base, resolve } from '$app/paths';
 	import CrosshairIcon from '~icons/lucide/crosshair';
 	import HandIcon from '~icons/lucide/hand';
 	import RotateCcwIcon from '~icons/lucide/rotate-ccw';
@@ -8,6 +8,7 @@
 	import GridIcon from '~icons/lucide/layout-grid';
 	import ListIcon from '~icons/lucide/list';
 	import IvimImage from '$lib/components/IvimImage.svelte';
+	import NumericControl from '$lib/components/NumericControl.svelte';
 	import Header from '$lib/components/ui/Header.svelte';
 	import {
 		BOOKMARK_KEY,
@@ -64,15 +65,13 @@
 	);
 	const signalMin = $derived(Math.min(0, ...signals));
 	const signalMax = $derived(Math.max(signalMin + 1, ...signals));
-	const signalY = (value: number) => 174 - ((value - signalMin) / (signalMax - signalMin)) * 146;
-	const points = $derived(
-		signals.map((value, i) => `${42 + (B_VALUES[i] / maxB) * 270},${signalY(value)}`).join(' ')
-	);
+	const signalY = (value: number) => 260 - ((value - signalMin) / (signalMax - signalMin)) * 220;
 	const filtered = $derived(
 		B_VALUES.map((b, index) => ({ b, index })).filter(
 			({ b, index }) =>
 				`ivim b ${b} in-vivo brain volume ${index + 1}`.includes(search.trim().toLowerCase()) &&
-				(range === 'all' || (range === 'low' ? b <= 100 : b > 100))
+				(range === 'all' ||
+					(range === 'low' ? b <= 100 : range === 'high' ? b > 100 : b === Number(range)))
 		)
 	);
 
@@ -194,32 +193,26 @@
 </svelte:head>
 
 <Header bind:technique>
-	<h1 class="workspace-title text-xs font-semibold">
-		{technique} / {technique === 'IVIM' ? 'In-vivo brain' : 'Not implemented'}
+	<h1 class="workspace-title text-sm font-semibold">
+		{technique} explorer <span class="text-muted-foreground">/</span>
+		<span class="dataset-title"
+			>{technique === 'IVIM'
+				? (dataset?.name.replace(/^OSIPI TF2\.4 /, '') ?? 'Loading dataset')
+				: 'Not implemented'}</span
+		>
 	</h1>
 	{#if technique === 'IVIM' && dataset && volumes.length}
-		<div class="viewer-tools flex items-center gap-1">
-			<button
-				class="button {tool === 'inspect' ? 'button-primary' : 'button-ghost'}"
-				aria-pressed={tool === 'inspect'}
-				onclick={() => (tool = 'inspect')}><CrosshairIcon class="size-4" />Voxel</button
-			>
-			<button
-				class="button {tool === 'pan' ? 'button-primary' : 'button-ghost'}"
-				aria-pressed={tool === 'pan'}
-				onclick={() => (tool = 'pan')}><HandIcon class="size-4" />Pan</button
-			>
-			<button class="button button-ghost" onclick={resetView}
-				><RotateCcwIcon class="size-4" />Reset</button
-			>
+		<div class="dataset-badges flex flex-wrap gap-2 text-muted-foreground">
+			<span class="badge">{B_VALUES.length} volumes</span>
+			<span class="badge">{SLICES} slices</span>
 		</div>
 	{/if}
+	<span
+		class="research-badge badge text-muted-foreground"
+		title="Not for diagnosis. Viewing only; no fitting or uploads.">Research only</span
+	>
 </Header>
 <main class="viewer-main">
-	<p class="safety-notice">
-		<strong>Public in-vivo brain. Not for diagnosis.</strong> Viewing only; no fitting or uploads.
-		<a class="underline" href="https://doi.org/10.5281/zenodo.14605039">OSIPI TF2.4 · CC BY 4.0</a>
-	</p>
 	{#if technique !== 'IVIM'}
 		<section class="modality-state card space-y-3 p-6 text-center">
 			<span class="text-xs font-semibold tracking-widest text-primary"
@@ -247,7 +240,7 @@
 		</section>
 	{:else if !dataset || !volumes.length}
 		<p class="card p-10 text-center" role="status">
-			Loading and verifying acquired IVIM volumes (119 MB)...
+			Loading and verifying acquired IVIM volumes...
 		</p>
 	{:else}
 		<nav class="panel-switcher" aria-label="Workspace panels">
@@ -265,7 +258,7 @@
 			<aside class="series-panel card min-w-0" aria-label="Series browser" tabindex="0">
 				<div class="border-b p-3">
 					<div class="mb-3 flex items-center justify-between">
-						<h2 class="text-sm font-semibold">
+						<h2 class="text-base font-semibold">
 							Series browser <span class="text-muted-foreground">/ {B_VALUES.length}</span>
 						</h2>
 						<div class="flex">
@@ -289,12 +282,28 @@
 						placeholder="Search series or b-value"
 						bind:value={search}
 					/>
-					<label class="mt-3 flex items-center gap-2 text-xs text-muted-foreground"
-						>Filter<select class="input min-w-0 flex-1 py-1.5 text-xs" bind:value={range}
-							><option value="all">All b-values</option><option value="low">Low b (0-100)</option
-							><option value="high">High b (&gt;100)</option></select
-						></label
-					>
+					<div class="quick-filters" aria-label="Quick b-value filters">
+						{#each [{ value: 'all', label: 'All' }, { value: 'low', label: 'b ≤ 100' }, { value: 'high', label: 'b > 100' }] as filter (filter.value)}
+							<button
+								class="button button-ghost"
+								aria-pressed={range === filter.value}
+								onclick={() => (range = filter.value)}>{filter.label}</button
+							>
+						{/each}
+					</div>
+					<label class="mt-3 flex items-center gap-2 text-xs"
+						>b-value
+						<select class="input min-w-0 flex-1 py-2 text-xs" bind:value={range}>
+							<option value="all">All acquired values</option><option value="low"
+								>0–100 s/mm²</option
+							><option value="high">&gt;100 s/mm²</option>
+							{#each [...new Set(B_VALUES)] as b (b)}<option value={String(b)}>{b} s/mm²</option
+								>{/each}
+						</select>
+					</label>
+					<p class="mt-3 text-xs text-muted-foreground">
+						{filtered.length} of {B_VALUES.length} volumes · selected {bIndex + 1}
+					</p>
 				</div>
 				<div class="series-grid p-3" class:list={layout === 'list'}>
 					{#each filtered as series (series.index)}
@@ -320,7 +329,7 @@
 							</div>
 							<div class="px-2 py-2 text-left">
 								<span class="block text-xs font-semibold">b = {series.b}</span><span
-									class="block text-[10px] text-muted-foreground"
+									class="block text-xs text-muted-foreground"
 									>Vol {series.index + 1} · {SLICES} slices</span
 								>
 							</div>
@@ -335,16 +344,27 @@
 							>
 						</p>{/each}
 				</div>
-				<p class="border-t px-3 py-3 text-[11px] leading-5 text-muted-foreground">
-					{filtered.length} of {B_VALUES.length} volumes · Native slices<br />{NX} × {NY} × {SLICES}
-					voxels<br />
-					{dataset.spacing.map((s) => s.toFixed(6)).join(' × ')} mm<br />
-					Repeated b-values are separate acquired volumes. Previews use the middle slice and default
-					window.
-				</p>
 			</aside>
 
 			<section class="viewer-panel card min-w-0 overflow-hidden" aria-label="Image viewer">
+				<div class="viewport-header">
+					<h2 class="text-sm font-semibold">Native view</h2>
+					<div class="viewer-tools flex items-center gap-1">
+						<button
+							class="button button-ghost"
+							aria-pressed={tool === 'inspect'}
+							onclick={() => (tool = 'inspect')}><CrosshairIcon class="size-4" />Voxel</button
+						>
+						<button
+							class="button button-ghost"
+							aria-pressed={tool === 'pan'}
+							onclick={() => (tool = 'pan')}><HandIcon class="size-4" />Pan</button
+						>
+						<button class="button button-ghost" onclick={resetView}
+							><RotateCcwIcon class="size-4" />Reset</button
+						>
+					</div>
+				</div>
 				<div class="image-stage">
 					<button
 						class="image-interaction"
@@ -403,59 +423,67 @@
 					role="region"
 					aria-label="Image controls"
 				>
-					<label class="control"
-						><span>Slice <strong>{slice + 1} / {SLICES}</strong></span><input
-							type="range"
-							min="0"
-							max={SLICES - 1}
-							step="1"
-							bind:value={slice}
-						/></label
-					>
-					<label class="control"
-						><span>b-value <strong>{B_VALUES[bIndex]} s/mm²</strong></span><input
-							type="range"
-							min="0"
-							max={B_VALUES.length - 1}
-							step="1"
-							bind:value={bIndex}
-						/></label
-					>
-					<div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
-						<label class="control"
-							><span>Zoom <strong>{zoom.toFixed(1)}×</strong></span><input
-								type="range"
-								min="1"
-								max="4"
-								step="0.1"
-								bind:value={zoom}
-							/></label
-						><label class="control"
-							><span>Window <strong>{width.toFixed(1)} a.u.</strong></span><input
-								type="range"
-								min="1"
-								max={2 * (dataset.signalRange[1] - dataset.signalRange[0])}
-								step="any"
-								bind:value={width}
-							/></label
-						><label class="control"
-							><span>Level <strong>{center.toFixed(1)} a.u.</strong></span><input
-								type="range"
-								min={dataset.signalRange[0]}
-								max={dataset.signalRange[1]}
-								step="any"
-								bind:value={center}
-							/></label
-						>
-					</div>
-					<p class="text-[11px] leading-5 text-muted-foreground">
-						{tool === 'inspect'
-							? 'Click the image to inspect a voxel. Arrow keys move the selection when the image is focused.'
-							: 'Drag to pan. Arrow keys pan when the image is focused.'} Reset restores zoom, pan, window
-						and level. Coordinates are original NIfTI indices. Oblique native plane, not a resliced anatomical
-						axial view. Increasing x / y / z points approximately {dataset.axisCodes.join(' / ')}; x
-						runs right and y runs down on screen. No reorientation.
-					</p>
+					<fieldset class="space-y-3">
+						<legend class="mb-3 text-sm font-semibold">Acquisition</legend>
+						<NumericControl
+							label="Slice"
+							value={slice + 1}
+							min={1}
+							max={SLICES}
+							detail="of {SLICES}"
+							onchange={(value) => (slice = value - 1)}
+						/>
+						<NumericControl
+							label="Volume"
+							value={bIndex + 1}
+							min={1}
+							max={B_VALUES.length}
+							detail="b = {B_VALUES[bIndex]} s/mm²"
+							onchange={(value) => (bIndex = value - 1)}
+						/>
+					</fieldset>
+					<fieldset class="space-y-3 border-t pt-3">
+						<legend class="pr-3 text-sm font-semibold">Display</legend>
+						<NumericControl
+							label="Zoom"
+							value={zoom}
+							min={1}
+							max={4}
+							step={0.1}
+							detail="×"
+							onchange={(value) => (zoom = value)}
+						/>
+						<NumericControl
+							label="Window"
+							step={0.1}
+							value={width}
+							min={1}
+							max={2 * (dataset.signalRange[1] - dataset.signalRange[0])}
+							detail="a.u."
+							onchange={(value) => (width = value)}
+						/>
+						<NumericControl
+							label="Level"
+							step={0.1}
+							value={center}
+							min={dataset.signalRange[0]}
+							max={dataset.signalRange[1]}
+							detail="a.u."
+							onchange={(value) => (center = value)}
+						/>
+					</fieldset>
+					<details class="text-xs leading-5 text-muted-foreground">
+						<summary class="cursor-pointer font-medium">Navigation & native orientation</summary>
+						<p class="mt-2">
+							{tool === 'inspect'
+								? 'Click the image to inspect a voxel. Arrow keys move the selection when the image is focused.'
+								: 'Drag to pan. Arrow keys pan when the image is focused.'} Reset restores zoom, pan,
+							window and level. Coordinates are original NIfTI indices. Oblique native plane, not a resliced
+							anatomical axial view. Increasing x / y / z points approximately {dataset.axisCodes.join(
+								' / '
+							)}; x runs right and y runs down on screen. No reorientation.
+						</p>
+					</details>
 				</div>
 			</section>
 
@@ -468,52 +496,59 @@
 			>
 				<section class="card overflow-hidden">
 					<div class="border-b p-3">
-						<h2 class="text-sm font-semibold">Voxel signal</h2>
-						<p class="mt-1 text-xs text-muted-foreground">({x}, {y}, {slice}) · acquired signal</p>
-						<p class="mt-1 text-xs text-muted-foreground">
-							b-vector: {dataset.bVectors[bIndex].join(', ')}
+						<div class="signal-heading">
+							<h2 class="text-sm font-semibold">Voxel signal</h2>
+							<p class="text-xs text-muted-foreground" aria-label="Voxel coordinates">
+								({x}, {y}, {slice})
+							</p>
+						</div>
+						<p class="signal-highlight mt-2 text-sm font-semibold">
+							{signals[bIndex].toFixed(1)} a.u.
+							<span class="text-xs font-normal text-muted-foreground"
+								>/ volume {bIndex + 1} · b {B_VALUES[bIndex]}</span
+							>
 						</p>
 					</div>
 					<svg
-						class="w-full text-primary"
-						viewBox="0 0 340 214"
+						class="signal-chart w-full"
+						viewBox="0 0 420 308"
 						role="img"
 						aria-label="Selected voxel signal over all acquired volumes. Values are in the table below."
 						><title>Acquired voxel signal, not a fitted curve</title>
 						{#each [signalMin, (signalMin + signalMax) / 2, signalMax] as tick (tick)}<line
-								x1="42"
-								x2="312"
+								x1="70"
+								x2="396"
 								y1={signalY(tick)}
 								y2={signalY(tick)}
 								stroke="var(--border)"
-							/><text x="35" y={signalY(tick) + 4} text-anchor="end">{tick.toPrecision(3)}</text
+							/><text x="62" y={signalY(tick) + 4} text-anchor="end">{tick.toPrecision(3)}</text
 							>{/each}
-						<text x="42" y="17">Signal (a.u.)</text><line
-							x1="42"
-							x2="312"
-							y1="174"
-							y2="174"
+						<text x="70" y="20">Signal (a.u.)</text><line
+							x1="70"
+							x2="396"
+							y1="260"
+							y2="260"
 							stroke="var(--muted-foreground)"
 						/>
 						{#each [0, maxB / 4, maxB / 2, maxB * 0.75, maxB] as tick (tick)}<text
-								x={42 + (tick / maxB) * 270}
-								y="191"
+								x={70 + (tick / maxB) * 326}
+								y="281"
 								text-anchor="middle">{tick}</text
-							>{/each}<text x="180" y="208" text-anchor="middle">b-value (s/mm²)</text>
-						<polyline {points} fill="none" stroke="currentColor" stroke-width="2" />
+							>{/each}<text x="233" y="301" text-anchor="middle">b-value (s/mm²)</text>
 						{#each signals as value, i (i)}<circle
-								cx={42 + (B_VALUES[i] / maxB) * 270}
+								cx={70 + (B_VALUES[i] / maxB) * 326}
 								cy={signalY(value)}
-								r={i === bIndex ? 5 : 2.5}
-								fill={i === bIndex ? 'var(--primary)' : 'var(--card)'}
+								r={i === bIndex ? 6 : 3.5}
+								fill="none"
 								stroke="currentColor"
-								stroke-width="1.5"
-							/>{/each}
+								stroke-width={i === bIndex ? 2.5 : 1.5}
+								><title>Volume {i + 1} · b {B_VALUES[i]} s/mm² · {value} a.u.</title></circle
+							>{/each}
 					</svg>
 					<div class="px-3 pb-3">
 						<p class="text-[11px] text-muted-foreground">
-							Acquired samples; lines connect original volume order, including repeated b-values. No
-							averaging or fitting.
+							{signals.length} acquired samples. Larger ring: selected volume. Repeated b-values remain
+							separate; coincident samples may overlap. No averaging or fitting.
 						</p>
 						<details class="mt-3 text-xs">
 							<summary class="cursor-pointer font-medium">Signal values</summary>
@@ -533,7 +568,7 @@
 					</div>
 				</section>
 				<section class="card p-3">
-					<h2 class="flex items-center gap-2 text-sm font-semibold">
+					<h2 class="flex items-center gap-2 text-base font-semibold">
 						<BookmarkIcon class="size-4 text-primary" />Saved voxels
 						<span class="ml-auto text-xs text-muted-foreground">{bookmarks.length}/30</span>
 					</h2>
@@ -545,7 +580,7 @@
 						placeholder="e.g. Compare low-b signal decay"
 						bind:value={note}
 					></textarea><button
-						class="button button-outline mt-2 w-full"
+						class="button button-primary mt-2 w-full"
 						disabled={bookmarks.length >= 30}
 						onclick={saveView}>Save voxel + note</button
 					>
@@ -571,6 +606,34 @@
 							</div>{/each}
 					</div>
 				</section>
+				<details class="card p-4 text-xs leading-6 text-muted-foreground">
+					<summary class="cursor-pointer text-sm font-semibold text-foreground"
+						>Dataset & acquisition metadata</summary
+					>
+					<p class="mt-3 font-medium text-foreground">{dataset.name}</p>
+					<p>
+						<strong>Public in-vivo brain. Not for diagnosis.</strong> Viewing only; no fitting or uploads.
+						Saved coordinates and notes stay in this browser.
+					</p>
+					<p>{NX} × {NY} × {SLICES} voxels · {B_VALUES.length} volumes</p>
+					<p>{dataset.spacing.map((s) => s.toFixed(6)).join(' × ')} {dataset.spatialUnit}</p>
+					<p>
+						{new Set(B_VALUES).size} distinct b-values: {[...new Set(B_VALUES)].join(', ')} s/mm²
+					</p>
+					<p>Selected volume {bIndex + 1} b-vector: {dataset.bVectors[bIndex].join(', ')}</p>
+					<p>
+						Native oblique plane · axes {dataset.axisCodes.join(' / ')}. Original NIfTI indices
+						(zero-based); displayed slice and volume numbers start at 1.
+					</p>
+					<p>
+						Previews: slice {Math.floor(SLICES / 2) + 1}, default window. Repeated b-values are
+						separate acquired volumes.
+					</p>
+					<a class="underline" href="https://doi.org/10.5281/zenodo.14605039"
+						>OSIPI TF2.4 · Zenodo 14605039 · CC BY 4.0</a
+					>
+					<a class="ml-3 underline" href={resolve('/about')}>About OSIPY</a>
+				</details>
 			</aside>
 		</div>
 	{/if}
@@ -583,14 +646,27 @@
 		flex-direction: column;
 		min-height: 0;
 		overflow: hidden;
-		padding: 8px;
-		gap: 8px;
+		padding: 12px;
+		gap: 12px;
 	}
-	.safety-notice {
-		flex-shrink: 0;
-		color: var(--muted-foreground);
-		font-size: 11px;
-		padding: 0 4px;
+	.workspace-title {
+		min-width: 0;
+	}
+	.dataset-title {
+		display: inline-block;
+	}
+	.dataset-title::first-letter {
+		text-transform: uppercase;
+	}
+	.research-badge {
+		margin-left: auto;
+		white-space: nowrap;
+	}
+	.signal-heading {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 8px;
 	}
 	.modality-state {
 		min-height: 0;
@@ -602,8 +678,8 @@
 	}
 	.workspace {
 		display: grid;
-		grid-template-columns: 210px minmax(0, 1fr) 290px;
-		gap: 8px;
+		grid-template-columns: 240px minmax(0, 1fr) 340px;
+		gap: 12px;
 		flex: 1;
 		min-height: 0;
 	}
@@ -621,16 +697,37 @@
 	}
 	.viewer-controls {
 		flex: 0 1 auto;
-		max-height: 42%;
+		max-height: 48%;
+		border-top: 1px solid var(--border);
+		container-type: inline-size;
 	}
-	.viewer-controls > .control {
-		display: grid;
-		grid-template-columns: 120px 1fr;
+	.viewport-header {
+		display: flex;
+		flex-wrap: wrap;
 		align-items: center;
-		gap: 16px;
+		justify-content: space-between;
+		flex-shrink: 0;
+		gap: 8px;
+		padding: 10px 12px;
+		border-bottom: 1px solid var(--border);
 	}
-	.viewer-controls > .control input {
-		margin-top: 0;
+	.viewer-tools .button {
+		padding-inline: 10px;
+		font-size: 12px;
+	}
+	.quick-filters {
+		display: flex;
+		gap: 4px;
+		margin-top: 12px;
+	}
+	.quick-filters .button {
+		flex: 1;
+		padding-inline: 6px;
+		font-size: 12px;
+	}
+	.signal-chart,
+	.signal-highlight {
+		color: var(--selection);
 	}
 	.inspector-panel {
 		overflow-wrap: anywhere;
@@ -652,11 +749,11 @@
 	}
 	.series-card:hover,
 	.series-card.selected {
-		border-color: var(--primary);
-		background: var(--accent);
+		border-color: var(--selection);
+		background: var(--selection-surface);
 	}
 	.series-card.selected {
-		box-shadow: 0 0 0 1px var(--primary);
+		box-shadow: 0 0 0 1px var(--selection);
 	}
 	.thumbnail {
 		aspect-ratio: 1;
@@ -670,7 +767,7 @@
 		align-items: center;
 	}
 	.list .thumbnail {
-		width: 56px;
+		width: 80px;
 		flex-shrink: 0;
 	}
 	.image-stage {
@@ -678,8 +775,8 @@
 		flex: 1;
 		min-height: 0;
 		container-type: size;
-		background: #070a0e;
-		color: #d5dfe8;
+		background: #080808;
+		color: #e0e0e0;
 	}
 	.image-interaction {
 		position: relative;
@@ -713,7 +810,7 @@
 		width: 100%;
 		height: 100%;
 		fill: none;
-		stroke: #63e3cf;
+		stroke: var(--selection);
 		stroke-width: 0.4;
 		pointer-events: none;
 	}
@@ -725,40 +822,33 @@
 			monospace;
 		text-shadow: 0 1px 3px #000;
 	}
-	.control {
-		display: block;
-		min-width: 0;
-		font-size: 11px;
-	}
-	.control span {
-		display: flex;
-		justify-content: space-between;
-		gap: 8px;
-		color: var(--muted-foreground);
-	}
-	.control strong {
-		color: var(--foreground);
-		font-weight: 500;
-	}
-	.control input {
-		display: block;
-		width: 100%;
-		margin-top: 10px;
-		accent-color: var(--primary);
-	}
 	svg text {
 		font:
-			10px ui-sans-serif,
+			11px ui-sans-serif,
 			sans-serif;
 		fill: var(--muted-foreground);
 	}
+	@media (min-width: 1200px) {
+		.workspace {
+			grid-template-columns: clamp(260px, 19vw, 300px) minmax(0, 1fr) clamp(360px, 29vw, 440px);
+		}
+	}
 	@media (max-width: 899px) {
+		svg text {
+			font-size: 14px;
+		}
 		.workspace-title {
-			position: absolute;
-			width: 1px;
-			height: 1px;
-			overflow: hidden;
-			clip-path: inset(50%);
+			font-size: 12px;
+			width: 100%;
+		}
+		.dataset-badges {
+			gap: 4px;
+		}
+		.viewport-header {
+			padding: 4px 8px;
+		}
+		.viewport-header h2 {
+			font-size: 12px;
 		}
 		.viewer-main {
 			padding: 4px;
@@ -769,7 +859,8 @@
 		}
 		.viewer-tools .button {
 			height: 44px;
-			padding-inline: 10px;
+			padding-inline: 4px;
+			gap: 4px;
 		}
 		.panel-switcher {
 			display: flex;
@@ -800,13 +891,6 @@
 			max-height: none;
 			flex: 1;
 		}
-		.viewer-controls > .control {
-			display: block;
-		}
-		.control input {
-			min-height: 28px;
-			margin-top: 4px;
-		}
 		.inspector-panel :is(button, summary) {
 			min-height: 44px;
 		}
@@ -815,10 +899,10 @@
 			min-width: 44px;
 		}
 		.series-grid {
-			grid-template-columns: repeat(3, minmax(0, 1fr));
+			grid-template-columns: repeat(2, minmax(0, 1fr));
 		}
 		.series-grid.list {
-			grid-template-columns: 1fr 1fr;
+			grid-template-columns: 1fr;
 		}
 	}
 </style>

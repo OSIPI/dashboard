@@ -8,25 +8,27 @@
 /* shadcn's semantic token model, translated for the OSIPY scientific workspace. */
 :root {
 	color-scheme: light;
-	--background: oklch(0.985 0.003 247.86);
-	--foreground: oklch(0.21 0.025 249.07);
+	--background: #fafafa;
+	--foreground: #242424;
 	--card: oklch(1 0 0);
-	--card-foreground: oklch(0.21 0.025 249.07);
+	--card-foreground: #242424;
 	--popover: oklch(1 0 0);
-	--popover-foreground: oklch(0.21 0.025 249.07);
-	--primary: #8d3336;
+	--popover-foreground: #242424;
+	--primary: var(--foreground);
 	--primary-foreground: oklch(0.985 0 0);
-	--secondary: oklch(0.955 0.009 247.9);
-	--secondary-foreground: oklch(0.29 0.03 248.5);
-	--muted: oklch(0.955 0.009 247.9);
-	--muted-foreground: oklch(0.54 0.025 250.2);
-	--accent: #d63e68;
-	--accent-foreground: oklch(0.985 0 0);
+	--secondary: #f0f0f0;
+	--secondary-foreground: #383838;
+	--muted: #f0f0f0;
+	--muted-foreground: #626262;
+	--selection: #ad4942;
+	--selection-surface: #f8eeec;
+	--accent: var(--secondary);
+	--accent-foreground: var(--foreground);
 	--destructive: oklch(0.58 0.22 27.3);
 	--destructive-foreground: oklch(0.985 0 0);
-	--border: oklch(0.9 0.012 247.9);
-	--input: oklch(0.9 0.012 247.9);
-	--ring: #d63e68;
+	--border: #dedede;
+	--input: #d4d4d4;
+	--ring: var(--selection);
 	--warning: oklch(0.68 0.16 65.4);
 	--warning-foreground: oklch(0.31 0.07 48.7);
 	--radius: 0.625rem;
@@ -34,25 +36,27 @@
 
 .dark {
 	color-scheme: dark;
-	--background: oklch(0.145 0 0);
+	--background: #101010;
 	--foreground: oklch(0.985 0 0);
-	--card: oklch(0.205 0 0);
+	--card: #191919;
 	--card-foreground: oklch(0.985 0 0);
-	--popover: oklch(0.205 0 0);
+	--popover: #191919;
 	--popover-foreground: oklch(0.985 0 0);
-	--primary: oklch(0.68 0.15 25);
+	--primary: var(--foreground);
 	--primary-foreground: oklch(0.145 0 0);
-	--secondary: oklch(0.269 0 0);
+	--secondary: #262626;
 	--secondary-foreground: oklch(0.985 0 0);
-	--muted: oklch(0.269 0 0);
-	--muted-foreground: oklch(0.708 0 0);
-	--accent: #d63e68;
-	--accent-foreground: oklch(0.985 0 0);
+	--muted: #262626;
+	--muted-foreground: #ababab;
+	--selection: #ed746b;
+	--selection-surface: #302322;
+	--accent: var(--secondary);
+	--accent-foreground: var(--foreground);
 	--destructive: oklch(0.704 0.191 22.216);
 	--destructive-foreground: oklch(0.985 0 0);
 	--border: oklch(1 0 0 / 10%);
 	--input: oklch(1 0 0 / 15%);
-	--ring: #d63e68;
+	--ring: var(--selection);
 	--warning: oklch(0.75 0.16 70);
 	--warning-foreground: oklch(0.2 0.04 55);
 }
@@ -146,6 +150,12 @@
 
 	.button-primary {
 		@apply bg-primary text-primary-foreground shadow-sm hover:bg-primary/90;
+	}
+
+	.button[aria-pressed='true'] {
+		background: var(--selection-surface);
+		color: var(--selection);
+		box-shadow: inset 0 0 0 1px var(--selection);
 	}
 
 	.button-outline {

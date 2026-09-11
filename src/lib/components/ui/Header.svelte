@@ -48,7 +48,6 @@
 		{/if}
 		<nav class="secondary-links" aria-label="Resources">
 			<a href="https://osipy.readthedocs.io" target="_blank" rel="noreferrer">Docs</a>
-			<a href={resolve('/about')}>About</a>
 			<a href="https://github.com/OSIPI/dashboard" target="_blank" rel="noreferrer">GitHub</a>
 			<button
 				class="button button-ghost button-icon"
@@ -77,7 +76,9 @@
 		display: flex;
 		align-items: center;
 		gap: 24px;
-		padding: 6px 12px;
+		min-height: 54px;
+		padding: 9px 12px;
+		background: var(--background);
 	}
 	.brand {
 		display: flex;
@@ -88,6 +89,14 @@
 	.techniques {
 		display: flex;
 		gap: 4px;
+	}
+	.techniques .button[aria-pressed='true'] {
+		background: transparent;
+		color: var(--selection);
+		box-shadow: none;
+		text-decoration: underline;
+		text-decoration-thickness: 2px;
+		text-underline-offset: 8px;
 	}
 	.secondary-links {
 		display: flex;
@@ -105,8 +114,8 @@
 	.app-context {
 		display: flex;
 		align-items: center;
-		justify-content: space-between;
 		gap: 8px;
+		min-height: 46px;
 		padding: 6px 12px;
 		border-top: 1px solid var(--border);
 	}
@@ -115,6 +124,7 @@
 			flex-wrap: wrap;
 			gap: 0 8px;
 			padding: 0 8px;
+			min-height: 44px;
 		}
 		.brand {
 			font-size: 13px;
