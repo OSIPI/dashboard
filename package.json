@@ -53,6 +53,7 @@
 		"vite-plugin-devtools-json": "^1.0.0"
 	},
 	"dependencies": {
+		"@kitware/vtk.js": "^36.14.2",
 		"@tailwindcss/container-queries": "^0.1.1",
 		"runed": "^0.37.1",
 		"svelte-french-toast": "^1.2.0"

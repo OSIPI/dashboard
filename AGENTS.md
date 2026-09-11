@@ -33,6 +33,7 @@
 - The document never scrolls: the root layout owns `h-dvh`, safe-area padding and hidden overflow. Other routes scroll only inside the layout's inner route container.
 - Home owns the integrated `Header` with technique selection and secondary dataset badges; Voxel / Pan / Reset live in the viewport header. Do not add a separate website header or marketing heading above the workspace.
 - Keep the viewer in the remaining height with a square image fitted to both available dimensions. Series, inspector and image controls own their scrolling; always propagate `min-height: 0` through the shell.
+- Keep `ImageControls` a compact dock: Acquisition / Display / Windowing use two columns at a 640px container width and three at 960px. Use `NumericControl compact` for this dock only; preserve the default for spatial controls. Keep 44px mobile targets, inline units, secondary help collapsed, and all overflow inside the controls panel.
 - Below 900px, use the shared Image / Controls / Series / Inspector panel switcher, preserving viewer state. Hidden panels must not remain keyboard-focusable.
 - Verify desktop and short 390px/320px mobile: document scrollHeight must not exceed clientHeight, no horizontal overflow, and all panel content must be reachable by internal scrolling.
 

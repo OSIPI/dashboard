@@ -359,6 +359,11 @@
 					x = vx;
 					y = vy;
 				}}
+				onspatialselect={(vx, vy, vz) => {
+					x = vx;
+					y = vy;
+					slice = vz;
+				}}
 				ondisplay={setDisplay}
 				onreset={resetView}
 			>

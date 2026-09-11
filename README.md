@@ -14,7 +14,15 @@ The dashboard is frontend-only. The home page loads the public OSIPI TF2.4 acqui
 - Browse all 85 acquired volumes (including repeated b-values) in a searchable, filterable grid or list; inspect 56 native oblique slices with voxel selection, zoom, pan, window/level and reset.
 - Inspect the selected voxel's scaled NIfTI samples as a signal graph and accessible value table. No ground truth or parameter estimates are displayed.
 - Save voxel coordinates, b-value, slice and an optional note in this browser; restore or delete them locally. Restoring a voxel resets image display controls. Storage failures are reported in the interface.
-- DCE, DSC and ASL are selectable **unimplemented** workflows. User DICOM, NIfTI and BIDS import, parameter fitting, ROI averaging, freehand drawing and anatomical reconstruction are not implemented.
+- DCE, DSC and ASL are selectable **unimplemented** workflows. User DICOM, NIfTI and BIDS import, parameter fitting, ROI averaging, freehand drawing and segmented surface reconstruction are not implemented.
+
+### Linked 3D exploration
+
+Choose **3D + slices** to locate the active acquisition's voxels in axial, coronal and sagittal reformats alongside interactive 3D slice planes. Drag to orbit, Shift-drag to pan, scroll/pinch to zoom, and click a plane to select a voxel. Camera buttons provide keyboard-accessible rotation, zoom and reset. Slice views support arrow keys and Page Up/Down; **Move linked planes** exposes precise one-based native voxel controls. Mobile uses 3D/Axial/Coronal/Sagittal tabs.
+
+All views share the original voxel selection and acquired signal plot. Reformats use the original NIfTI RAS+ affine and nearest-neighbour display sampling; acquisition buffers and scaling remain unchanged. Switching back to native/montage viewing retains the selection. The 3D camera and spatial-view mode are session-only and are not included in workspace exports.
+
+The vtk.js renderer loads only when spatial viewing opens and releases its graphics resources on exit. WebGL 2 is required for 3D; linked 2D reformats remain usable without it. This milestone renders **slice planes**, not a segmented anatomy model or a volume-rendered scan. Volume rendering, named anatomy and advanced Slicer workflows are tracked in [issue #8](https://github.com/OSIPI/dashboard/issues/8).
 
 ### Exploration workspace (roadmap Section A)
 
@@ -26,7 +34,7 @@ The dashboard is frontend-only. The home page loads the public OSIPI TF2.4 acqui
 - **Auto 2–98%**, **Full range**, and **Dataset preset** adjust display only. Auto uses scaled intensities from the active volume, with an explicit current-slice/whole-volume scope. Linked display settings apply to every tile; the underlying samples never change.
 - **Export workspace** saves a JSON file containing selections, display states, layout, bookmarks, comparisons, filters and the draft note—not MRI data. Import checks dataset ID and sample checksum, validates every field, and asks before replacing the current workspace/notes. Files are limited to 100 KB. Export first to retain a previous workspace.
 
-`ViewerTile.svelte` owns image interactions for both single and montage views. `src/lib/workspace.ts` owns workspace validation, histogram-based auto windowing and shared scatter/CSV serialization; the same escaped SVG powers the inline chart, expanded chart and image exports. No extra runtime dependencies or backend are required.
+`ViewerTile.svelte` owns image interactions for both single and montage views. `src/lib/workspace.ts` owns workspace validation, histogram-based auto windowing and shared scatter/CSV serialization; the same escaped SVG powers the inline chart, expanded chart and image exports. Spatial geometry/reslicing lives in `src/lib/spatial.ts`, with the lazy-loaded vtk.js lifecycle in `src/lib/spatial-renderer.ts`. No backend is required.
 
 ### UI organization
 

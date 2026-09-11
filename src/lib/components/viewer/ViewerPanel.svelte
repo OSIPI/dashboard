@@ -3,6 +3,7 @@
 	import type { Dataset } from '$lib/ivim';
 	import { GRID_LAYOUTS, gridVolumes, type GridLayout, type Display } from '$lib/workspace';
 	import ViewerTile from '../ViewerTile.svelte';
+	import SpatialViewer from './SpatialViewer.svelte';
 	import CrosshairIcon from '~icons/lucide/crosshair';
 	import HandIcon from '~icons/lucide/hand';
 	import RotateCcwIcon from '~icons/lucide/rotate-ccw';
@@ -23,6 +24,7 @@
 		panel,
 		controls,
 		onselect,
+		onspatialselect,
 		ondisplay,
 		onreset
 	}: {
@@ -41,12 +43,14 @@
 		panel: string;
 		controls: Snippet;
 		onselect: (x: number, y: number) => void;
+		onspatialselect: (x: number, y: number, z: number) => void;
 		ondisplay: (view: Display, index: number) => void;
 		onreset: () => void;
 	} = $props();
 	let layoutMenu: HTMLDivElement;
 	let imageStage = $state<HTMLDivElement>();
 	let spacePan = $state(false);
+	let spatial = $state(false);
 	function startSpacePan(event: KeyboardEvent) {
 		if (
 			event.code !== 'Space' ||
@@ -117,9 +121,15 @@
 			class="button button-ghost"
 			popovertarget="grid-layout-menu"
 			aria-label="Choose view layout"
+			onclick={() => (spatial = false)}
 			><GridIcon class="size-4" />{montage ? 'Multiview' : 'Native view'} ▾</button
 		>
-		{#if gridPages > 1}<div class="flex items-center gap-1 text-xs">
+		<button
+			class="button button-ghost text-xs max-[899px]:h-11"
+			aria-pressed={spatial}
+			onclick={() => (spatial = !spatial)}>3D + slices</button
+		>
+		{#if !spatial && gridPages > 1}<div class="flex items-center gap-1 text-xs">
 				<button
 					class="button button-ghost"
 					aria-label="Previous grid page"
@@ -132,63 +142,85 @@
 					onclick={() => (active = selected[(gridPage + 1) * grid.capacity])}>›</button
 				>
 			</div>{/if}
+		{#if !spatial}<div
+				class="flex items-center gap-1 max-[899px]:ml-auto [&_.button]:px-2.5 [&_.button]:text-xs max-[899px]:[&_.button]:h-11 max-[899px]:[&_.button]:gap-1 max-[899px]:[&_.button]:px-1"
+			>
+				<button
+					class="button button-ghost"
+					aria-pressed={tool === 'inspect'}
+					onclick={() => (tool = 'inspect')}><CrosshairIcon class="size-4" />Voxel</button
+				>
+				<button
+					class="button button-ghost"
+					aria-pressed={tool === 'pan'}
+					title="Pan tool. Hold Space over an image to pan temporarily."
+					onclick={() => (tool = 'pan')}><HandIcon class="size-4" />Pan</button
+				>
+				<button class="button button-ghost" onclick={onreset}
+					><RotateCcwIcon class="size-4" />Reset</button
+				>
+			</div>{/if}
+	</div>
+	{#if spatial}
 		<div
-			class="flex items-center gap-1 max-[899px]:ml-auto [&_.button]:px-2.5 [&_.button]:text-xs max-[899px]:[&_.button]:h-11 max-[899px]:[&_.button]:gap-1 max-[899px]:[&_.button]:px-1"
+			class="min-h-0 flex-1 flex-col {panel === 'Controls' ? 'hidden min-[900px]:flex' : 'flex'}"
 		>
-			<button
-				class="button button-ghost"
-				aria-pressed={tool === 'inspect'}
-				onclick={() => (tool = 'inspect')}><CrosshairIcon class="size-4" />Voxel</button
-			>
-			<button
-				class="button button-ghost"
-				aria-pressed={tool === 'pan'}
-				title="Pan tool. Hold Space over an image to pan temporarily."
-				onclick={() => (tool = 'pan')}><HandIcon class="size-4" />Pan</button
-			>
-			<button class="button button-ghost" onclick={onreset}
-				><RotateCcwIcon class="size-4" />Reset</button
-			>
-		</div>
-	</div>
-	<div
-		bind:this={imageStage}
-		class="image-stage min-h-0 flex-1 bg-[#080808] text-[#e0e0e0] {panel === 'Controls'
-			? 'hidden min-[900px]:grid'
-			: 'grid'} {montage && grid.capacity
-			? 'auto-rows-[minmax(0,1fr)] grid-cols-[repeat(var(--grid-columns),minmax(0,1fr))] grid-rows-[repeat(var(--grid-rows),minmax(0,1fr))] gap-1 overflow-hidden'
-			: montage
-				? 'auto-rows-[minmax(190px,1fr)] grid-cols-[repeat(auto-fit,minmax(min(200px,100%),1fr))] gap-1 overflow-auto'
-				: 'overflow-auto'}"
-		style:--grid-columns={grid.columns}
-		style:--grid-rows={grid.rows}
-	>
-		{#each visible as index (index)}<div class="min-h-0 min-w-0">
-				<ViewerTile
-					volume={volumes[index]}
+			<svelte:boundary>
+				<SpatialViewer
 					{dataset}
-					{index}
-					{slice}
-					{x}
-					{y}
-					{tool}
-					temporaryPan={spacePan}
-					active={montage && index === active}
-					scrollable={montage}
-					view={linked ? display : (tiles[index] ?? display)}
-					onactivate={() => (active = index)}
-					{onselect}
-					onview={(v) => ondisplay(v, index)}
-					onlayout={() => layoutMenu.showPopover()}
+					volume={volumes[active]}
+					{active}
+					voxel={[x, y, slice]}
+					display={linked ? display : (tiles[active] ?? display)}
+					onselect={onspatialselect}
 				/>
-			</div>{/each}
-	</div>
+				{#snippet failed(error)}
+					<p role="alert" class="overflow-auto p-4 text-sm">
+						{error instanceof Error ? error.message : 'Spatial viewing is unavailable.'} Use Native view
+						to continue inspecting acquired slices.
+					</p>
+				{/snippet}
+			</svelte:boundary>
+		</div>
+	{:else}
+		<div
+			bind:this={imageStage}
+			class="image-stage min-h-0 flex-1 bg-[#080808] text-[#e0e0e0] {panel === 'Controls'
+				? 'hidden min-[900px]:grid'
+				: 'grid'} {montage && grid.capacity
+				? 'auto-rows-[minmax(0,1fr)] grid-cols-[repeat(var(--grid-columns),minmax(0,1fr))] grid-rows-[repeat(var(--grid-rows),minmax(0,1fr))] gap-1 overflow-hidden'
+				: montage
+					? 'auto-rows-[minmax(190px,1fr)] grid-cols-[repeat(auto-fit,minmax(min(200px,100%),1fr))] gap-1 overflow-auto'
+					: 'overflow-auto'}"
+			style:--grid-columns={grid.columns}
+			style:--grid-rows={grid.rows}
+		>
+			{#each visible as index (index)}<div class="min-h-0 min-w-0">
+					<ViewerTile
+						volume={volumes[index]}
+						{dataset}
+						{index}
+						{slice}
+						{x}
+						{y}
+						{tool}
+						temporaryPan={spacePan}
+						active={montage && index === active}
+						scrollable={montage}
+						view={linked ? display : (tiles[index] ?? display)}
+						onactivate={() => (active = index)}
+						{onselect}
+						onview={(v) => ondisplay(v, index)}
+						onlayout={() => layoutMenu.showPopover()}
+					/>
+				</div>{/each}
+		</div>
+	{/if}
 	<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 	<div
-		class="viewer-controls @container min-h-0 flex-[0_1_auto] space-y-4 overflow-auto overscroll-contain border-t p-4 max-[899px]:flex-1 min-[900px]:max-h-[48%] {panel ===
-		'Image'
-			? 'hidden min-[900px]:block'
-			: ''}"
+		class="viewer-controls @container min-h-0 flex-[0_1_auto] space-y-2 overflow-auto overscroll-contain border-t p-3 max-[899px]:flex-1 {spatial
+			? 'min-[900px]:max-h-[25%]'
+			: 'min-[900px]:max-h-[35%]'} {panel === 'Image' ? 'hidden min-[900px]:block' : ''}"
 		tabindex="0"
 		role="region"
 		aria-label="Image controls"
