@@ -38,17 +38,9 @@
 </script>
 
 <canvas
+	class="block size-full [image-rendering:pixelated]"
 	bind:this={canvas}
 	width={dataset.dimensions[0]}
 	height={dataset.dimensions[1]}
 	aria-label={label}>{label}</canvas
 >
-
-<style>
-	canvas {
-		display: block;
-		width: 100%;
-		height: 100%;
-		image-rendering: pixelated;
-	}
-</style>

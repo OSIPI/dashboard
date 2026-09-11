@@ -81,6 +81,8 @@
 	--color-border: var(--border);
 	--color-input: var(--input);
 	--color-ring: var(--ring);
+	--color-selection: var(--selection);
+	--color-selection-surface: var(--selection-surface);
 	--color-warning: var(--warning);
 	--color-warning-foreground: var(--warning-foreground);
 	--radius-sm: calc(var(--radius) - 4px);
@@ -113,30 +115,12 @@
 	a {
 		@apply focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none;
 	}
-}
-
-.app-shell {
-	display: flex;
-	flex-direction: column;
-	height: 100dvh;
-	overflow: hidden;
-	padding-left: env(safe-area-inset-left);
-	padding-right: env(safe-area-inset-right);
-	padding-bottom: env(safe-area-inset-bottom);
-}
-
-.route-surface {
-	flex: 1;
-	min-height: 0;
-	min-width: 0;
-	overflow: auto;
-	overscroll-behavior: contain;
-}
-
-.route-surface.viewer-route {
-	display: flex;
-	flex-direction: column;
-	overflow: hidden;
+	input[type='checkbox'] {
+		@apply border-border text-selection accent-selection;
+	}
+	input[type='checkbox']:not(:checked) {
+		@apply bg-background;
+	}
 }
 
 @layer components {
@@ -203,25 +187,4 @@ pre code {
 	max-width: 250px;
 	white-space: normal;
 	overflow-wrap: break-word;
-}
-
-.toaster {
-	margin-top: 60px;
-}
-
-.form-control-float {
-	@apply relative;
-}
-
-.form-control-float input {
-	@apply h-12 w-full rounded-md border-input bg-background px-3 pt-4 pb-1 text-foreground shadow-sm placeholder:text-muted-foreground focus:border-ring focus:ring-ring;
-}
-
-.form-control-float label {
-	@apply pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-sm text-muted-foreground transition-all duration-200;
-}
-
-.form-control-float input:focus-within ~ label,
-.form-control-float input:not(:placeholder-shown) ~ label {
-	@apply -translate-y-3/4 transform text-xs text-primary;
 }

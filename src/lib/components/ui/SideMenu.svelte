@@ -92,7 +92,10 @@
 	});
 </script>
 
-<div bind:this={containerElement} class="side-menu-container sm:hidden">
+<div
+	bind:this={containerElement}
+	class="[--menu-position:-256px] [--overlay-opacity:0] [--transition-duration:0.2s] sm:hidden [&>*]:transition-[transform,opacity] [&>*]:duration-[var(--transition-duration)] [&>*]:ease-out"
+>
 	<!-- Background overlay (max 60% opacity) -->
 	<div
 		class="pointer-events-none fixed inset-0 z-40 bg-foreground sm:hidden"
@@ -100,7 +103,7 @@
 	></div>
 
 	<nav
-		class="fixed top-0 bottom-0 left-0 z-50 grid w-64 grid-rows-[1fr_auto] overflow-hidden border-r bg-background p-4 shadow-lg sm:hidden"
+		class="fixed top-0 bottom-0 left-0 z-50 grid w-64 translate-x-[var(--menu-position)] touch-pan-y grid-rows-[1fr_auto] overflow-hidden border-r bg-background p-4 shadow-lg will-change-transform sm:hidden"
 	>
 		<div class="flex-1 overflow-y-auto pt-16">Content here</div>
 
@@ -118,23 +121,3 @@
 		></button>
 	{/if}
 </div>
-
-<style>
-	.side-menu-container {
-		--menu-position: -256px;
-		--overlay-opacity: 0;
-		--transition-duration: 0.2s;
-	}
-
-	.side-menu-container > * {
-		transition:
-			transform var(--transition-duration) ease-out,
-			opacity var(--transition-duration) ease-out;
-	}
-
-	nav {
-		transform: translateX(var(--menu-position));
-		touch-action: pan-y;
-		will-change: transform;
-	}
-</style>

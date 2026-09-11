@@ -24,10 +24,17 @@
 	}
 </script>
 
-<div class="precision-control">
-	<div class="control-heading"><span>{label}</span><span>{detail}</span></div>
-	<div class="control-inputs">
+<div
+	class="min-w-0 @min-[460px]:grid @min-[460px]:grid-cols-[110px_minmax(0,1fr)] @min-[460px]:items-center @min-[460px]:gap-3"
+>
+	<div
+		class="mb-1.5 flex justify-between gap-2 text-xs font-semibold @min-[460px]:mb-0 @min-[460px]:flex-col @min-[460px]:gap-0.5"
+	>
+		<span>{label}</span><span class="font-normal text-muted-foreground">{detail}</span>
+	</div>
+	<div class="flex items-center gap-3 max-[899px]:flex-wrap">
 		<input
+			class="w-full min-w-0 flex-1 accent-selection max-[899px]:h-7 max-[899px]:basis-full"
 			type="range"
 			aria-label={label}
 			{min}
@@ -36,16 +43,16 @@
 			{value}
 			oninput={(event) => commit(event.currentTarget)}
 		/>
-		<div class="stepper">
+		<div class="flex items-center gap-0.5 max-[899px]:w-full">
 			<button
-				class="button button-ghost"
+				class="button button-ghost w-8 px-0 text-lg max-[899px]:size-11"
 				aria-label="Decrease {label}"
 				disabled={value <= min}
 				onclick={() => onchange(boundedNumber(String(value - step), value, min, max, step))}
 				>-</button
 			>
 			<input
-				class="input"
+				class="input appearance-[textfield] w-[100px] p-1.5 text-right text-xs tabular-nums max-[899px]:h-11 max-[899px]:flex-1 [&::-webkit-inner-spin-button]:appearance-none"
 				type="number"
 				aria-label="{label} value"
 				{min}
@@ -59,7 +66,7 @@
 				}}
 			/>
 			<button
-				class="button button-ghost"
+				class="button button-ghost w-8 px-0 text-lg max-[899px]:size-11"
 				aria-label="Increase {label}"
 				disabled={value >= max}
 				onclick={() => onchange(boundedNumber(String(value + step), value, min, max, step))}
@@ -68,86 +75,3 @@
 		</div>
 	</div>
 </div>
-
-<style>
-	.precision-control {
-		min-width: 0;
-	}
-	.control-heading {
-		display: flex;
-		justify-content: space-between;
-		gap: 8px;
-		font-size: 12px;
-		font-weight: 600;
-		margin-bottom: 6px;
-	}
-	.control-heading span:last-child {
-		color: var(--muted-foreground);
-		font-weight: 400;
-	}
-	.control-inputs {
-		display: flex;
-		align-items: center;
-		gap: 12px;
-	}
-	input[type='range'] {
-		min-width: 0;
-		width: 100%;
-		flex: 1;
-		accent-color: var(--selection);
-	}
-	.stepper {
-		display: flex;
-		align-items: center;
-		gap: 2px;
-	}
-	.stepper button {
-		width: 32px;
-		padding: 0;
-		font-size: 18px;
-	}
-	input[type='number'] {
-		width: 100px;
-		padding: 6px;
-		text-align: right;
-		font-size: 12px;
-		font-variant-numeric: tabular-nums;
-		appearance: textfield;
-	}
-	input::-webkit-inner-spin-button {
-		appearance: none;
-	}
-	@container (min-width: 460px) {
-		.precision-control {
-			display: grid;
-			grid-template-columns: 110px minmax(0, 1fr);
-			align-items: center;
-			gap: 12px;
-		}
-		.control-heading {
-			flex-direction: column;
-			gap: 2px;
-			margin-bottom: 0;
-		}
-	}
-	@media (max-width: 899px) {
-		.control-inputs {
-			flex-wrap: wrap;
-		}
-		input[type='range'] {
-			flex-basis: 100%;
-			height: 28px;
-		}
-		.stepper {
-			width: 100%;
-		}
-		.stepper button {
-			width: 44px;
-			height: 44px;
-		}
-		input[type='number'] {
-			flex: 1;
-			height: 44px;
-		}
-	}
-</style>
