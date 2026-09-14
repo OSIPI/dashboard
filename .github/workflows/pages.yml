@@ -78,6 +78,11 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Prepare public demo data
+        run: |
+          python3 -m pip install --disable-pip-version-check numpy==2.3.5 nibabel==5.3.3
+          python3 scripts/prepare_ivim.py
+
       - name: Verify release baseline
         run: |
           git merge-base --is-ancestor v0.0.1 HEAD
