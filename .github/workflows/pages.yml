@@ -1,36 +1,44 @@
-name: Deploy GitHub Pages
+name: Check, release and deploy
 
 on:
+  pull_request:
+    branches: [main]
   push:
-    branches:
-      - main
+    branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
-  group: pages
+  group: release-pages-${{ github.event.pull_request.number || 'main' }}
   cancel-in-progress: false
 
 jobs:
-  build:
+  checks:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate Conventional Commit title
+        if: github.event_name == 'pull_request'
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          node -e 'const title = process.env.PR_TITLE ?? ""; if (!/^(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)(\([^)]+\))?(!)?: .+/.test(title)) { console.error(`PR title is not a Conventional Commit: ${title}`); process.exit(1); }'
+
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
 
       - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          bun-version: latest
-
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
-        with:
-          enablement: true
+          bun-version: 1.4.0
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -38,21 +46,97 @@ jobs:
       - name: Check
         run: bun run check
 
+      - name: Test
+        run: bun test
+
       - name: Build
         run: bun run build
 
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+  release:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: checks
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.4.0
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Verify release baseline
+        run: |
+          git merge-base --is-ancestor v0.0.1 HEAD
+
+      - name: Release or determine no release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bun run release
+
+      - name: Recover interrupted release or build unreleased revision
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APP_SHA: ${{ github.sha }}
+        run: |
+          if test -f build/index.html; then exit 0; fi
+          mapfile -t release_tags < <(git tag --points-at HEAD --list 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$' || true)
+          if (( ${#release_tags[@]} > 1 )); then
+            echo "Multiple release tags point at HEAD; refusing to choose one." >&2
+            exit 1
+          fi
+          if (( ${#release_tags[@]} == 1 )); then
+            tag="${release_tags[0]}"
+            archive="osipy-${tag}.tar.gz"
+            if gh release view "$tag" >/dev/null 2>&1; then
+              mkdir -p recovery
+              if gh release download "$tag" --pattern "$archive" --dir recovery; then
+                rm -rf build
+                mkdir build
+                tar -xzf "recovery/$archive" -C build
+              else
+                APP_VERSION="$tag" bun run build
+                tar -czf "$archive" -C build .
+                gh release upload "$tag" "$archive#Production site artifact" --clobber
+              fi
+            else
+              APP_VERSION="$tag" bun run build
+              tar -czf "$archive" -C build .
+              gh release create "$tag" "$archive#Production site artifact" --verify-tag --generate-notes --title "$tag"
+            fi
+          else
+            bun run build
+          fi
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
         with:
           path: build
 
   deploy:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
-    needs: build
+    needs: release
+    permissions:
+      pages: write
+      id-token: write
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4

@@ -28,6 +28,10 @@
 - Run focused ESLint and Prettier checks for changed files; do not modify unrelated files solely to clear existing repo-wide lint debt.
 - Smoke-test changed UI at desktop and mobile widths.
 
+## Releases
+
+- Follow [docs/releases.md](docs/releases.md); tags are version truth.
+
 ## App Shell
 
 - The document never scrolls: the root layout owns `h-dvh`, safe-area padding and hidden overflow. Other routes scroll only inside the layout's inner route container.

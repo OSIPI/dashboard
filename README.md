@@ -145,7 +145,7 @@ If you use OSIPY Dashboard in your work, cite it using the metadata in [CITATION
 
 ## Project Practices
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the contribution workflow, [SECURITY.md](SECURITY.md) for vulnerability reporting, [GOVERNANCE.md](GOVERNANCE.md) for decision-making and handover expectations, and [docs/release.md](docs/release.md) for release notes.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the contribution workflow, [SECURITY.md](SECURITY.md) for vulnerability reporting, [GOVERNANCE.md](GOVERNANCE.md) for decision-making and handover expectations, and [docs/releases.md](docs/releases.md) for release automation.
 
 ## License
 

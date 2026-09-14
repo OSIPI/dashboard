@@ -19,6 +19,8 @@
 
 <svelte:head>
 	<link rel="icon" href={favicon} />
+	<meta name="application-version" content={__APP_VERSION__} />
+	<meta name="build-sha" content={__BUILD_SHA__} />
 </svelte:head>
 
 <div

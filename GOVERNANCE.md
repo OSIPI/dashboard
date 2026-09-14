@@ -26,6 +26,6 @@ For decisions made in meetings or chat, summarize the outcome in an issue, pull 
 Before a maintainer leaves or changes role, update:
 
 - Architecture decision records in `docs/decisions/`.
-- Release and deployment documentation in `docs/release.md`.
+- Release and deployment documentation in `docs/releases.md`.
 - Open issues, milestones, and known risks.
 - Any external service, package, deployment, or data access notes.
