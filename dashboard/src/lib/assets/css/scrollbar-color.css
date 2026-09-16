@@ -1,17 +1,22 @@
+* {
+	scrollbar-width: thin;
+	scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+
 ::-webkit-scrollbar {
-	width: 8px;
+	width: 7px;
+	height: 7px;
 }
 
 ::-webkit-scrollbar-track {
-	@apply bg-background;
-	border-radius: 2px;
+	background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-	@apply bg-border;
-	border-radius: 2px;
+	background: var(--scrollbar-thumb);
+	border-radius: 999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-	@apply bg-muted-foreground/40;
+	background: var(--scrollbar-thumb-hover);
 }

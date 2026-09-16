@@ -85,13 +85,13 @@
 		></span>
 		<span class="pointer-events-none absolute inset-x-0 h-px bg-selection/70" style:top="{v * 100}%"
 		></span>
-		<span class="pointer-events-none absolute top-1/2 -left-3 -translate-y-1/2 text-[10px]"
+		<span class="pointer-events-none absolute top-1/2 -left-3 -translate-y-1/2 text-xs"
 			>{edges[0]}</span
 		>
-		<span class="pointer-events-none absolute top-1/2 -right-3 -translate-y-1/2 text-[10px]"
+		<span class="pointer-events-none absolute top-1/2 -right-3 -translate-y-1/2 text-xs"
 			>{edges[1]}</span
 		>
-		<span class="pointer-events-none absolute -top-3 left-1/2 text-[10px]">{edges[2]}</span>
-		<span class="pointer-events-none absolute -bottom-3 left-1/2 text-[10px]">{edges[3]}</span>
+		<span class="pointer-events-none absolute -top-3 left-1/2 text-xs">{edges[2]}</span>
+		<span class="pointer-events-none absolute -bottom-3 left-1/2 text-xs">{edges[3]}</span>
 	</button>
 </div>

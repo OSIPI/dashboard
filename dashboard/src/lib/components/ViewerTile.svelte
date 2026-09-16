@@ -248,11 +248,11 @@
 			>{/if}
 	</div>
 	<span
-		class="pointer-events-none absolute top-1.5 right-2 left-2 text-left font-mono text-[10px] leading-normal [text-shadow:0_1px_3px_#000]"
+		class="pointer-events-none absolute top-1.5 right-2 left-2 text-left font-mono text-xs leading-normal [text-shadow:0_1px_3px_#000]"
 		>Vol {index + 1} · b {dataset.bValues[index]} s/mm²</span
 	>
 	<span
-		class="pointer-events-none absolute right-2 bottom-1.5 left-2 text-left font-mono text-[10px] leading-normal [text-shadow:0_1px_3px_#000]"
+		class="pointer-events-none absolute right-2 bottom-1.5 left-2 text-left font-mono text-xs leading-normal [text-shadow:0_1px_3px_#000]"
 		>Slice {slice + 1}/{dataset.dimensions[2]} · ({x}, {y}, {slice}) · {view.zoom.toFixed(1)}×</span
 	>
 </button>

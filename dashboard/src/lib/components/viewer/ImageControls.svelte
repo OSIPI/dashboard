@@ -75,6 +75,7 @@
 		<NumericControl
 			compact
 			label="Window"
+			kind="slider"
 			value={display.width}
 			min={minimumWindow(dataset)}
 			max={2 * (dataset.signalRange[1] - dataset.signalRange[0])}
@@ -85,6 +86,7 @@
 		<NumericControl
 			compact
 			label="Level"
+			kind="slider"
 			value={display.center}
 			min={dataset.signalRange[0]}
 			max={dataset.signalRange[1]}

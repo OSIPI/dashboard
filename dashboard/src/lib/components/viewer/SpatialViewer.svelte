@@ -78,7 +78,7 @@
 	aria-label="Linked spatial viewer"
 >
 	<div
-		class="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-white/15 px-3 py-1 text-[11px]"
+		class="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-white/15 px-3 py-1 text-xs"
 	>
 		<span>Volume {active + 1} · b={dataset.bValues[active]}</span>
 		<span class="text-[#a5a5a5]">RAS+ · nearest-neighbour</span>
@@ -128,7 +128,7 @@
 					onclick={() => engine?.zoom(1.2)}>+</button
 				>
 				<button
-					class="button button-ghost h-8 px-2 text-[11px] max-[899px]:h-11"
+					class="button button-ghost h-8 px-2 text-xs max-[899px]:h-11"
 					disabled={!engine}
 					onclick={() => engine?.reset()}>Reset 3D</button
 				>
@@ -150,7 +150,7 @@
 						Loading 3D renderer…
 					</p>{/if}
 			</div>
-			<p class="shrink-0 px-2 py-1 text-[10px] text-[#a5a5a5]">
+			<p class="shrink-0 px-2 py-1 text-xs text-muted-foreground">
 				<span class="max-[899px]:hidden"
 					>Drag: orbit · Shift-drag: pan · scroll: zoom · click plane: voxel</span
 				>
@@ -201,7 +201,7 @@
 					}}
 				/>
 			{/each}
-			<p class="text-[11px] text-muted-foreground">
+			<p class="text-xs text-muted-foreground">
 				Original voxel indices (1-based). Slice arrow keys move in-plane; Page Up/Down steps through
 				the plane. Signal plots always use original acquired samples.
 			</p>

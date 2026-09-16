@@ -40,7 +40,7 @@
 		disabled={bookmarks.length >= 30}
 		onclick={onsave}>Save voxel + note</button
 	>
-	<p class="mt-2 text-[10px] leading-4 text-muted-foreground" role="status">{message}</p>
+	<p class="mt-2 text-xs text-muted-foreground" role="status">{message}</p>
 	<div class="mt-3 space-y-2">
 		<p class="text-xs text-muted-foreground">
 			Compare up to four saved voxels with the current voxel.
@@ -62,10 +62,10 @@
 						>Vol {view.b + 1} · b {dataset.bValues[view.b]} · Slice {view.z + 1} · ({view.x}, {view.y})</span
 					><span class="mt-1 block break-words text-muted-foreground"
 						>{view.note || 'Saved voxel'}</span
-					><span class="mt-1 block text-[10px] text-primary">Restore selection</span></button
+					><span class="mt-1 block text-xs text-primary">Restore selection</span></button
 				>
 				<button
-					class="mt-2 text-[10px] text-muted-foreground underline hover:text-destructive"
+					class="mt-2 text-xs text-muted-foreground underline hover:text-destructive"
 					aria-label="Delete saved voxel {view.note || view.id}"
 					onclick={() => ondelete(view.id)}>Delete</button
 				>
