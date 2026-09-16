@@ -1,6 +1,6 @@
 # Changelog
 
-Published changes are generated from Conventional Commits and recorded in [GitHub Releases](https://github.com/OSIPI/dashboard/releases). Git tags are version truth; automation does not generate changelog commits.
+Local releases prepend dated, categorized notes from Conventional Commits here. Annotated Git tags identify released versions; package and research metadata are updated in the same release commit.
 
 This project follows semantic versioning where practical during active development.
 
