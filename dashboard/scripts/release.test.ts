@@ -1,5 +1,12 @@
 import { expect, test } from 'bun:test';
-import { analyze, nextVersion, prependNotes, versionFiles, validateRetryContent } from './release';
+import {
+	analyze,
+	nextVersion,
+	prependNotes,
+	versionFiles,
+	validateRetryContent,
+	validateRemoteTags
+} from './release';
 
 const commit = (message: string) => ({ hash: 'abcdef123456', message });
 
@@ -78,8 +85,33 @@ test('retry accepts only original or generated content; committed releases requi
 	).not.toThrow();
 });
 
+test('all local and remote release tags must match exactly', () => {
+	const refs = new Map([
+		['refs/heads/main', 'main'],
+		['refs/tags/v1.0.0', 'tag-object'],
+		['refs/tags/v1.0.0^{}', 'tag-commit']
+	]);
+	const local = (ref: string) => refs.get(ref)!;
+	expect(() => validateRemoteTags(['v1.0.0'], refs, local)).not.toThrow();
+	expect(() => validateRemoteTags(['v1.0.0', 'v1.1.0'], refs, local)).toThrow('missing');
+	expect(() => validateRemoteTags(['v1.0.0', 'v1.1.0'], refs, local, 'v1.1.0')).not.toThrow();
+	expect(() =>
+		validateRemoteTags(
+			['v1.0.0'],
+			new Map([
+				['refs/tags/v1.0.0', 'tag-object'],
+				['refs/tags/v2.0.0', 'other']
+			]),
+			local
+		)
+	).toThrow('Fetch');
+	expect(() =>
+		validateRemoteTags(['v1.0.0'], new Map([['refs/tags/v1.0.0', 'different']]), local)
+	).toThrow('matching');
+});
+
 // All publication effects below are in-memory fakes; no Git writes or GitHub calls.
-import { mkdtempSync, writeFileSync, readFileSync, rmSync, readdirSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, rmSync, readdirSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -274,8 +306,25 @@ type Workflow = {
 		}
 	>;
 };
-const workflowPath = new URL('../.github/workflows/', import.meta.url);
+const repositoryRoot = new URL('../../', import.meta.url);
+const workflowPath = new URL('.github/workflows/', repositoryRoot);
 const pages = Bun.YAML.parse(readFileSync(new URL('pages.yml', workflowPath), 'utf8')) as Workflow;
+
+test('repository root owns release entry points and documents all release effects', () => {
+	const makefile = readFileSync(new URL('Makefile', repositoryRoot), 'utf8');
+	expect(makefile).toContain('release:');
+	expect(makefile).toContain('bun dashboard/scripts/release.ts');
+	expect(makefile).toContain('release-dry-run:');
+	const agents = readFileSync(new URL('AGENTS.md', repositoryRoot), 'utf8');
+	for (const requirement of [
+		'clean, current `main`',
+		'Conventional Commits',
+		'`chore(release): vX.Y.Z`',
+		'annotated `vX.Y.Z` tag',
+		'Never run `make release` without explicit authorization'
+	])
+		expect(agents).toContain(requirement);
+});
 
 test('Actions never build; Pages only deploys verified tag assets with least privilege', () => {
 	for (const name of readdirSync(workflowPath)) {
@@ -386,6 +435,9 @@ test('release structure preserves local gates, freezes before commit and atomica
 		source.indexOf('publishRelease(state, save)')
 	);
 	expect(source).toContain('state?.complete &&');
+	expect(source).toMatch(
+		/const lock = resolve\([\s\S]{0,120}git\('rev-parse', '--absolute-git-dir'\)[\s\S]{0,120}'dashboard-release\.lock'/
+	);
 });
 
 test('dry-run uses only read-only Git calls, leaves files/index/receipts untouched and lists publication', () => {
@@ -432,6 +484,40 @@ test('dry-run uses only read-only Git calls, leaves files/index/receipts untouch
 		])
 			expect(result.stdout).toContain(step);
 		expect(snapshot()).toEqual(before);
+	} finally {
+		rmSync(directory, { recursive: true });
+	}
+});
+
+test('dry-run reads authoritative versions from dashboard in a monorepo', () => {
+	const directory = mkdtempSync(join(tmpdir(), 'dashboard-monorepo-release-test-'));
+	const script = new URL('./release.ts', import.meta.url).pathname;
+	try {
+		mkdirSync(join(directory, 'dashboard'));
+		writeFileSync(join(directory, 'dashboard/package.json'), '{"version":"0.0.1"}\n');
+		writeFileSync(join(directory, 'dashboard/codemeta.json'), '{"softwareVersion":"0.0.1"}\n');
+		writeFileSync(
+			join(directory, 'dashboard/CITATION.cff'),
+			"cff-version: 1.2.0\nversion: '0.0.1'\n"
+		);
+		writeFileSync(join(directory, 'dashboard/CHANGELOG.md'), '# Changelog\n\n## Unreleased\n');
+		execFileSync('git', ['init', '-b', 'main'], { cwd: directory });
+		execFileSync('git', ['config', 'user.name', 'Release Test'], { cwd: directory });
+		execFileSync('git', ['config', 'user.email', 'release@example.invalid'], { cwd: directory });
+		execFileSync('git', ['add', '.'], { cwd: directory });
+		execFileSync('git', ['commit', '-m', 'chore: baseline'], { cwd: directory });
+		execFileSync('git', ['tag', '-a', 'v0.0.1', '-m', 'baseline'], { cwd: directory });
+		writeFileSync(join(directory, 'dashboard/feature.txt'), 'feature\n');
+		execFileSync('git', ['add', '.'], { cwd: directory });
+		execFileSync('git', ['commit', '-m', 'feat: add dashboard feature'], { cwd: directory });
+		const result = spawnSync(process.execPath, [script, '--dry-run'], {
+			cwd: directory,
+			encoding: 'utf8'
+		});
+		expect(result.stderr).toBe('');
+		expect(result.status).toBe(0);
+		expect(result.stdout).toContain('v0.0.1 → v0.1.0');
+		expect(result.stdout).toContain('## 0.1.0 - ');
 	} finally {
 		rmSync(directory, { recursive: true });
 	}

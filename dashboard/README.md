@@ -16,13 +16,13 @@ bun install
 bun run dev
 ```
 
-The app opens at <http://localhost:60010>. You can also use the dashboard-local tooling for now:
+The app opens at <http://localhost:60010>. You can also use the dashboard-local development tooling:
 
 ```sh
 make dev
 ```
 
-Repository-wide Make and Docker Compose tooling will be introduced after the backend is added.
+The root Makefile delegates development here and owns the release entry points. Docker Compose remains dashboard-local until the backend is added.
 
 ## Data
 

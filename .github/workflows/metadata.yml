@@ -12,25 +12,29 @@ jobs:
   metadata:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
 
       - name: Check required repository files
         run: |
           test -f LICENSE
           test -f README.md
-          test -f CITATION.cff
-          test -f .zenodo.json
-          test -f codemeta.json
-          test -f CONTRIBUTING.md
-          test -f SECURITY.md
-          test -f GOVERNANCE.md
-          test -f CODE_OF_CONDUCT.md
-          test -f CHANGELOG.md
+          test -f AGENTS.md
+          test -f Makefile
+          test -f dashboard/CITATION.cff
+          test -f dashboard/.zenodo.json
+          test -f dashboard/codemeta.json
+          test -f dashboard/CONTRIBUTING.md
+          test -f dashboard/SECURITY.md
+          test -f dashboard/GOVERNANCE.md
+          test -f dashboard/CODE_OF_CONDUCT.md
+          test -f dashboard/CHANGELOG.md
 
       - name: Validate JSON metadata
         run: |
-          python -m json.tool .zenodo.json > /dev/null
-          python -m json.tool codemeta.json > /dev/null
+          python -m json.tool dashboard/.zenodo.json > /dev/null
+          python -m json.tool dashboard/codemeta.json > /dev/null
 
       - name: Check package metadata
         run: |
@@ -38,7 +42,7 @@ jobs:
           import json
           import pathlib
 
-          package = json.loads(pathlib.Path("package.json").read_text())
+          package = json.loads(pathlib.Path("dashboard/package.json").read_text())
           assert package["name"] == "osipy-dashboard"
           assert package["license"] == "MIT"
           assert package["repository"]["url"] == "git+https://github.com/OSIPI/dashboard.git"

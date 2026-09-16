@@ -8,12 +8,19 @@ This repository contains the OSIPY web platform.
 ## Dashboard development
 
 ```sh
-cd dashboard
-bun install
-bun run dev
+make dev
 ```
 
-The dashboard is available at <http://localhost:60010>. Its existing Makefile and Docker Compose setup remain inside `dashboard/` until repository-wide tooling is introduced.
+The dashboard is available at <http://localhost:60010>.
+
+## Releases
+
+```sh
+make release-dry-run
+make release
+```
+
+Use the dry run to preview the intentional local release workflow. See [docs/releases.md](docs/releases.md); a real release requires explicit authorization because it commits, tags, pushes, and publishes.
 
 ## License
 

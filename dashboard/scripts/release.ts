@@ -100,6 +100,28 @@ export function validateRetryContent(
 		throw new Error(`Unexpected edits in ${file}; refusing overwrite`);
 }
 
+export function validateRemoteTags(
+	tags: string[],
+	refs: Map<string, string>,
+	localSha: (ref: string) => string,
+	pendingTag?: string
+) {
+	const local = new Set(tags);
+	for (const tag of tags) {
+		const ref = `refs/tags/${tag}`;
+		const remote = refs.get(ref);
+		if (!remote && tag === pendingTag) continue;
+		if (!remote) throw new Error(`Remote is missing local release tag ${tag}`);
+		if (localSha(ref) !== remote) throw new Error(`Fetch matching remote tag first: ${ref}`);
+	}
+	for (const ref of refs.keys()) {
+		if (!ref.startsWith('refs/tags/')) continue;
+		const tag = ref.slice('refs/tags/'.length).replace(/\^\{}$/, '');
+		if (!local.has(tag)) throw new Error(`Fetch matching remote tag first: refs/tags/${tag}`);
+		if (localSha(ref) !== refs.get(ref)) throw new Error(`Fetch matching remote tag first: ${ref}`);
+	}
+}
+
 function git(...args: string[]) {
 	return execFileSync('git', args, {
 		encoding: 'utf8',
@@ -275,7 +297,9 @@ export function publishRelease(state: State, save: () => void, gh: Github = gith
 }
 
 export function release(dry: boolean) {
-	process.chdir(git('rev-parse', '--show-toplevel'));
+	const root = git('rev-parse', '--show-toplevel');
+	process.chdir(resolve(root, 'dashboard'));
+	const gitFiles = Object.fromEntries(files.map((file) => [file, `dashboard/${file}`]));
 	const statePath = git('rev-parse', '--git-path', 'dashboard-release.json');
 	let state: State | undefined = existsSync(statePath)
 		? JSON.parse(readFileSync(statePath, 'utf8'))
@@ -352,10 +376,7 @@ export function release(dry: boolean) {
 	const base = state?.base ?? head;
 	if (refs.get('refs/heads/main') !== base && !(state && refs.get('refs/heads/main') === head))
 		throw new Error('main must equal live OSIPI/dashboard main (or saved release base on retry)');
-	for (const [ref, sha] of refs) {
-		if (ref.startsWith('refs/tags/') && git('rev-parse', ref) !== sha)
-			throw new Error(`Fetch matching remote tag first: ${ref}`);
-	}
+	validateRemoteTags(tags, refs, (ref) => git('rev-parse', ref), state && `v${state.version}`);
 	if (!state && dirty)
 		throw new Error('Release requires clean tracked, staged and untracked files');
 	if (!version) {
@@ -380,7 +401,7 @@ export function release(dry: boolean) {
 		(git('rev-parse', 'HEAD^') !== base || git('log', '-1', '--format=%B') !== message)
 	)
 		throw new Error('HEAD changed during release; inspect saved release state');
-	const allowed = new Set(files);
+	const allowed = new Set(Object.values(gitFiles));
 	const changed = [
 		...git('diff', '--name-only', base).split('\n'),
 		...git('diff', '--cached', '--name-only').split('\n'),
@@ -393,12 +414,12 @@ export function release(dry: boolean) {
 		validateRetryContent(file, content, before[file], after[file], committed);
 		validateRetryContent(
 			file,
-			git('show', `:${file}`),
+			git('show', `:${gitFiles[file]}`),
 			before[file].trim(),
 			after[file].trim(),
 			committed
 		);
-		if (committed && git('show', `HEAD:${file}`) !== after[file].trim())
+		if (committed && git('show', `HEAD:${gitFiles[file]}`) !== after[file].trim())
 			throw new Error(`Release commit mismatch: ${file}`);
 	}
 	const tagExists = git('tag', '--list', tag) === tag;
@@ -418,7 +439,7 @@ export function release(dry: boolean) {
 	for (const file of files) writeFileSync(file, after[file]);
 	if (!state.archive) {
 		if (state.pushed || state.releaseId) throw new Error('Missing frozen archive checkpoint');
-		const python = process.env.RELEASE_PYTHON ?? '../osipy/.venv/bin/python';
+		const python = process.env.RELEASE_PYTHON ?? '../../osipy/.venv/bin/python';
 		run('bun', ['run', 'check']);
 		run('bun', ['test']);
 		run(python, ['-m', 'unittest', 'discover', '-s', 'companion']);
@@ -442,7 +463,7 @@ export function release(dry: boolean) {
 		if (readFileSync(file, 'utf8') !== after[file]) throw new Error(`Checks changed ${file}`);
 		validateRetryContent(
 			file,
-			git('show', `:${file}`),
+			git('show', `:${gitFiles[file]}`),
 			before[file].trim(),
 			after[file].trim(),
 			committed
@@ -530,7 +551,7 @@ if (import.meta.main) {
 		if (process.argv.slice(2).some((arg) => arg !== '--dry-run'))
 			throw new Error('Usage: bun scripts/release.ts [--dry-run]');
 		const dry = process.argv.includes('--dry-run');
-		const lock = git('rev-parse', '--git-path', 'dashboard-release.lock');
+		const lock = resolve(git('rev-parse', '--absolute-git-dir'), 'dashboard-release.lock');
 		if (!dry) mkdirSync(lock);
 		try {
 			release(dry);
