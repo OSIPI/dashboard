@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import ChartScatterIcon from '~icons/lucide/chart-scatter';
-	import ExpandIcon from '~icons/lucide/expand';
+	import XIcon from '~icons/lucide/x';
+	import ChevronDownIcon from '~icons/lucide/chevron-down';
+	import ChevronRightIcon from '~icons/lucide/chevron-right';
 	import DownloadIcon from '~icons/lucide/download';
 	import TableIcon from '~icons/lucide/table-2';
 	import type { Dataset, Bookmark, VoxelVolume } from '$lib/ivim';
@@ -20,6 +22,7 @@
 		compared,
 		fit,
 		roiMean,
+		open = $bindable(true),
 		valuesOpen = $bindable(false),
 		onerror
 	}: {
@@ -33,6 +36,7 @@
 		compared: string[];
 		fit?: FitResult;
 		roiMean?: SignalSeries;
+		open: boolean;
 		valuesOpen: boolean;
 		onerror: (message: string) => void;
 	} = $props();
@@ -115,28 +119,46 @@
 
 {#snippet plot(expanded = false)}
 	<!-- chartSvg escapes user/dataset text and emits controlled SVG; never interpolate external markup. -->
-	<div class="chart-svg [&_svg]:block [&_svg]:h-auto [&_svg]:w-full">
+	<span
+		class="chart-svg block [&_svg]:block [&_svg]:h-auto [&_svg]:w-full {expanded
+			? 'mx-auto max-w-[800px] min-w-[720px]'
+			: ''}"
+	>
 		<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 		{@html expanded ? chart : preview}
-	</div>
+	</span>
 {/snippet}
-<section class="card overflow-hidden">
+<section class="card overflow-hidden {open ? '' : '[&>*:not(:first-child)]:hidden'}">
 	<div class="p-3 pb-1">
-		<div class="flex items-center justify-between gap-2">
-			<div>
-				<h2 class="flex items-center gap-2 text-sm font-semibold">
-					<ChartScatterIcon class="size-4 shrink-0" aria-hidden="true" />Voxel signal
-				</h2>
-				<p class="mt-0.5 text-xs text-muted-foreground tabular-nums" aria-label="Voxel coordinates">
-					({x}, {y}, {slice})
-				</p>
-			</div>
-			<button class="button button-ghost px-2 text-xs" onclick={() => dialog.showModal()}
-				><ExpandIcon class="size-4 shrink-0" aria-hidden="true" />Expand chart</button
+		<h2>
+			<button
+				type="button"
+				class="flex min-h-8 w-full items-center gap-2 rounded-md text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring max-[899px]:min-h-11"
+				aria-label="{open ? 'Collapse' : 'Expand'} voxel signal panel"
+				aria-expanded={open}
+				onclick={() => (open = !open)}
 			>
-		</div>
+				<ChartScatterIcon class="size-4 shrink-0" aria-hidden="true" />
+				<span class="min-w-0">
+					<span class="block text-sm font-semibold">Voxel signal</span>
+					<span
+						class="mt-0.5 block text-xs font-normal text-muted-foreground tabular-nums {open
+							? ''
+							: 'hidden'}"
+						aria-label="Voxel coordinates"
+					>
+						({x}, {y}, {slice})
+					</span>
+				</span>
+				{#if open}<ChevronDownIcon class="ml-auto size-4" />{:else}<ChevronRightIcon
+						class="ml-auto size-4"
+					/>{/if}
+			</button>
+		</h2>
 		<p
-			class="mt-2 flex flex-wrap items-baseline gap-x-2 text-base font-semibold text-selection tabular-nums"
+			class="mt-2 flex-wrap items-baseline gap-x-2 text-base font-semibold text-selection tabular-nums {open
+				? 'flex'
+				: 'hidden'}"
 		>
 			{signals[active].toFixed(1)} a.u.
 			<span class="text-xs font-normal text-muted-foreground"
@@ -144,7 +166,16 @@
 			>
 		</p>
 	</div>
-	{@render plot()}
+	<button
+		type="button"
+		class="block w-full cursor-zoom-in text-left focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
+		aria-label="Expand voxel signal chart"
+		aria-haspopup="dialog"
+		title="Expand chart"
+		onclick={() => dialog.showModal()}
+	>
+		{@render plot()}
+	</button>
 	<div class="px-3 pb-3 text-xs">
 		<div class="mb-2 rounded-md bg-muted/50 px-2.5 py-2 text-muted-foreground">
 			{#if fitted}
@@ -204,7 +235,7 @@
 </section>
 <dialog
 	bind:this={dialog}
-	class="m-auto max-h-[calc(100dvh-24px)] w-[min(1000px,calc(100vw-24px))] overflow-auto rounded-xl border bg-card p-0 text-foreground backdrop:bg-black/65"
+	class="m-auto max-h-[calc(100dvh-24px)] w-[min(900px,calc(100vw-24px))] overflow-hidden rounded-xl border bg-card p-0 text-foreground backdrop:bg-black/65"
 	aria-labelledby="chart-title"
 >
 	<div class="flex flex-wrap items-center justify-between gap-2 border-b p-3">
@@ -216,19 +247,33 @@
 				({x}, {y}, {slice}) · {signals.length} acquisitions
 			</p>
 		</div>
-		<form method="dialog"><button class="button button-outline">Close chart</button></form>
+		<form method="dialog">
+			<button
+				class="button button-ghost button-icon size-11"
+				aria-label="Close chart"
+				title="Close chart"><XIcon class="size-5" aria-hidden="true" /></button
+			>
+		</form>
 	</div>
 	<div class="min-h-0 overflow-auto">
-		<div class="flex flex-wrap gap-2 p-3">
-			<button class="button button-outline" onclick={() => exportChart(false)}>Export SVG</button
-			><button class="button button-outline" disabled={pngBusy} onclick={() => exportChart(true)}
-				>Export PNG</button
-			><button class="button button-outline" onclick={exportCsv}>Current voxel CSV</button>
+		<div class="overflow-x-auto p-3 sm:p-4">
+			{@render plot(true)}
 		</div>
-		{@render plot(true)}
-		<p class="p-3 text-xs text-muted-foreground">
-			Acquisitions remain separate; spatial ROI means are labelled. No jitter. A model curve appears
-			only for an actual fit. Larger markers identify the active volume.
-		</p>
+		<div
+			class="flex flex-col gap-3 border-t bg-muted/20 p-3 sm:flex-row sm:items-center sm:justify-between"
+		>
+			<p class="max-w-xl text-xs leading-relaxed text-muted-foreground">
+				Each dot is one acquisition; repeats remain separate. The ring marks the active volume. A
+				model curve appears only after a successful fit.
+			</p>
+			<div class="flex shrink-0 flex-wrap gap-2">
+				<button class="button button-outline text-xs" onclick={() => exportChart(false)}>SVG</button
+				><button
+					class="button button-outline text-xs"
+					disabled={pngBusy}
+					onclick={() => exportChart(true)}>{pngBusy ? 'Exporting…' : 'PNG'}</button
+				><button class="button button-outline text-xs" onclick={exportCsv}>Voxel CSV</button>
+			</div>
+		</div>
 	</div>
 </dialog>

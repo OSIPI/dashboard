@@ -1,5 +1,7 @@
 <script lang="ts">
 	import DatabaseIcon from '~icons/lucide/database';
+	import ChevronDownIcon from '~icons/lucide/chevron-down';
+	import ChevronRightIcon from '~icons/lucide/chevron-right';
 	import { resolve } from '$app/paths';
 	import type { Dataset } from '$lib/ivim';
 	let {
@@ -9,11 +11,25 @@
 	}: { dataset: Dataset; active: number; open: boolean } = $props();
 </script>
 
-<details class="card p-4 text-xs leading-6 text-muted-foreground" bind:open>
-	<summary class="cursor-pointer text-sm font-semibold text-foreground"
-		><DatabaseIcon class="mr-1 inline-block size-4 align-middle" aria-hidden="true" />Dataset &
-		acquisition metadata</summary
-	>
+<section
+	class="card p-4 text-xs leading-6 text-muted-foreground {open
+		? ''
+		: '[&>*:not(:first-child)]:hidden'}"
+>
+	<h2>
+		<button
+			type="button"
+			class="flex min-h-8 w-full items-center gap-2 rounded-md text-left text-sm font-semibold text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring max-[899px]:min-h-11"
+			aria-label="{open ? 'Collapse' : 'Expand'} dataset metadata panel"
+			aria-expanded={open}
+			onclick={() => (open = !open)}
+		>
+			<DatabaseIcon class="size-4 shrink-0" aria-hidden="true" />Dataset & acquisition metadata
+			{#if open}<ChevronDownIcon class="ml-auto size-4" />{:else}<ChevronRightIcon
+					class="ml-auto size-4"
+				/>{/if}
+		</button>
+	</h2>
 	<p class="mt-3 font-medium text-foreground">{dataset.name}</p>
 	<p>
 		<strong
@@ -42,4 +58,4 @@
 			class="underline"
 			href="https://doi.org/10.5281/zenodo.14605039">OSIPI TF2.4 · Zenodo 14605039 · CC BY 4.0</a
 		>{/if}<a class="ml-3 underline" href={resolve('/about')}>About OSIPY</a>
-</details>
+</section>

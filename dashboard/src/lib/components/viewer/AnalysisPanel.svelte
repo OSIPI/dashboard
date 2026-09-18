@@ -1,5 +1,7 @@
 <script lang="ts">
 	import FlaskIcon from '~icons/lucide/flask-conical';
+	import ChevronDownIcon from '~icons/lucide/chevron-down';
+	import ChevronRightIcon from '~icons/lucide/chevron-right';
 	import type { Dataset, VoxelVolume } from '$lib/ivim';
 	import { voxelIndex } from '$lib/ivim';
 	import { download } from '$lib/workspace';
@@ -15,6 +17,7 @@
 		y,
 		slice,
 		result,
+		openPanel = $bindable(true),
 		roiIndices = []
 	}: {
 		client: AnalysisClient;
@@ -24,6 +27,7 @@
 		y: number;
 		slice: number;
 		result?: FitResult;
+		openPanel: boolean;
 		roiIndices?: number[];
 	} = $props();
 	let config = $state<FitConfig>();
@@ -52,17 +56,24 @@
 	}
 </script>
 
-<section class="card space-y-3 p-3">
-	<div class="flex items-center justify-between gap-2">
-		<h2
-			id="ivim-analysis"
-			tabindex="-1"
-			class="flex scroll-mt-3 items-center gap-2 text-sm font-semibold"
+<section class="card space-y-3 p-3 {openPanel ? '' : '[&>*:not(:first-child)]:hidden'}">
+	<h2 id="ivim-analysis" tabindex="-1" class="scroll-mt-3">
+		<button
+			type="button"
+			class="flex min-h-8 w-full items-center gap-2 rounded-md text-left text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring max-[899px]:min-h-11"
+			aria-label="{openPanel ? 'Collapse' : 'Expand'} IVIM analysis panel"
+			aria-expanded={openPanel}
+			onclick={() => (openPanel = !openPanel)}
 		>
 			<FlaskIcon class="size-4 shrink-0" aria-hidden="true" />IVIM analysis
-		</h2>
-		<span class="text-xs text-muted-foreground">{client.stage}</span>
-	</div>
+			<span class="ml-auto text-xs font-normal text-muted-foreground {openPanel ? '' : 'hidden'}"
+				>{client.stage}</span
+			>
+			{#if openPanel}<ChevronDownIcon class="size-4" />{:else}<ChevronRightIcon
+					class="size-4"
+				/>{/if}
+		</button>
+	</h2>
 	<details bind:open={open.current}>
 		<summary class="cursor-pointer text-xs font-medium">Local companion & fitting settings</summary>
 		<div class="mt-3 space-y-3 text-xs">

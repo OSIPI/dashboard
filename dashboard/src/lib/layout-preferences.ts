@@ -10,6 +10,13 @@ export type LayoutPreferences = {
 	linked: boolean;
 	navigationOpen: boolean;
 	signalValuesOpen: boolean;
+	signalOpen: boolean;
+	savedVoxelsOpen: boolean;
+	workspaceOpen: boolean;
+	analysisOpen: boolean;
+	roiOpen: boolean;
+	exportOpen: boolean;
+	validationOpen: boolean;
 	metadataOpen: boolean;
 	roiVisible: boolean;
 	roiOpacity: number;
@@ -24,6 +31,13 @@ export const DEFAULT_LAYOUT: LayoutPreferences = {
 	linked: true,
 	navigationOpen: false,
 	signalValuesOpen: false,
+	signalOpen: true,
+	savedVoxelsOpen: true,
+	workspaceOpen: true,
+	analysisOpen: true,
+	roiOpen: true,
+	exportOpen: true,
+	validationOpen: true,
 	metadataOpen: false,
 	roiVisible: true,
 	roiOpacity: 0.25,
@@ -49,6 +63,13 @@ export function parseLayout(raw: string): LayoutPreferences {
 			'linked',
 			'navigationOpen',
 			'signalValuesOpen',
+			'signalOpen',
+			'savedVoxelsOpen',
+			'workspaceOpen',
+			'analysisOpen',
+			'roiOpen',
+			'exportOpen',
+			'validationOpen',
 			'metadataOpen',
 			'roiVisible',
 			'roiMean'

@@ -1,5 +1,10 @@
 <script lang="ts">
 	import ScanIcon from '~icons/lucide/scan';
+	import ChevronDownIcon from '~icons/lucide/chevron-down';
+	import ChevronRightIcon from '~icons/lucide/chevron-right';
+	import SquareDashedIcon from '~icons/lucide/square-dashed';
+	import PencilLineIcon from '~icons/lucide/pencil-line';
+	import CrosshairIcon from '~icons/lucide/crosshair';
 	import { onDestroy } from 'svelte';
 	import type { Dataset, VoxelVolume } from '$lib/ivim';
 	import type { RoiSession } from '$lib/roi-session.svelte';
@@ -19,6 +24,7 @@
 		visible = $bindable(true),
 		opacity = $bindable(0.25),
 		meanVisible = $bindable(false),
+		open = $bindable(true),
 		result
 	}: {
 		session: RoiSession;
@@ -31,6 +37,7 @@
 		visible: boolean;
 		opacity: number;
 		meanVisible: boolean;
+		open: boolean;
 		result?: FitResult;
 	} = $props();
 	let metric = $state('signal');
@@ -104,11 +111,22 @@
 	}
 </script>
 
-<section class="card space-y-3 p-3">
-	<div class="flex items-center justify-between gap-2">
-		<h2 class="flex items-center gap-2 text-sm font-semibold">
+<section class="card space-y-3 p-3 {open ? '' : '[&>*:not(:first-child)]:hidden'}">
+	<h2>
+		<button
+			type="button"
+			class="flex min-h-8 w-full items-center gap-2 rounded-md text-left text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring max-[899px]:min-h-11"
+			aria-label="{open ? 'Collapse' : 'Expand'} regions of interest panel"
+			aria-expanded={open}
+			onclick={() => (open = !open)}
+		>
 			<ScanIcon class="size-4 shrink-0" aria-hidden="true" />Regions of interest
-		</h2>
+			{#if open}<ChevronDownIcon class="ml-auto size-4" />{:else}<ChevronRightIcon
+					class="ml-auto size-4"
+				/>{/if}
+		</button>
+	</h2>
+	<div class="flex justify-end">
 		<button
 			class="button button-outline h-8 px-2 text-xs"
 			onclick={() => {
@@ -155,13 +173,15 @@
 				<button
 					class="button button-ghost h-8 px-2 text-xs"
 					aria-pressed={tool === 'rectangle'}
-					onclick={() => onstart('rectangle')}>Rectangle</button
+					onclick={() => onstart('rectangle')}
+					><SquareDashedIcon class="size-4 shrink-0" aria-hidden="true" />Rectangle</button
 				><button
 					class="button button-ghost h-8 px-2 text-xs"
 					aria-pressed={tool === 'freehand'}
-					onclick={() => onstart('freehand')}>Freehand</button
+					onclick={() => onstart('freehand')}
+					><PencilLineIcon class="size-4 shrink-0" aria-hidden="true" />Freehand</button
 				><button class="button button-ghost h-8 px-2 text-xs" onclick={() => onstart('inspect')}
-					>Inspect voxel</button
+					><CrosshairIcon class="size-4 shrink-0" aria-hidden="true" />Inspect voxel</button
 				>
 			</div>
 			<div class="flex flex-wrap items-center gap-3 text-xs">

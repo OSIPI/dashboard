@@ -1,5 +1,7 @@
 <script lang="ts">
 	import PackageIcon from '~icons/lucide/package-open';
+	import ChevronDownIcon from '~icons/lucide/chevron-down';
+	import ChevronRightIcon from '~icons/lucide/chevron-right';
 	import { onDestroy } from 'svelte';
 	import type { Dataset, VoxelVolume, Bookmark } from '$lib/ivim';
 	import type { Roi } from '$lib/roi';
@@ -15,6 +17,7 @@
 		point,
 		result,
 		metadata,
+		open = $bindable(true),
 		getworkspace
 	}: {
 		dataset: Dataset;
@@ -24,6 +27,7 @@
 		point: Point;
 		result?: FitResult;
 		metadata?: ScanMetadata;
+		open: boolean;
 		getworkspace: () => Workspace;
 	} = $props();
 	let busy = $state(false),
@@ -86,9 +90,20 @@
 	}
 </script>
 
-<section class="card space-y-3 p-3 text-xs">
-	<h2 class="flex items-center gap-2 text-sm font-semibold">
-		<PackageIcon class="size-4 shrink-0" aria-hidden="true" />Export & external tools
+<section class="card space-y-3 p-3 text-xs {open ? '' : '[&>*:not(:first-child)]:hidden'}">
+	<h2>
+		<button
+			type="button"
+			class="flex min-h-8 w-full items-center gap-2 rounded-md text-left text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring max-[899px]:min-h-11"
+			aria-label="{open ? 'Collapse' : 'Expand'} export panel"
+			aria-expanded={open}
+			onclick={() => (open = !open)}
+		>
+			<PackageIcon class="size-4 shrink-0" aria-hidden="true" />Export & external tools
+			{#if open}<ChevronDownIcon class="ml-auto size-4" />{:else}<ChevronRightIcon
+					class="ml-auto size-4"
+				/>{/if}
+		</button>
 	</h2>
 	<p class="text-muted-foreground">
 		Download a ZIP with the source image, {result

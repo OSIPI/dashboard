@@ -1,5 +1,7 @@
 <script lang="ts">
 	import ClipboardCheckIcon from '~icons/lucide/clipboard-check';
+	import ChevronDownIcon from '~icons/lucide/chevron-down';
+	import ChevronRightIcon from '~icons/lucide/chevron-right';
 	import { onMount, onDestroy } from 'svelte';
 	import { AnalysisClient } from '$lib/analysis-client.svelte';
 	import AnalysisPanel from '$lib/components/viewer/AnalysisPanel.svelte';
@@ -733,6 +735,7 @@
 					{slice}
 					{bookmarks}
 					{compared}
+					bind:open={preferences.current.signalOpen}
 					bind:valuesOpen={preferences.current.signalValuesOpen}
 					onerror={(text) => (message = text)}
 				/>
@@ -741,6 +744,7 @@
 					{bookmarks}
 					bind:compared
 					bind:note
+					bind:open={preferences.current.savedVoxelsOpen}
 					message={storageMessage}
 					onsave={saveView}
 					onrestore={restore}
@@ -748,6 +752,7 @@
 				/>
 				<WorkspaceFiles
 					{dataset}
+					bind:open={preferences.current.workspaceOpen}
 					getworkspace={workspaceData}
 					onapply={applyWorkspace}
 					onresetlayout={resetLayout}
@@ -761,6 +766,7 @@
 					{y}
 					{slice}
 					result={fitResult}
+					bind:openPanel={preferences.current.analysisOpen}
 					roiIndices={roiSession?.current?.indices ?? []}
 				/>
 				{#if roiSession}<RoiPanel
@@ -774,6 +780,7 @@
 						bind:visible={preferences.current.roiVisible}
 						bind:opacity={preferences.current.roiOpacity}
 						bind:meanVisible={preferences.current.roiMean}
+						bind:open={preferences.current.roiOpen}
 						onstart={(value) => {
 							tool = value;
 							preferences.current.panel = 'Image';
@@ -787,12 +794,31 @@
 					{bookmarks}
 					point={[x, y, slice]}
 					result={fitResult}
+					bind:open={preferences.current.exportOpen}
 					metadata={currentScan?.metadata}
 					getworkspace={workspaceData}
 				/>
-				{#if currentScan}<section class="card space-y-2 p-3">
-						<h2 class="flex items-center gap-2 text-sm font-semibold">
-							<ClipboardCheckIcon class="size-4 shrink-0" aria-hidden="true" />Dataset validation
+				{#if currentScan}<section
+						class="card space-y-2 p-3 {preferences.current.validationOpen
+							? ''
+							: '[&>*:not(:first-child)]:hidden'}"
+					>
+						<h2>
+							<button
+								type="button"
+								class="flex min-h-8 w-full items-center gap-2 rounded-md text-left text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring max-[899px]:min-h-11"
+								aria-label="{preferences.current.validationOpen
+									? 'Collapse'
+									: 'Expand'} dataset validation panel"
+								aria-expanded={preferences.current.validationOpen}
+								onclick={() =>
+									(preferences.current.validationOpen = !preferences.current.validationOpen)}
+							>
+								<ClipboardCheckIcon class="size-4 shrink-0" aria-hidden="true" />Dataset validation
+								{#if preferences.current.validationOpen}<ChevronDownIcon
+										class="ml-auto size-4"
+									/>{:else}<ChevronRightIcon class="ml-auto size-4" />{/if}
+							</button>
 						</h2>
 						<ScanValidation issues={currentScan.issues} />
 					</section>{/if}

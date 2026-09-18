@@ -133,6 +133,8 @@ test('auto window uses scaled intensities, explicit slice/volume scope, robust q
 test('scatter and CSV keep repeated acquisitions; exports escape user text and include real coordinates/units', () => {
 	const values = [100, 65, 60];
 	const svg = chartSvg(dataset, [{ label: 'Current (1, 0, 1) <script>', values }], 2, true);
+	expect(svg).toContain('font-size="13"');
+	expect(svg).not.toContain('font-size="20"');
 	expect(svg.match(/<circle /g)).toHaveLength(3);
 	expect(svg).not.toContain('<polyline');
 	expect(svg).not.toContain('<script>');

@@ -12,7 +12,14 @@ test('layout preferences restore every layout choice and normalize invalid brows
 		linked: false,
 		navigationOpen: true,
 		metadataOpen: true,
-		signalValuesOpen: true
+		signalValuesOpen: true,
+		signalOpen: false,
+		savedVoxelsOpen: false,
+		workspaceOpen: false,
+		analysisOpen: false,
+		roiOpen: false,
+		exportOpen: false,
+		validationOpen: false
 	};
 	expect(parseLayout(JSON.stringify(layout))).toEqual(layout);
 	for (const raw of ['invalid json', 'null', '[]', '2'])

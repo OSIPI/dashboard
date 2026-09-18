@@ -1,5 +1,7 @@
 <script lang="ts">
 	import BookmarkIcon from '~icons/lucide/bookmark';
+	import ChevronDownIcon from '~icons/lucide/chevron-down';
+	import ChevronRightIcon from '~icons/lucide/chevron-right';
 	import type { Dataset, Bookmark } from '$lib/ivim';
 	let {
 		dataset,
@@ -7,6 +9,7 @@
 		compared = $bindable([]),
 		note = $bindable(''),
 		message,
+		open = $bindable(true),
 		onsave,
 		onrestore,
 		ondelete
@@ -16,16 +19,26 @@
 		compared: string[];
 		note: string;
 		message: string;
+		open: boolean;
 		onsave: () => void;
 		onrestore: (b: Bookmark) => void;
 		ondelete: (id: string) => void;
 	} = $props();
 </script>
 
-<section class="card p-3">
-	<h2 class="flex items-center gap-2 text-base font-semibold">
-		<BookmarkIcon class="size-4 text-primary" />Saved voxels
-		<span class="ml-auto text-xs text-muted-foreground">{bookmarks.length}/30</span>
+<section class="card p-3 {open ? '' : '[&>*:not(:first-child)]:hidden'}">
+	<h2>
+		<button
+			type="button"
+			class="flex min-h-8 w-full items-center gap-2 rounded-md text-left text-base font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring max-[899px]:min-h-11"
+			aria-label="{open ? 'Collapse' : 'Expand'} saved voxels panel"
+			aria-expanded={open}
+			onclick={() => (open = !open)}
+		>
+			<BookmarkIcon class="size-4 text-primary" />Saved voxels
+			<span class="ml-auto text-xs text-muted-foreground">{bookmarks.length}/30</span>
+			{#if open}<ChevronDownIcon class="size-4" />{:else}<ChevronRightIcon class="size-4" />{/if}
+		</button>
 	</h2>
 	<label class="mt-3 block text-xs" for="voxel-note">Note for current voxel</label><textarea
 		id="voxel-note"

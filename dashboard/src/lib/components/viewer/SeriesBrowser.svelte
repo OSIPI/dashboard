@@ -28,6 +28,7 @@
 		onselectmany: (indices: number[]) => void;
 		onclear: () => void;
 	} = $props();
+	let selecting = $state(false);
 	const filtered = $derived(
 		dataset.bValues
 			.map((b, index) => ({ b, index }))
@@ -92,65 +93,95 @@
 				>{/each}
 		</select>
 	</label>
-	<p class="mt-3 text-xs text-muted-foreground">
-		{filtered.length} of {dataset.bValues.length} volumes · selected {active + 1}
-	</p>
-	<div class="mt-3 flex flex-wrap gap-2">
+	{#if search.trim() || range !== 'all'}
+		<p class="mt-3 text-xs text-muted-foreground">
+			{filtered.length} of {dataset.bValues.length} volumes
+		</p>
+	{/if}
+	<div class="mt-3 flex items-center justify-between gap-2">
 		<button
-			class="button button-outline h-8 px-2 text-xs max-[899px]:min-h-11"
-			onclick={() => onselectmany(filtered.map((v) => v.index))}>Select filtered</button
+			type="button"
+			role="switch"
+			aria-label="Selection mode"
+			aria-checked={selecting}
+			class="button button-ghost h-8 px-2 text-xs focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring max-[899px]:min-h-11"
+			onclick={() => (selecting = !selecting)}
+			><span
+				aria-hidden="true"
+				class="relative h-4 w-7 rounded-full {selecting ? 'bg-selection' : 'bg-muted-foreground'}"
+				><span
+					class="absolute top-0.5 left-0.5 size-3 rounded-full bg-background transition-transform motion-reduce:transition-none {selecting
+						? 'translate-x-3'
+						: ''}"
+				></span></span
+			>Select</button
 		>
-		<button
-			class="button button-ghost h-8 px-2 text-xs max-[899px]:min-h-11"
-			aria-label="Clear selection"
-			onclick={onclear}>Clear</button
-		>
+		<span class="text-xs text-muted-foreground" role="status">
+			{selected.length} selected
+		</span>
 	</div>
-	<p class="mt-2 text-xs text-muted-foreground">
-		{selected.length} selected · Check volumes to split the view automatically.
-	</p>
+	{#if selecting}
+		<div class="mt-1 flex items-center gap-1">
+			<button
+				class="button button-ghost h-8 px-2 text-xs max-[899px]:min-h-11"
+				onclick={() => onselectmany(filtered.map((v) => v.index))}>Select filtered</button
+			>
+			<button
+				class="button button-ghost h-8 px-2 text-xs max-[899px]:min-h-11"
+				aria-label="Clear selection"
+				onclick={onclear}>Clear</button
+			>
+		</div>
+	{/if}
 </div>
 <div class="series-grid grid gap-2 p-3 {layout === 'grid' ? 'grid-cols-2' : 'grid-cols-1'}">
 	{#each filtered as series (series.index)}
-		<div class="min-w-0">
-			<label class="mb-1 flex items-center gap-2 text-xs"
-				><input
-					type="checkbox"
-					checked={selected.includes(series.index)}
-					onchange={() => ontoggle(series.index)}
-				/>Compare vol {series.index + 1}</label
-			>
-			<button
-				class="series-card w-full overflow-hidden rounded-[7px] border bg-card hover:border-selection hover:bg-selection-surface {active ===
+		<button
+			type="button"
+			class="series-card w-full min-w-0 overflow-hidden rounded-[7px] border text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring {selected.includes(
 				series.index
-					? 'border-selection bg-selection-surface ring-1 ring-selection'
-					: ''} {layout === 'list' ? 'flex items-center' : ''}"
-				aria-pressed={active === series.index}
-				aria-label="Select volume {series.index + 1}, b-value {series.b} s/mm²"
-				onclick={() => onselect(series.index)}
+			)
+				? 'border-selection bg-selection-surface ring-1 ring-selection'
+				: 'bg-card hover:border-muted-foreground hover:bg-muted'} {layout === 'list'
+				? 'flex items-center'
+				: ''}"
+			aria-pressed={selecting ? selected.includes(series.index) : undefined}
+			aria-current={active === series.index ? 'true' : undefined}
+			aria-label="{selecting ? 'Compare' : 'Open'} volume {series.index +
+				1}, b-value {series.b} s/mm²"
+			title="Volume {series.index + 1}{active === series.index
+				? ' · Active volume'
+				: ''} · {selecting
+				? `Click to ${selected.includes(series.index) ? 'remove from' : 'add to'} comparison`
+				: 'Click to open in the active pane'}"
+			onclick={() => (selecting ? ontoggle(series.index) : onselect(series.index))}
+		>
+			<div
+				class="relative bg-black {layout === 'list' ? 'w-20 shrink-0' : ''}"
+				style:aspect-ratio={aspect}
 			>
-				<div
-					class="bg-black {layout === 'list' ? 'w-20 shrink-0' : ''}"
-					style:aspect-ratio={aspect}
+				<IvimImage
+					thumbnail
+					volume={volumes[series.index]}
+					{dataset}
+					center={dataset.window[0]}
+					width={dataset.window[1]}
+					slice={Math.floor(slices / 2)}
+					label="IVIM volume {series.index + 1}, b={series.b}, middle native slice"
+				/>
+				{#if active === series.index}
+					<span
+						class="absolute top-2 right-2 size-2 rounded-full bg-selection ring-2 ring-black"
+						aria-hidden="true"
+					></span>
+				{/if}
+			</div>
+			<div class="px-2 py-2 text-left">
+				<span class="block text-xs font-semibold">b = {series.b}</span><span
+					class="block text-xs text-muted-foreground">Vol {series.index + 1}</span
 				>
-					<IvimImage
-						thumbnail
-						volume={volumes[series.index]}
-						{dataset}
-						center={dataset.window[0]}
-						width={dataset.window[1]}
-						slice={Math.floor(slices / 2)}
-						label="IVIM volume {series.index + 1}, b={series.b}, middle native slice"
-					/>
-				</div>
-				<div class="px-2 py-2 text-left">
-					<span class="block text-xs font-semibold">b = {series.b}</span><span
-						class="block text-xs text-muted-foreground"
-						>Vol {series.index + 1} · {slices} slices</span
-					>
-				</div>
-			</button>
-		</div>
+			</div>
+		</button>
 	{:else}
 		<p class="col-span-full py-6 text-center text-xs text-muted-foreground">
 			No matching series.<button

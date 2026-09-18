@@ -183,6 +183,7 @@ export function chartSvg(
 ): string {
 	const foreground = dark ? '#ddd' : '#242424';
 	const background = dark ? '#171717' : '#fff';
+	const muted = dark ? '#a3a3a3' : '#666';
 	const colors = dark
 		? ['#ed746b', '#b1c4df', '#d3bd91', '#b3c6ac', '#c7b1ce']
 		: ['#ad4942', '#365e8b', '#806019', '#46623b', '#785086'];
@@ -197,16 +198,16 @@ export function chartSvg(
 	const px = (b: number) => 90 + (b / maxB) * 650;
 	const py = (s: number) => 355 - ((s - min) / (max - min)) * 270;
 	const height = 440 + series.length * 23 + (fit ? (compact ? 23 : 210) : 0) - (compact ? 52 : 0);
-	let body = `<rect width="800" height="${height}" fill="${background}"/><g font-family="system-ui,sans-serif" font-size="${compact ? 23 : 20}" fill="${foreground}"${compact ? ' transform="translate(0,-52)"' : ''}>${compact ? '' : `<text x="24" y="26">${escape(dataset.name)}</text><text x="24" y="50">${fit ? 'Acquired signals + fitted model · repeats kept separate' : 'Acquired signals · repeats kept separate'}</text>`}<text x="90" y="73">Signal (a.u.)</text>`;
+	let body = `<rect width="800" height="${height}" fill="${background}"/><g font-family="system-ui,sans-serif" font-size="${compact ? 23 : 13}" fill="${foreground}"${compact ? ' transform="translate(0,-52)"' : ''}>${compact ? '' : `<text x="90" y="28" font-size="15" font-weight="600">${escape(dataset.name)}</text><text x="90" y="48" font-size="11" fill="${muted}">${fit ? 'Acquired signals + fitted model · repeats kept separate' : 'Acquired signals · repeats kept separate'}</text>`}<text x="90" y="70" font-size="11" fill="${muted}">Signal (a.u.)</text>`;
 	const tickFormat = new Intl.NumberFormat('en', {
 		notation: 'compact',
 		maximumSignificantDigits: 3
 	});
 	for (const tick of [min, (min + max) / 2, max])
-		body += `<line x1="90" x2="740" y1="${py(tick)}" y2="${py(tick)}" stroke="${foreground}" opacity="0.12"/><text x="80" y="${py(tick) + 5}" text-anchor="end">${tickFormat.format(tick)}</text>`;
+		body += `<line x1="90" x2="740" y1="${py(tick)}" y2="${py(tick)}" stroke="${foreground}" opacity="0.12"/><text x="80" y="${py(tick) + 4}" text-anchor="end" fill="${muted}">${tickFormat.format(tick)}</text>`;
 	for (const tick of [0, maxB / 4, maxB / 2, maxB * 0.75, maxB])
-		body += `<text x="${px(tick)}" y="380" text-anchor="middle">${tick}</text>`;
-	body += '<text x="415" y="405" text-anchor="middle">b-value (s/mm²)</text>';
+		body += `<text x="${px(tick)}" y="379" text-anchor="middle" fill="${muted}">${tick}</text>`;
+	body += `<text x="415" y="402" text-anchor="middle" fill="${muted}">b-value (s/mm²)</text>`;
 	series.forEach((s, si) => {
 		const color = colors[si % colors.length];
 		s.values.forEach((value, vi) => {

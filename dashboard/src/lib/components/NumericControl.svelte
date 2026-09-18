@@ -67,24 +67,30 @@
 >
 	<div
 		class="flex min-h-6 min-w-0 items-center gap-1.5 text-xs font-semibold {compact
-			? 'min-[900px]:flex-wrap min-[900px]:gap-x-1 min-[900px]:gap-y-0 min-[900px]:pt-5'
+			? 'min-[900px]:flex-wrap min-[900px]:gap-x-1 min-[900px]:gap-y-0'
 			: ''}"
 	>
 		<span>{label}</span><span class="truncate font-normal text-muted-foreground">{detail}</span>
 	</div>
 	<div
-		class="grid min-w-0 grid-cols-[1.25rem_minmax(0,1fr)_1.25rem] items-center gap-x-1 max-[899px]:grid-cols-[2.75rem_minmax(0,1fr)_2.75rem]"
+		class="grid min-w-0 items-center gap-x-1 {compact
+			? 'grid-cols-[1.25rem_minmax(0,1fr)_1.25rem_5.5rem] max-[899px]:grid-cols-[2.75rem_minmax(0,1fr)_2.75rem_5.5rem]'
+			: 'grid-cols-[1.25rem_minmax(0,1fr)_1.25rem] max-[899px]:grid-cols-[2.75rem_minmax(0,1fr)_2.75rem]'}"
 	>
-		<div class="col-start-2 flex h-5 justify-center max-[899px]:h-11">
-			{@render numberInput()}
-		</div>
+		{#if !compact}
+			<div class="col-start-2 flex h-5 justify-center max-[899px]:h-11">
+				{@render numberInput()}
+			</div>
+		{/if}
 		<button
-			class="button button-ghost col-start-1 row-start-2 h-7 w-5 p-0 text-lg font-normal max-[899px]:size-11"
+			class="button button-ghost col-start-1 h-7 w-5 p-0 text-lg font-normal max-[899px]:size-11 {compact
+				? 'row-start-1'
+				: 'row-start-2'}"
 			aria-label="Decrease {label}"
 			disabled={value <= min}
 			onclick={() => onchange(boundedNumber(String(value - step), value, min, max, step))}>−</button
 		>
-		<div class="relative col-start-2 row-start-2 min-w-0">
+		<div class="relative col-start-2 min-w-0 {compact ? 'row-start-1' : 'row-start-2'}">
 			{#if kind === 'wheel'}
 				<button
 					type="button"
@@ -143,17 +149,26 @@
 			/>
 		</div>
 		<button
-			class="button button-ghost col-start-3 row-start-2 h-7 w-5 p-0 text-lg font-normal max-[899px]:size-11"
+			class="button button-ghost col-start-3 h-7 w-5 p-0 text-lg font-normal max-[899px]:size-11 {compact
+				? 'row-start-1'
+				: 'row-start-2'}"
 			aria-label="Increase {label}"
 			disabled={value >= max}
 			onclick={() => onchange(boundedNumber(String(value + step), value, min, max, step))}>+</button
 		>
+		{#if compact}
+			<div class="col-start-4 row-start-1 min-w-0">
+				{@render numberInput()}
+			</div>
+		{/if}
 	</div>
 </div>
 
 {#snippet numberInput()}
 	<input
-		class="appearance-[textfield] pointer-events-auto h-5 w-24 max-w-full min-w-0 rounded border-0 bg-transparent p-0 text-center text-xs font-medium tabular-nums focus:ring-0 max-[899px]:h-11 [&::-webkit-inner-spin-button]:appearance-none"
+		class="appearance-[textfield] pointer-events-auto max-w-full min-w-0 rounded text-xs font-medium tabular-nums max-[899px]:h-11 [&::-webkit-inner-spin-button]:appearance-none {compact
+			? 'input h-7 w-full px-2 py-0 text-right'
+			: 'h-5 w-24 border-0 bg-transparent p-0 text-center focus:ring-0'}"
 		type="number"
 		aria-label="{label} value"
 		{min}

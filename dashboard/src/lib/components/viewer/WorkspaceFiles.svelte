@@ -1,5 +1,7 @@
 <script lang="ts">
 	import PanelsIcon from '~icons/lucide/panels-top-left';
+	import ChevronDownIcon from '~icons/lucide/chevron-down';
+	import ChevronRightIcon from '~icons/lucide/chevron-right';
 	import { download, parseWorkspace, type Workspace } from '$lib/workspace';
 	import type { Dataset } from '$lib/ivim';
 	let {
@@ -7,12 +9,14 @@
 		getworkspace,
 		onapply,
 		onresetlayout,
+		open = $bindable(true),
 		onmessage
 	}: {
 		dataset: Dataset;
 		getworkspace: () => Workspace;
 		onapply: (w: Workspace) => void;
 		onresetlayout: () => void;
+		open: boolean;
 		onmessage: (message: string) => void;
 	} = $props();
 	let pending = $state<Workspace>();
@@ -39,9 +43,20 @@
 	}
 </script>
 
-<section class="card space-y-3 p-3">
-	<h2 class="flex items-center gap-2 text-sm font-semibold">
-		<PanelsIcon class="size-4 shrink-0" aria-hidden="true" />Workspace
+<section class="card space-y-3 p-3 {open ? '' : '[&>*:not(:first-child)]:hidden'}">
+	<h2>
+		<button
+			type="button"
+			class="flex min-h-8 w-full items-center gap-2 rounded-md text-left text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring max-[899px]:min-h-11"
+			aria-label="{open ? 'Collapse' : 'Expand'} workspace panel"
+			aria-expanded={open}
+			onclick={() => (open = !open)}
+		>
+			<PanelsIcon class="size-4 shrink-0" aria-hidden="true" />Workspace
+			{#if open}<ChevronDownIcon class="ml-auto size-4" />{:else}<ChevronRightIcon
+					class="ml-auto size-4"
+				/>{/if}
+		</button>
 	</h2>
 	<p class="text-xs text-muted-foreground">
 		Export settings, selections and notes. MRI data is not included.
