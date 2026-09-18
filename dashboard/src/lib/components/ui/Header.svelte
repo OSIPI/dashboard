@@ -48,7 +48,9 @@
 			class="ml-auto flex gap-4 text-xs text-muted-foreground max-[899px]:gap-3.5 [&>*]:flex [&>*]:min-h-9 [&>*]:items-center max-[899px]:[&>*]:min-h-11"
 			aria-label="Resources"
 		>
-			<a href="https://osipy.readthedocs.io" target="_blank" rel="noreferrer">Docs</a><a
+			<a href="https://github.com/OSIPI/dashboard/issues/new" target="_blank" rel="noreferrer"
+				>Feedback</a
+			><a href="https://osipy.readthedocs.io" target="_blank" rel="noreferrer">Docs</a><a
 				href="https://github.com/OSIPI/dashboard"
 				target="_blank"
 				rel="noreferrer">GitHub</a
