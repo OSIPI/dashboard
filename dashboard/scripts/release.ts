@@ -350,7 +350,7 @@ export function release(dry: boolean) {
 			);
 		}
 		console.log(
-			'Plan (only if release-worthy commits or pending receipt): verify clean/current main and remote tags; update package.json, CITATION.cff, codemeta.json, CHANGELOG.md; run bun run check, bun test, Python companion tests and prepared-data verification; build; freeze tar archive + SHA-256 + version manifest; checkpoint; create release commit and annotated checksum-bound tag; atomic push main + tag; create/update draft GitHub Release; reconcile/upload exact archive and checksum without clobber; publish; tag-triggered Pages waits for assets, verifies checksum/version/source and deploys without install/build. Retries reuse frozen archive and reconcile remote effects.'
+			'Plan (only if release-worthy commits or pending receipt): verify clean/current main and remote tags; update package.json, CITATION.cff, codemeta.json, CHANGELOG.md; run bun run check, bun test, Python companion tests and prepared-data verification; build; freeze tar archive + SHA-256 + version manifest; checkpoint; create release commit and annotated checksum-bound tag; atomic push main + tag; create/update draft GitHub Release; reconcile/upload exact archive and checksum without clobber; publish. The main push independently triggers Pages to build and deploy that exact commit. Retries reuse frozen archive and reconcile remote effects.'
 		);
 		console.log(
 			`Checkpoint: ${state ? JSON.stringify({ version: state.version, archive: state.archive?.sha256, commit: state.commit, pushed: state.pushed, releaseId: state.releaseId, complete: state.complete }) : 'none'}`
@@ -542,7 +542,7 @@ export function release(dry: boolean) {
 	save();
 	publishRelease(state, save);
 	console.log(
-		`Published ${tag}: ${state.archive.path}. Receipt: ${statePath}. Pages deployment runs on GitHub; inspect its tag run for completion.`
+		`Published ${tag}: ${state.archive.path}. Receipt: ${statePath}. Pages deployment runs on GitHub; inspect the main-push run for completion.`
 	);
 }
 

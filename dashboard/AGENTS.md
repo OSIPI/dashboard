@@ -32,8 +32,8 @@
 
 - Follow the repository-level [release documentation](../docs/releases.md) and [agent rules](../AGENTS.md). Run `make release-dry-run` or an explicitly authorized `make release` from the repository root.
 - Derive stable SemVer from Conventional Commits since the latest reachable `v*` tag: `fix`/`perf` patch, `feat` minor, breaking major. Update package, citation, CodeMeta and dated categorized changelog together.
-- Keep GitHub Actions free of builds. Main pushes and pull requests run checks only. Only tag pushes deploy Pages: download the published prebuilt release, verify its tag-bound checksum/version/source, and deploy without install/build. Running real `make release` requires explicit authorization for commits, tags, push and publication; editing/testing this tooling does not authorize those effects.
-- Preserve retry receipts and unexpected edits; never reset or force a release/tag. Retain frozen archives and reconcile remote releases/assets on retry; never clobber uploads or rebuild a checkpointed archive. Test release logic and no-build Pages handoff with `bun test scripts/release.test.ts`.
+- Main pushes run checks and a separate least-privilege Pages workflow that checks out the exact pushed SHA, installs dependencies, prepares public demo data, builds with that SHA and deploys the resulting artifact. Pull requests and tags never deploy. Tagged GitHub Releases remain an intentional local publication mechanism. Running real `make release` requires explicit authorization for commits, tags, push and publication; editing/testing this tooling does not authorize those effects.
+- Preserve retry receipts and unexpected edits; never reset or force a release/tag. Retain frozen archives and reconcile remote releases/assets on retry; never clobber uploads or rebuild a checkpointed archive. Test release logic and the main-build Pages contract with `bun test scripts/release.test.ts`.
 
 ## App Shell
 

@@ -1,100 +1,58 @@
-name: Deploy prebuilt release
+name: Deploy main to Pages
 
 on:
   push:
-    tags: ['v*']
+    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
   group: pages
-  cancel-in-progress: false
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: dashboard
 
 jobs:
-  artifact:
+  build:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
-      - name: Download published release (wait for local publisher)
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          RELEASE_TAG: ${{ github.ref_name }}
-        run: |
-          set -euo pipefail
-          [[ "$RELEASE_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
-          mkdir incoming
-          ready=false
-          for attempt in $(seq 1 120); do
-            if gh release view "$RELEASE_TAG" --json isDraft --jq '.isDraft' > incoming/draft && [[ "$(cat incoming/draft)" == false ]]; then
-              ready=true
-              break
-            fi
-            sleep 15
-          done
-          [[ "$ready" == true ]] || { echo 'Release not published; finish make release, then rerun this tag workflow.' >&2; exit 1; }
-          gh release download "$RELEASE_TAG" --pattern "osipy-${RELEASE_TAG}.tar.gz" --pattern "osipy-${RELEASE_TAG}.tar.gz.sha256" --dir incoming
-          object=$(gh api "repos/$GH_REPO/git/ref/tags/$RELEASE_TAG" --jq '.object.sha')
-          gh api "repos/$GH_REPO/git/tags/$object" > incoming/tag.json
+      - name: Checkout pushed commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
 
-      - name: Verify checksum, tag, version and safe archive; extract prebuilt site
-        env:
-          RELEASE_TAG: ${{ github.ref_name }}
-        run: |
-          python3 - <<'PY'
-          import hashlib, json, os, pathlib, re, shutil, tarfile
-          tag = os.environ['RELEASE_TAG']
-          root = pathlib.Path('incoming')
-          archive = root / f'osipy-{tag}.tar.gz'
-          annotation = json.loads((root / 'tag.json').read_text())
-          assert annotation['tag'] == tag
-          assert annotation['object']['type'] == 'commit'
-          assert annotation['object']['sha'] == os.environ['GITHUB_SHA']
-          match = re.fullmatch(r'Release ' + re.escape(tag) + r'\n\nSHA256: ([0-9a-f]{64})\nSource: ([0-9a-f]{40})\n?', annotation['message'])
-          assert match, 'Missing checksum-bound annotated tag'
-          checksum, source = match.groups()
-          assert (root / f'{archive.name}.sha256').read_text() == f'{checksum}  {archive.name}\n'
-          with archive.open('rb') as stream:
-              digest = hashlib.sha256()
-              for chunk in iter(lambda: stream.read(1024 * 1024), b''):
-                  digest.update(chunk)
-              assert digest.hexdigest() == checksum, 'Archive checksum mismatch'
-          with tarfile.open(archive) as bundle:
-              members = bundle.getmembers()
-              assert len(members) <= 100000 and sum(m.size for m in members) <= 4 * 1024**3
-              paths = set()
-              for member in members:
-                  path = pathlib.PurePosixPath(member.name)
-                  assert not path.is_absolute() and '..' not in path.parts
-                  assert member.isfile() or member.isdir(), 'Links and special files forbidden'
-                  assert str(path) not in paths, 'Duplicate archive path'
-                  paths.add(str(path))
-              manifest_member = next(m for m in members if str(pathlib.PurePosixPath(m.name)) == 'release.json')
-              assert manifest_member.size <= 4096
-              manifest = json.load(bundle.extractfile(manifest_member))
-              assert manifest == {'version': tag, 'source': source, 'basePath': '/dashboard'}
-              assert 'index.html' in paths
-              # Copy only validated directories/files into a fresh tree (Python 3.9+).
-              site = pathlib.Path('site')
-              site.mkdir()
-              for member in members:
-                  target = site / member.name
-                  if member.isdir():
-                      target.mkdir(parents=True, exist_ok=True)
-                  else:
-                      target.parent.mkdir(parents=True, exist_ok=True)
-                      with bundle.extractfile(member) as src, target.open('xb') as dst:
-                          shutil.copyfileobj(src, dst)
-          PY
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.4.0
 
-      - name: Upload prebuilt Pages artifact
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Prepare public demo data
+        run: |
+          python3 -m pip install --disable-pip-version-check numpy==2.3.5 nibabel==5.3.3
+          python3 scripts/prepare_ivim.py
+
+      - name: Build pushed commit
+        env:
+          APP_SHA: ${{ github.sha }}
+        run: bun run build
+
+      - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
         with:
-          path: site
+          path: dashboard/build
 
   deploy:
-    needs: artifact
+    needs: build
     runs-on: ubuntu-latest
     permissions:
       pages: write

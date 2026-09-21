@@ -8,7 +8,7 @@
 
 ## Releases
 
-Follow [docs/releases.md](docs/releases.md). Releases are intentional local operations; GitHub Actions validate changes and deploy an already-published artifact but never build or publish a release from a push to `main`.
+Follow [docs/releases.md](docs/releases.md). Releases are intentional local operations. GitHub Actions validate changes and build and deploy every pushed `main` commit to Pages, but never publish a GitHub Release automatically.
 
 Never run `make release` without explicit authorization to commit, tag, push, publish, and upload. Implementing or testing release tooling does not grant that authorization. Use `make release-dry-run` for a side-effect-free local preview.
 
@@ -19,7 +19,7 @@ Never run `make release` without explicit authorization to commit, tag, push, pu
 3. Update every authoritative dashboard version in `dashboard/package.json`, `dashboard/CITATION.cff`, and `dashboard/codemeta.json`, then prepend UTC-dated categorized notes to `dashboard/CHANGELOG.md`.
 4. Run dashboard type checks, Bun tests, Python companion tests, prepared-data verification, and the production build locally. This static web release has no platform signing or notarization step. Freeze the built archive and SHA-256 outside the disposable build directory.
 5. Create only `chore(release): vX.Y.Z`, create an annotated `vX.Y.Z` tag bound to the source and archive checksum, then atomically push `main` and the tag.
-6. Create or reconcile a draft GitHub Release, upload and read back the exact frozen archive and checksum, and publish only after verification. The tag-triggered Pages workflow deploys that prebuilt artifact without checkout, install, or build.
+6. Create or reconcile a draft GitHub Release, upload and read back the exact frozen archive and checksum, and publish only after verification. GitHub Release publication remains separate from the main-push Pages workflow, which checks out and builds the exact pushed commit.
 
 Retries use the receipt under `.git`, preserve the frozen archive, reconcile remote state, and refuse unrelated edits, conflicting tags, duplicate releases, changed assets, force pushes, or clobbering. Rerun the same `make release` after resolving a failure; never delete the receipt or rebuild published bytes to bypass a mismatch.
 

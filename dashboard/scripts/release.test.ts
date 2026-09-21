@@ -298,11 +298,20 @@ test('local artifact corruption and auth/server errors never create releases', (
 type Workflow = {
 	on: Record<string, unknown>;
 	permissions: Record<string, string>;
+	concurrency: { group: string; 'cancel-in-progress': boolean };
 	jobs: Record<
 		string,
 		{
+			if?: string;
+			needs?: string;
 			permissions?: Record<string, string>;
-			steps: { name?: string; run?: string; uses?: string }[];
+			steps: {
+				name?: string;
+				run?: string;
+				uses?: string;
+				env?: Record<string, string>;
+				with?: Record<string, unknown>;
+			}[];
 		}
 	>;
 };
@@ -326,95 +335,28 @@ test('repository root owns release entry points and documents all release effect
 		expect(agents).toContain(requirement);
 });
 
-test('Actions never build; Pages only deploys verified tag assets with least privilege', () => {
-	for (const name of readdirSync(workflowPath)) {
-		const text = readFileSync(new URL(name, workflowPath), 'utf8');
-		expect(text).not.toMatch(
-			/(?:bun|npm|pnpm|yarn)\s+(?:run\s+)?build|vite build|semantic-release/
-		);
-	}
-	expect(pages.on).toEqual({ push: { tags: ['v*'] } });
+test('Pages builds and deploys the exact pushed main commit with least privilege', () => {
+	expect(pages.on).toEqual({ push: { branches: ['main'] }, workflow_dispatch: null });
 	expect(pages.permissions).toEqual({ contents: 'read' });
+	expect(pages.concurrency).toEqual({ group: 'pages', 'cancel-in-progress': true });
+	expect(pages.jobs.build.if).toBe("github.ref == 'refs/heads/main'");
+	expect(pages.jobs.build.permissions).toBeUndefined();
 	expect(pages.jobs.deploy.permissions).toEqual({ pages: 'write', 'id-token': 'write' });
-	const steps = pages.jobs.artifact.steps;
-	expect(steps.map((step) => step.uses ?? '').join('\n')).not.toMatch(/checkout|setup-/);
-	expect(steps.map((step) => step.run ?? '').join('\n')).not.toMatch(/\binstall\b|\bbuild\b/);
-	expect(steps[0].run).toContain('gh release download');
-	expect(steps[0].run).toContain('seq 1 120');
-	expect(steps[1].run).toContain('hashlib.sha256()');
-	expect(steps[1].run).toContain("annotation['object']['sha'] == os.environ['GITHUB_SHA']");
+	expect(pages.jobs.deploy.needs).toBe('build');
+	const steps = pages.jobs.build.steps;
+	expect(steps[0].uses).toBe('actions/checkout@11d5960a326750d5838078e36cf38b85af677262');
+	expect(steps[0].with).toEqual({ ref: '${{ github.sha }}', 'persist-credentials': false });
+	expect(steps[1].uses).toBe('oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6');
+	expect(steps[2].run).toBe('bun install --frozen-lockfile');
+	expect(steps[3].run).toContain('numpy==2.3.5 nibabel==5.3.3');
+	expect(steps[3].run).toContain('python3 scripts/prepare_ivim.py');
+	expect(steps[4].run).toBe('bun run build');
+	expect(steps[4].env).toEqual({ APP_SHA: '${{ github.sha }}' });
 	expect(steps.at(-1)?.uses).toStartWith('actions/upload-pages-artifact@');
 	expect(pages.jobs.deploy.steps[0].uses).toStartWith('actions/deploy-pages@');
-});
-
-test('actual Pages verifier accepts exact archive; rejects corruption, identity mismatch and unsafe members', () => {
-	const script = pages.jobs.artifact.steps[1]
-		.run!.split("python3 - <<'PY'\n")[1]
-		.replace(/\nPY\s*$/, '\n');
-	for (const mode of [
-		'valid',
-		'corrupt',
-		'version',
-		'source',
-		'basePath',
-		'traversal',
-		'absolute',
-		'symlink',
-		'hardlink',
-		'fifo',
-		'duplicate',
-		'tag'
-	]) {
-		const directory = mkdtempSync(join(tmpdir(), 'dashboard-pages-test-'));
-		try {
-			execFileSync(
-				'python3',
-				[
-					'-c',
-					`
-import io, json, tarfile, pathlib, hashlib, sys, os
-root = pathlib.Path('incoming'); root.mkdir()
-mode = sys.argv[1]
-archive = root / 'osipy-v1.2.3.tar.gz'
-with tarfile.open(archive, 'w:gz') as bundle:
-    files = {'index.html': b'<html>site</html>', 'release.json': json.dumps({'version': 'v9.9.9' if mode == 'version' else 'v1.2.3', 'source': ('c' if mode == 'source' else 'a')*40, 'basePath': '/' if mode == 'basePath' else '/dashboard'}).encode()}
-    if mode == 'traversal': files['../escape'] = b'unsafe'
-    if mode == 'absolute': files['/escape'] = b'unsafe'
-    files['assets/nested/data.bin'] = os.urandom(2 * 1024 * 1024)
-    for name, data in files.items():
-        member = tarfile.TarInfo(name); member.size = len(data); bundle.addfile(member, io.BytesIO(data))
-    if mode in ('symlink', 'hardlink', 'fifo'):
-        member = tarfile.TarInfo('link'); member.type = {'symlink': tarfile.SYMTYPE, 'hardlink': tarfile.LNKTYPE, 'fifo': tarfile.FIFOTYPE}[mode]; member.linkname = '/etc/passwd'; bundle.addfile(member)
-    if mode == 'duplicate': bundle.addfile(tarfile.TarInfo('index.html'))
-sha = hashlib.sha256(archive.read_bytes()).hexdigest()
-(root / (archive.name + '.sha256')).write_text(sha + '  ' + archive.name + '\\n')
-(root / 'tag.json').write_text(json.dumps({'tag': 'v1.2.3', 'object': {'type': 'commit', 'sha': ('c' if mode == 'tag' else 'b')*40}, 'message': 'Release v1.2.3\\n\\nSHA256: ' + sha + '\\nSource: ' + 'a'*40 + '\\n'}))
-if mode == 'corrupt': archive.write_bytes(b'corrupt')
-`,
-					mode
-				],
-				{ cwd: directory }
-			);
-			const result = spawnSync('python3', ['-c', script], {
-				cwd: directory,
-				env: { ...process.env, RELEASE_TAG: 'v1.2.3', GITHUB_SHA: 'b'.repeat(40) }
-			});
-			if (mode === 'valid') {
-				expect(result.stderr.toString()).toBe('');
-				expect(result.status).toBe(0);
-				expect(readFileSync(join(directory, 'site/index.html'), 'utf8')).toBe('<html>site</html>');
-				expect(readFileSync(join(directory, 'site/assets/nested/data.bin')).length).toBe(
-					2 * 1024 * 1024
-				);
-			} else {
-				expect(result.status).not.toBe(0);
-				expect(result.stderr.toString()).toContain('AssertionError');
-				expect(readdirSync(directory)).toEqual(['incoming']);
-			}
-		} finally {
-			rmSync(directory, { recursive: true });
-		}
-	}
+	const workflow = JSON.stringify(pages);
+	expect(workflow).not.toContain('contents":"write');
+	expect(workflow).not.toMatch(/gh release|release create|release upload|tags/);
 });
 
 test('release structure preserves local gates, freezes before commit and atomically pushes before publication', () => {
@@ -480,7 +422,7 @@ test('dry-run uses only read-only Git calls, leaves files/index/receipts untouch
 			'GitHub Release',
 			'checksum',
 			'Pages',
-			'without install/build'
+			'exact commit'
 		])
 			expect(result.stdout).toContain(step);
 		expect(snapshot()).toEqual(before);
