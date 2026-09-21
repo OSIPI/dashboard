@@ -5,7 +5,7 @@ node_modules
 .vercel
 .netlify
 .wrangler
-/.svelte-kit
+frontend/.svelte-kit
 /build
 
 # OS
@@ -25,7 +25,7 @@ vite.config.ts.timestamp-*
 # Local datasets
 data/*
 !data/README.md
-/static/datasets/
+/frontend/static/datasets/
 
 # Local Python companion and test tooling
 __pycache__/

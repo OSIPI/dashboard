@@ -3,7 +3,7 @@ services:
     image: oven/bun:1
     working_dir: /app
     volumes:
-      - ./:/app
+      - ./frontend/:/app
       - /app/node_modules
     ports:
       - '${FRONTEND_PORT:-60010}:37183'
