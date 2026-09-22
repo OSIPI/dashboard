@@ -7,7 +7,7 @@ import nibabel as nib
 import numpy as np
 import pytest
 
-from osipy_rest_api.core.errors import InvalidInputError
+from osipy_rest_api.core.errors import InvalidInputError, PayloadTooLargeError
 from osipy_rest_api.core.nifti_io import (
     MAP_FILENAMES,
     maps_to_zip_bytes,
@@ -48,6 +48,34 @@ def test_parse_nifti_bytes_rejects_3d():
 def test_parse_nifti_bytes_rejects_garbage():
     with pytest.raises(InvalidInputError):
         parse_nifti_bytes(b"not a nifti file", "x.nii")
+
+
+def test_parse_nifti_bytes_rejects_malformed_gzip_as_invalid_input():
+    with pytest.raises(InvalidInputError):
+        parse_nifti_bytes(b"\x1f\x8bnot a gzip stream", "x.nii.gz")
+
+
+def test_parse_nifti_bytes_rejects_compressed_bomb_before_decompression():
+    compressed = gzip.compress(b"0" * 1024)
+    with pytest.raises(PayloadTooLargeError):
+        parse_nifti_bytes(compressed, "bomb.nii.gz", max_bytes=64)
+
+
+def test_float64_limit_checked_before_allocation(monkeypatch):
+    raw = nib.Nifti1Image(np.ones((8, 8, 8, 4), dtype=np.uint8), np.eye(4)).to_bytes()
+
+    def unexpected_allocation(*args, **kwargs):
+        pytest.fail("get_fdata must not run for an oversized decoded array")
+
+    monkeypatch.setattr(nib.Nifti1Image, "get_fdata", unexpected_allocation)
+    with pytest.raises(PayloadTooLargeError):
+        parse_nifti_bytes(raw, max_bytes=len(raw))
+
+
+def test_truncated_voxel_data_is_invalid_input():
+    raw = nib.Nifti1Image(np.ones((4, 4, 4, 4)), np.eye(4)).to_bytes()
+    with pytest.raises(InvalidInputError):
+        parse_nifti_bytes(raw[:-10], max_bytes=len(raw))
 
 
 def test_parse_bval_bytes_multiline_and_whitespace():

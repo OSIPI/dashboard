@@ -10,17 +10,19 @@ import asyncio
 import gzip
 
 import nibabel as nib
+import numpy as np
 
 from tests.fixtures.synthetic import bval_bytes, make_ivim_volume, nifti_bytes
 
 
 async def test_upload_fit_poll_download_voxel(client):
     data, bvals = make_ivim_volume(shape=(6, 6, 3), noise_sigma=0.5, seed=1)
+    affine = np.array([[0, -2, 0, 10], [3, 0, 0, -20], [0, 0, 4, 7], [0, 0, 0, 1]])
 
     upload = await client.post(
         "/datasets",
         files={
-            "nifti": ("dwi.nii.gz", nifti_bytes(data), "application/gzip"),
+            "nifti": ("dwi.nii.gz", nifti_bytes(data, affine=affine), "application/gzip"),
             "bval": ("dwi.bval", bval_bytes(bvals), "text/plain"),
         },
     )
@@ -48,6 +50,7 @@ async def test_upload_fit_poll_download_voxel(client):
     assert d_map.status_code == 200
     img = nib.Nifti1Image.from_bytes(gzip.decompress(d_map.content))
     assert img.shape == (6, 6, 3)
+    np.testing.assert_array_equal(img.affine, affine)
 
     voxel = await client.get(f"/fits/{job_id}/voxel", params={"x": 3, "y": 3, "z": 1})
     assert voxel.status_code == 200

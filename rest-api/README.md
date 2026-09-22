@@ -172,6 +172,26 @@ server-side image rendering.
 6. GET  /fits/{job_id}/voxel?x=64&y=64&z=20        → curve for the clicked voxel
 ```
 
+## Resource limits
+
+Environment variables use the `OSIPY_API_` prefix (see `.env.example`):
+
+- `MAX_UPLOAD_BYTES` (512 MiB): caps each NIfTI upload, decompressed payload,
+  and decoded float64 array. Decoding is also limited by remaining storage capacity.
+  Oversized input returns 413; malformed images and non-finite b-values return 422.
+- `MAX_DATASETS` (5) and `MAX_JOBS` (5): cap retained datasets and fit records,
+  including completed results. The runner also caps pending/running tasks so deleting
+  records cannot bypass the queue limit. Full capacity returns 429.
+- `MAX_TOTAL_BYTES` (2 GiB): caps retained dataset and result array buffers,
+  including quality/uncertainty arrays. A result exceeding capacity marks its job
+  failed without retaining the result.
+
+Delete a dataset (and its fits), or wait for TTL eviction, to reclaim retained
+capacity. Completed worker tasks are released immediately. These limits bound
+application buffers, not total process RSS: multipart parsing, decompression,
+fitting and export still need working memory. Keep the service local; deployments
+need request/concurrency limits and an OS/container memory limit as well.
+
 ## Design choices up for review
 
 These are the decisions worth confirming with the project partners:

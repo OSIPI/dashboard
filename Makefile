@@ -1,7 +1,10 @@
-.PHONY: dev
-
-FRONTEND_PORT ?= 60010
+.PHONY: dev release release-dry-run
 
 dev:
-	@echo "Starting dashboard on http://localhost:$(FRONTEND_PORT)"
-	@FRONTEND_PORT=$(FRONTEND_PORT) docker compose up frontend
+	$(MAKE) -C dashboard dev
+
+release:
+	bun dashboard/scripts/release.ts
+
+release-dry-run:
+	bun dashboard/scripts/release.ts --dry-run

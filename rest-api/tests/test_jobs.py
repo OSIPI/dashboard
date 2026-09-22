@@ -1,10 +1,14 @@
 import asyncio
+import gc
 import time
+import weakref
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
 
-from osipy_rest_api.core.domain import Dataset, FitConfig, FitResult, JobStatus
+from osipy_rest_api.core.domain import Dataset, FitConfig, FitResult, Job, JobStatus
+from osipy_rest_api.core.errors import CapacityError
 from osipy_rest_api.core.jobs import InProcessJobRunner
 from osipy_rest_api.core.storage import InMemoryStorage
 
@@ -37,6 +41,7 @@ async def test_successful_job_lifecycle(storage):
     assert job.progress == 1.0
     assert job.result.summary == {"ok": True}
     assert job.finished_at is not None
+    assert job_id not in runner._tasks
 
 
 async def test_failed_fit_marks_job_failed(storage):
@@ -120,3 +125,111 @@ async def test_progress_callback_updates_job(storage):
     await runner.wait(job_id)
     assert observed, "progress bridge never wrote an intermediate value to the job"
     assert (await storage.get_job(job_id)).progress == 1.0
+
+
+async def test_job_capacity_is_bounded():
+    storage = InMemoryStorage(
+        max_datasets=10, max_total_bytes=10**9, ttl_seconds=3600, max_jobs=1
+    )
+    await storage.put_job(Job(id="one", dataset_id="d", config=FitConfig()))
+
+    with pytest.raises(CapacityError):
+        await storage.put_job(Job(id="two", dataset_id="d", config=FitConfig()))
+
+
+async def test_result_capacity_counts_fit_maps():
+    dataset = _dataset()
+    storage = InMemoryStorage(
+        max_datasets=10, max_total_bytes=dataset.nbytes + 1, ttl_seconds=3600
+    )
+    await storage.put_dataset(dataset)
+    await storage.put_job(Job(id="one", dataset_id="d", config=FitConfig()))
+    result = FitResult(
+        maps={"d": SimpleNamespace(values=np.ones((2, 2, 1), dtype=np.float64))},
+        r_squared=None,
+        summary={},
+    )
+
+    with pytest.raises(CapacityError):
+        await storage.update_job("one", result=result)
+
+    assert await storage.total_bytes() == dataset.nbytes
+    assert (await storage.get_job("one")).result is None
+
+
+async def test_deleted_queued_dataset_is_not_retained_by_runner(storage):
+    active, queued = _dataset("active"), _dataset("queued")
+    await storage.put_dataset(active)
+    await storage.put_dataset(queued)
+    loop = asyncio.get_running_loop()
+    started = asyncio.Event()
+    released = False
+    calls = []
+
+    def slow_fit(dataset, config, progress_cb):
+        calls.append(dataset.id)
+        if dataset.id == "active":
+            loop.call_soon_threadsafe(started.set)
+            while not released:
+                time.sleep(0.01)
+        return FitResult(maps={}, r_squared=None, summary={})
+
+    runner = InProcessJobRunner(storage, fit_fn=slow_fit)
+    active_job = await runner.submit("active", FitConfig())
+    await asyncio.wait_for(started.wait(), timeout=2)
+    queued_job = await runner.submit("queued", FitConfig())
+    await asyncio.sleep(0)
+    queued_ref = weakref.ref(queued)
+    try:
+        assert (await storage.get_job(queued_job)).status is JobStatus.PENDING
+        await storage.delete_dataset("queued")
+        del queued
+        gc.collect()
+        assert queued_ref() is None
+    finally:
+        released = True
+        await runner.wait(active_job)
+        await runner.wait(queued_job)
+    assert calls == ["active"]
+
+
+async def test_deleted_jobs_cannot_bypass_runner_capacity(storage):
+    runner = InProcessJobRunner(storage, max_jobs=1)
+    await runner._semaphore.acquire()
+    try:
+        await storage.put_dataset(_dataset())
+        job_id = await runner.submit("d", FitConfig())
+        await storage.delete_dataset("d")
+        with pytest.raises(CapacityError):
+            await runner.submit("d", FitConfig())
+    finally:
+        runner._semaphore.release()
+        await runner.wait(job_id)
+
+
+async def test_result_capacity_failure_is_reported_as_failed_job():
+    dataset = _dataset()
+    storage = InMemoryStorage(1, dataset.nbytes, 3600)
+    await storage.put_dataset(dataset)
+    runner = InProcessJobRunner(storage, fit_fn=lambda *args: FitResult(
+        maps={}, r_squared=np.ones((2, 2, 1)), summary={}
+    ))
+    job_id = await runner.submit("d", FitConfig())
+    await runner.wait(job_id)
+    job = await storage.get_job(job_id)
+    assert job.status is JobStatus.FAILED
+    assert job.result is None
+    assert "limit" in job.error
+
+
+def test_result_size_includes_quality_and_uncertainty_arrays():
+    arrays = {
+        "values": np.ones((2, 2, 1)),
+        "affine": np.eye(4),
+        "quality_mask": np.ones((2, 2, 1), dtype=bool),
+        "uncertainty": np.ones((2, 2, 1)),
+        "failure_reasons": np.full((2, 2, 1), "", dtype=object),
+    }
+    r_squared = np.ones((2, 2, 1))
+    result = FitResult(maps={"d": SimpleNamespace(**arrays)}, r_squared=r_squared, summary={})
+    assert result.nbytes == sum(a.nbytes for a in arrays.values()) + r_squared.nbytes

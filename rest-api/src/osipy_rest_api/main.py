@@ -26,10 +26,11 @@ def build_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or get_settings()
     storage = InMemoryStorage(
         max_datasets=settings.max_datasets,
+        max_jobs=settings.max_jobs,
         max_total_bytes=settings.max_total_bytes,
         ttl_seconds=settings.data_ttl_seconds,
     )
-    runner = InProcessJobRunner(storage)
+    runner = InProcessJobRunner(storage, max_jobs=settings.max_jobs)
     set_container(storage, runner)
 
     sweep_interval = max(1, min(settings.data_ttl_seconds // 4, 300))

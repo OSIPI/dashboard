@@ -1,4 +1,6 @@
 import numpy as np
+import pytest
+from pydantic import ValidationError
 
 from osipy_rest_api.config import Settings, get_settings
 from osipy_rest_api.core.domain import Dataset, FitConfig, Job, JobStatus, MaskSpec
@@ -15,6 +17,14 @@ def test_settings_defaults():
 def test_settings_env_override(monkeypatch):
     monkeypatch.setenv("OSIPY_API_MAX_DATASETS", "9")
     assert Settings().max_datasets == 9
+
+
+@pytest.mark.parametrize(
+    "name", ["max_jobs", "max_datasets", "max_upload_bytes", "max_total_bytes"]
+)
+def test_capacity_settings_must_be_positive(name):
+    with pytest.raises(ValidationError):
+        Settings(**{name: 0})
 
 
 def test_get_settings_is_cached():

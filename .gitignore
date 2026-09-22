@@ -1,44 +1,18 @@
-node_modules
-
-# Output
-.output
-.vercel
-.netlify
-.wrangler
-frontend/.svelte-kit
-/build
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Env
-.env
-.env.*
-!.env.example
-!.env.test
-
-# Vite
-vite.config.js.timestamp-*
-vite.config.ts.timestamp-*
-
-# Local datasets
-data/*
-!data/README.md
-/frontend/static/datasets/
-
-# Local Python companion and test tooling
 __pycache__/
 *.py[cod]
 .venv/
 .ruff_cache/
 .pytest_cache/
+*.egg-info/
 dist/
 build/
-*.egg-info/
 .coverage
-
-# Agent tooling
+.DS_Store
+.idea/
+.env
+.env.*
+!.env.example
+!.env.test
 .claude/
 .agents/
 .cursor/
@@ -46,6 +20,3 @@ build/
 .rseng-agent-skills-*
 .rseng-backup-*
 .rseng-check-waivers
-
-# Pycharm
-.idea/

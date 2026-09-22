@@ -1,9 +1,16 @@
+import gzip
+import io
 import json
 
+import nibabel as nib
 import numpy as np
+import pytest
+from fastapi import UploadFile
 from httpx import ASGITransport, AsyncClient
 
+from osipy_rest_api.api.datasets import _read_upload
 from osipy_rest_api.config import Settings
+from osipy_rest_api.core.errors import PayloadTooLargeError
 from osipy_rest_api.main import build_app
 from tests.fixtures.synthetic import bval_bytes, make_ivim_volume, nifti_bytes
 
@@ -108,3 +115,52 @@ async def test_upload_too_large_is_413():
             },
         )
     assert resp.status_code == 413
+
+
+async def test_upload_compressed_bomb_is_413():
+    app = build_app(Settings(
+        cors_origins=["http://testserver"],
+        max_datasets=3,
+        max_total_bytes=50_000_000,
+        data_ttl_seconds=3600,
+        max_upload_bytes=64,
+    ))
+    transport = ASGITransport(app=app)
+    async with (
+        AsyncClient(transport=transport, base_url="http://testserver") as c,
+        app.router.lifespan_context(app),
+    ):
+        resp = await c.post(
+            "/datasets",
+            files={
+                "nifti": ("bomb.nii.gz", gzip.compress(b"0" * 1024), "application/gzip"),
+                "bval": ("dwi.bval", b"0 100 200 800", "text/plain"),
+            },
+        )
+    assert resp.status_code == 413
+
+
+async def test_upload_rejects_nonfinite_b_values(client):
+    data, bvals = _files()
+    bvals = bvals.copy()
+    bvals[-1] = np.nan
+    assert (await _upload(client, data, bvals)).status_code == 422
+
+
+async def test_upload_without_size_is_read_with_a_limit():
+    upload = UploadFile(file=io.BytesIO(b"x" * 100))
+    with pytest.raises(PayloadTooLargeError):
+        await _read_upload(upload, 16)
+    assert upload.file.tell() == 17
+
+
+async def test_remaining_storage_checked_before_decode(client, settings, monkeypatch):
+    data, bvals = _files()
+    assert (await _upload(client, data, bvals)).status_code == 201
+    settings.max_total_bytes = data.nbytes + 100
+
+    def unexpected_allocation(*args, **kwargs):
+        pytest.fail("full storage must be rejected before allocating another image")
+
+    monkeypatch.setattr(nib.Nifti1Image, "get_fdata", unexpected_allocation)
+    assert (await _upload(client, data, bvals)).status_code == 413

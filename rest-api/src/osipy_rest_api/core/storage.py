@@ -31,14 +31,24 @@ class Storage(Protocol):
 
 class InMemoryStorage:
     def __init__(
-        self, max_datasets: int, max_total_bytes: int, ttl_seconds: int
+        self,
+        max_datasets: int,
+        max_total_bytes: int,
+        ttl_seconds: int,
+        max_jobs: int | None = None,
     ) -> None:
         self._max_datasets = max_datasets
+        self._max_jobs = max_datasets if max_jobs is None else max_jobs
         self._max_total_bytes = max_total_bytes
         self._ttl = ttl_seconds
         self._datasets: dict[str, Dataset] = {}
         self._jobs: dict[str, Job] = {}
         self._lock = asyncio.Lock()
+
+    def _total_bytes(self) -> int:
+        return sum(d.nbytes for d in self._datasets.values()) + sum(
+            j.result.nbytes for j in self._jobs.values() if j.result is not None
+        )
 
     async def put_dataset(self, ds: Dataset) -> None:
         async with self._lock:
@@ -47,7 +57,7 @@ class InMemoryStorage:
                     f"dataset limit reached ({self._max_datasets}); "
                     "delete an existing dataset first"
                 )
-            current = sum(d.nbytes for d in self._datasets.values())
+            current = self._total_bytes()
             if current + ds.nbytes > self._max_total_bytes:
                 raise CapacityError(
                     "in-memory data limit reached; delete an existing dataset first"
@@ -68,10 +78,16 @@ class InMemoryStorage:
         return list(self._datasets.values())
 
     async def total_bytes(self) -> int:
-        return sum(d.nbytes for d in self._datasets.values())
+        async with self._lock:
+            return self._total_bytes()
 
     async def put_job(self, job: Job) -> None:
         async with self._lock:
+            if len(self._jobs) >= self._max_jobs:
+                raise CapacityError(
+                    f"job limit reached ({self._max_jobs}); "
+                    "delete an existing dataset and its fits, or wait for TTL eviction"
+                )
             self._jobs[job.id] = job
 
     async def get_job(self, job_id: str) -> Job | None:
@@ -82,6 +98,15 @@ class InMemoryStorage:
             job = self._jobs.get(job_id)
             if job is None:
                 raise NotFoundError(f"job {job_id} not found")
+            result = fields.get("result")
+            if result is not None:
+                projected = self._total_bytes() - (
+                    0 if job.result is None else job.result.nbytes
+                ) + result.nbytes
+                if projected > self._max_total_bytes:
+                    raise CapacityError(
+                        "in-memory data limit reached; delete an existing dataset and its fits"
+                    )
             for key, value in fields.items():
                 setattr(job, key, value)
 

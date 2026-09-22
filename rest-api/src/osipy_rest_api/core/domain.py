@@ -52,6 +52,16 @@ class FitResult:
     r_squared: np.ndarray | None
     summary: dict
 
+    @property
+    def nbytes(self) -> int:
+        map_bytes = sum(
+            int(array.nbytes)
+            for parameter_map in self.maps.values()
+            for name in ("values", "affine", "quality_mask", "uncertainty", "failure_reasons")
+            if isinstance(array := getattr(parameter_map, name, None), np.ndarray)
+        )
+        return map_bytes + (0 if self.r_squared is None else int(self.r_squared.nbytes))
+
 
 @dataclass
 class Job:

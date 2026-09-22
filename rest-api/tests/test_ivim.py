@@ -43,6 +43,17 @@ def test_run_fit_recovers_known_parameters():
     assert f == pytest.approx(0.15, abs=0.05)
 
 
+def test_run_fit_preserves_dataset_affine_on_every_map():
+    dataset = _dataset(noise=0.0)
+    dataset.affine = np.array(
+        [[0.0, -2.0, 0.0, 14.0], [3.0, 0.0, 0.0, -9.0], [0.0, 0.0, 4.0, 7.0], [0, 0, 0, 1]]
+    )
+    result = run_fit(dataset, FitConfig())
+
+    for parameter_map in result.maps.values():
+        assert np.array_equal(parameter_map.affine, dataset.affine)
+
+
 def test_build_summary_shape():
     result = run_fit(_dataset(noise=0.0), FitConfig())
     summary = result.summary  # produced by build_summary inside run_fit

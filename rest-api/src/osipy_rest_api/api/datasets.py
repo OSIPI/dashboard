@@ -19,6 +19,22 @@ from osipy_rest_api.deps import get_settings_dep, get_storage
 from osipy_rest_api.models.schemas import DatasetMeta
 
 router = APIRouter(tags=["datasets"])
+_MAX_BVAL_BYTES = 1024 * 1024
+
+
+async def _read_upload(upload: UploadFile, max_bytes: int) -> bytes:
+    if upload.size is not None and upload.size > max_bytes:
+        raise PayloadTooLargeError(
+            f"upload is {upload.size} bytes; limit is {max_bytes}"
+        )
+    chunks: list[bytes] = []
+    size = 0
+    while chunk := await upload.read(min(64 * 1024, max_bytes - size + 1)):
+        size += len(chunk)
+        if size > max_bytes:
+            raise PayloadTooLargeError(f"upload exceeds the {max_bytes}-byte limit")
+        chunks.append(chunk)
+    return b"".join(chunks)
 
 
 def _b_values_from_form(raw: str) -> np.ndarray:
@@ -40,15 +56,16 @@ async def create_dataset(
     bval: Annotated[UploadFile | None, File()] = None,
     b_values: Annotated[str | None, Form()] = None,
 ) -> DatasetMeta:
-    raw = await nifti.read()
-    if len(raw) > settings.max_upload_bytes:
-        raise PayloadTooLargeError(
-            f"upload is {len(raw)} bytes; limit is {settings.max_upload_bytes}"
-        )
-    data, affine = parse_nifti_bytes(raw, nifti.filename or "upload.nii.gz")
+    raw = await _read_upload(nifti, settings.max_upload_bytes)
+    available_bytes = settings.max_total_bytes - await storage.total_bytes()
+    data, affine = parse_nifti_bytes(
+        raw, nifti.filename or "upload.nii.gz",
+        min(settings.max_upload_bytes, available_bytes),
+    )
 
     if bval is not None:
-        bvals = parse_bval_bytes(await bval.read())
+        bval_limit = min(settings.max_upload_bytes, _MAX_BVAL_BYTES)
+        bvals = parse_bval_bytes(await _read_upload(bval, bval_limit))
     elif b_values is not None:
         bvals = _b_values_from_form(b_values)
     else:
@@ -63,6 +80,8 @@ async def create_dataset(
         )
     if bvals.shape[0] < 4:
         raise InvalidInputError("IVIM fitting needs at least 4 b-values")
+    if not np.isfinite(bvals).all():
+        raise InvalidInputError("b-values must all be finite")
     if float(np.min(bvals)) >= 1.0:
         raise InvalidInputError("at least one b-value must be approximately 0")
 

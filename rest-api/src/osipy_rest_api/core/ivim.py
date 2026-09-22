@@ -91,6 +91,8 @@ def run_fit(
         params=params,
         progress_callback=progress_callback,
     )
+    for parameter_map in (result.d_map, result.d_star_map, result.f_map, result.s0_map):
+        parameter_map.affine = np.asarray(dataset.affine, dtype=float).copy()
     return FitResult(
         maps={
             "d": result.d_map,

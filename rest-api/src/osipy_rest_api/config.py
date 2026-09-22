@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 
+from pydantic import PositiveInt
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -12,9 +13,10 @@ class Settings(BaseSettings):
 
     cors_origins: list[str] = ["http://localhost:60010"]
     data_ttl_seconds: int = 3600
-    max_datasets: int = 5
-    max_upload_bytes: int = 536_870_912
-    max_total_bytes: int = 2_147_483_648
+    max_datasets: PositiveInt = 5
+    max_jobs: PositiveInt = 5
+    max_upload_bytes: PositiveInt = 536_870_912
+    max_total_bytes: PositiveInt = 2_147_483_648
     host: str = "127.0.0.1"
     port: int = 8000
 
