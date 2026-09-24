@@ -30,6 +30,10 @@ from core import (
 )
 
 
+MAX_CACHED_DATASETS = 6
+MAX_CACHED_DATASET_BYTES = 768 * 1024 * 1024
+
+
 class Companion(ThreadingHTTPServer):
     daemon_threads = True
 
@@ -43,6 +47,67 @@ class Companion(ThreadingHTTPServer):
         self.jobs = {}
         self.lock = threading.RLock()
         self.context = multiprocessing.get_context("spawn")
+
+    @staticmethod
+    def dataset_fingerprint(meta):
+        return tuple(
+            json.dumps(meta[key], sort_keys=True, separators=(",", ":"))
+            for key in (
+                "payloadSha256",
+                "sha256",
+                "dimensions",
+                "dtype",
+                "bValues",
+                "affine",
+                "slope",
+                "intercept",
+                "spatialUnit",
+                "name",
+            )
+        )
+
+    def retain_dataset(self, identifier, meta):
+        fingerprint = self.dataset_fingerprint(meta)
+        for existing_id, existing in list(self.datasets.items()):
+            if self.dataset_fingerprint(existing) == fingerprint:
+                # Moving a reused entry to the end makes dict order an LRU order.
+                self.datasets.pop(existing_id)
+                self.datasets[existing_id] = existing
+                return existing_id, existing
+
+        protected = {
+            job["datasetId"]
+            for job in self.jobs.values()
+            if job["state"] == "running"
+        }
+        cached_count = len(self.datasets)
+        cached_bytes = sum(item["byteLength"] for item in self.datasets.values())
+        removals = []
+        removable = iter(
+            dataset_id for dataset_id in self.datasets if dataset_id not in protected
+        )
+        while (
+            cached_count >= MAX_CACHED_DATASETS
+            or cached_bytes + meta["byteLength"] > MAX_CACHED_DATASET_BYTES
+        ):
+            dataset_id = next(removable, None)
+            if dataset_id is None:
+                raise ValueError(
+                    "Dataset cache cannot fit this upload while an active run retains its input; wait for or cancel the run, or upload a smaller dataset"
+                )
+            removals.append(dataset_id)
+            cached_count -= 1
+            cached_bytes -= self.datasets[dataset_id]["byteLength"]
+        for dataset_id in removals:
+            shutil.rmtree(self.root / dataset_id, ignore_errors=True)
+            del self.datasets[dataset_id]
+        self.datasets[identifier] = meta
+        return identifier, meta
+
+    def touch_dataset(self, identifier):
+        meta = self.datasets.pop(identifier)
+        self.datasets[identifier] = meta
+        return meta
 
     def refresh(self):
         for job in self.jobs.values():
@@ -196,20 +261,18 @@ class Handler(BaseHTTPRequestHandler):
                     raise ValueError("Expected binary dataset envelope")
                 body = self.read_body(MAX_BYTES + 65540)
                 with self.server.lock:
-                    if (
-                        len(self.server.datasets) >= 6
-                        or sum(d["byteLength"] for d in self.server.datasets.values())
-                        + len(body)
-                        > 768 * 1024 * 1024
-                    ):
-                        raise ValueError(
-                            "Companion dataset cache is full; disconnect/restart the companion to release memory"
-                        )
+                    self.server.refresh()
                     identifier = str(uuid.uuid4())
-                    meta = unpack_dataset(body, self.server.root / identifier)
-                    self.server.datasets[identifier] = meta
+                    try:
+                        meta = unpack_dataset(body, self.server.root / identifier)
+                        retained_id, meta = self.server.retain_dataset(identifier, meta)
+                    except Exception:
+                        shutil.rmtree(self.server.root / identifier, ignore_errors=True)
+                        raise
+                    if retained_id != identifier:
+                        shutil.rmtree(self.server.root / identifier, ignore_errors=True)
                 return self.respond(
-                    201, {"id": identifier, "payloadSha256": meta["payloadSha256"]}
+                    201, {"id": retained_id, "payloadSha256": meta["payloadSha256"]}
                 )
             if path == "/runs":
                 data = json.loads(self.read_body(8 * 1024 * 1024))
@@ -222,7 +285,7 @@ class Handler(BaseHTTPRequestHandler):
                     dataset_id = data.get("datasetId")
                     if dataset_id not in self.server.datasets:
                         raise ValueError("Unknown dataset")
-                    meta = self.server.datasets[dataset_id]
+                    meta = self.server.touch_dataset(dataset_id)
                     config = validate_config(data.get("config"), meta)
                     scope = data.get("scope")
                     indices = data.get("indices", [])

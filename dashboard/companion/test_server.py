@@ -1,9 +1,12 @@
 import json
 import struct
 import threading
+import time
 import unittest
 import urllib.error
 import urllib.request
+from queue import Empty
+from unittest import mock
 
 import numpy as np
 from core import model_catalog
@@ -45,14 +48,7 @@ class ServerTests(unittest.TestCase):
         )
         return urllib.request.urlopen(request, timeout=10)
 
-    def test_auth_origin_and_cancellation(self):
-        for token, origin, code in [
-            ("wrong", "http://localhost:60010", 401),
-            ("unit-test-session-token", "https://untrusted.example", 403),
-        ]:
-            with self.assertRaises(urllib.error.HTTPError) as error:
-                self.request("/models", token=token, origin=origin)
-            self.assertEqual(error.exception.code, code)
+    def dataset_envelope(self, value=1, source_hash=None):
         meta = {
             "dimensions": [2, 2, 2, 8],
             "dtype": "float32",
@@ -61,19 +57,82 @@ class ServerTests(unittest.TestCase):
             "slope": 1,
             "intercept": 0,
             "spatialUnit": "mm",
-            "sha256": "b" * 64,
+            "sha256": source_hash or f"{value:064x}",
         }
         header = json.dumps(meta).encode()
-        dataset = json.load(
+        return (
+            struct.pack("<I", len(header))
+            + header
+            + np.full(64, value, dtype="<f4").tobytes()
+        )
+
+    def upload(self, body):
+        return json.load(
             self.request(
                 "/datasets",
-                struct.pack("<I", len(header))
-                + header
-                + np.ones(64, dtype="<f4").tobytes(),
+                body,
                 "POST",
                 content_type="application/octet-stream",
             )
         )
+
+    def test_repeated_upload_is_idempotent(self):
+        body = self.dataset_envelope()
+
+        first = self.upload(body)
+        repeated = [self.upload(body) for _ in range(7)]
+
+        self.assertTrue(all(item == first for item in repeated))
+        self.assertEqual(len(self.server.datasets), 1)
+
+    def test_full_cache_evicts_oldest_dataset(self):
+        uploaded = [self.upload(self.dataset_envelope(value)) for value in range(1, 7)]
+        self.assertEqual(self.upload(self.dataset_envelope(1)), uploaded[0])
+        retained_result = self.server.root / "retained-result"
+        retained_result.mkdir()
+        (retained_result / "sentinel").write_text("result")
+
+        newest = self.upload(self.dataset_envelope(7))
+
+        self.assertEqual(len(self.server.datasets), 6)
+        self.assertIn(uploaded[0]["id"], self.server.datasets)
+        self.assertNotIn(uploaded[1]["id"], self.server.datasets)
+        self.assertIn(newest["id"], self.server.datasets)
+        self.assertTrue((retained_result / "sentinel").is_file())
+
+    def test_full_cache_never_evicts_running_dataset(self):
+        active = self.upload(self.dataset_envelope(1))
+        process = mock.Mock(exitcode=None)
+        process.is_alive.return_value = False
+        queue = mock.Mock()
+        queue.get_nowait.side_effect = Empty
+        self.server.jobs["active-run"] = {
+            "id": "active-run",
+            "datasetId": active["id"],
+            "state": "running",
+            "startedMonotonic": time.monotonic(),
+            "process": process,
+            "queue": queue,
+        }
+
+        with mock.patch("server.MAX_CACHED_DATASETS", 1):
+            with self.assertRaises(urllib.error.HTTPError) as error:
+                self.upload(self.dataset_envelope(2))
+
+        self.assertEqual(error.exception.code, 400)
+        message = json.load(error.exception)["error"]
+        self.assertIn("wait for or cancel the run", message)
+        self.assertEqual(list(self.server.datasets), [active["id"]])
+
+    def test_auth_origin_and_cancellation(self):
+        for token, origin, code in [
+            ("wrong", "http://localhost:60010", 401),
+            ("unit-test-session-token", "https://untrusted.example", 403),
+        ]:
+            with self.assertRaises(urllib.error.HTTPError) as error:
+                self.request("/models", token=token, origin=origin)
+            self.assertEqual(error.exception.code, code)
+        dataset = self.upload(self.dataset_envelope(source_hash="b" * 64))
         config = {
             "datasetId": dataset["id"],
             "config": model_catalog()["defaults"],

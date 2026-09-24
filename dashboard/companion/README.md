@@ -35,7 +35,7 @@ Development/preview origins on ports 60010/60014 and `https://osipi.github.io` a
 - The verified model/fitter is `biexponential` + `LevenbergMarquardtFitter.fit_batch`. Iteration limits, tolerance, bounds and optional initial values are applied to that API. Unintegrated registry entries are not advertised.
 - Quality distinguishes invalid baseline, non-convergence, non-finite outputs, domain/bound checks, R²/RMSE thresholds and fitting errors. Unavailable estimates are NaN with explicit validity/status masks.
 - Inputs and results live in a private temporary directory and are removed on clean shutdown (Ctrl+C/SIGTERM). Reconnect to inspect jobs after a browser reload; closing the tab does not cancel a running Python job.
-- Up to six datasets/768 MiB of input data, five million spatial voxels per analysis grid, and ten retained runs. Restart the companion to release its dataset cache. No filesystem path supplied by the browser is executed or opened.
+- Up to six datasets/768 MiB of input data, five million spatial voxels per analysis grid, and ten retained runs. Repeated uploads reuse the cached dataset; otherwise, least-recently-used inputs are evicted as needed. An input used by a running fit is retained until that fit finishes or is cancelled, and evicting an input does not remove retained run results. No filesystem path supplied by the browser is executed or opened.
 - No Slicer/ITK-SNAP launching, accounts, remote processing or automatic registration.
 
 ## Checks
