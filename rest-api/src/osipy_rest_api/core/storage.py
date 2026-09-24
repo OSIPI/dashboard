@@ -11,7 +11,7 @@ import asyncio
 import time
 from typing import Protocol
 
-from osipy_rest_api.core.domain import Dataset, Job
+from osipy_rest_api.core.domain import Dataset, Job, JobStatus
 from osipy_rest_api.core.errors import CapacityError, NotFoundError
 
 
@@ -98,6 +98,11 @@ class InMemoryStorage:
             job = self._jobs.get(job_id)
             if job is None:
                 raise NotFoundError(f"job {job_id} not found")
+            if set(fields) == {"progress"} and job.status in (
+                JobStatus.SUCCEEDED,
+                JobStatus.FAILED,
+            ):
+                return  # A queued progress callback must not overwrite terminal state.
             result = fields.get("result")
             if result is not None:
                 projected = self._total_bytes() - (

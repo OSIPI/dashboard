@@ -44,6 +44,37 @@ async def test_successful_job_lifecycle(storage):
     assert job_id not in runner._tasks
 
 
+async def test_late_progress_cannot_lower_completed_job():
+    release_progress = asyncio.Event()
+    progress_written = asyncio.Event()
+
+    class DelayedProgressStorage(InMemoryStorage):
+        async def update_job(self, job_id, **fields):
+            if set(fields) == {"progress"}:
+                await release_progress.wait()
+                await super().update_job(job_id, **fields)
+                progress_written.set()
+            else:
+                await super().update_job(job_id, **fields)
+
+    storage = DelayedProgressStorage(max_datasets=10, max_total_bytes=10**9, ttl_seconds=3600)
+    await storage.put_dataset(_dataset())
+
+    def fake_fit(dataset, config, progress_cb):
+        progress_cb(0.5)
+        return FitResult(maps={}, r_squared=None, summary={})
+
+    runner = InProcessJobRunner(storage, fit_fn=fake_fit)
+    job_id = await runner.submit("d", FitConfig())
+    await runner.wait(job_id)
+    release_progress.set()
+    await asyncio.wait_for(progress_written.wait(), timeout=2)
+
+    job = await storage.get_job(job_id)
+    assert job.status is JobStatus.SUCCEEDED
+    assert job.progress == 1.0
+
+
 async def test_failed_fit_marks_job_failed(storage):
     await storage.put_dataset(_dataset())
 
