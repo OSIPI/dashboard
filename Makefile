@@ -1,7 +1,10 @@
-.PHONY: dev release release-dry-run
+.PHONY: dev stop release release-dry-run
 
 dev:
 	$(MAKE) -C dashboard dev
+
+stop:
+	$(MAKE) -C dashboard stop
 
 release:
 	bun dashboard/scripts/release.ts
