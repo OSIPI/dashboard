@@ -8,7 +8,7 @@ authors:
 repository-code: 'https://github.com/OSIPI/dashboard'
 url: 'https://osipi.github.io/dashboard/'
 license: MIT
-version: '0.0.1'
+version: '0.1.0'
 keywords:
   - OSIPY
   - OSIPI
