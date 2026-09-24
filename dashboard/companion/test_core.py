@@ -9,6 +9,14 @@ from core import model_catalog, run_fit, unpack_dataset, validate_config
 
 
 class FitTests(unittest.TestCase):
+    def test_catalog_separates_runnable_methods_from_library(self):
+        catalog = model_catalog()
+        self.assertEqual([model["id"] for model in catalog["models"]], ["biexponential"])
+        sections = {item["technique"]: item["groups"] for item in catalog["library"]}
+        self.assertEqual(set(sections), {"IVIM", "DCE", "DSC", "ASL"})
+        self.assertIn("simplified", sections["IVIM"][0]["methods"])
+        self.assertIn("tofts", sections["DCE"][0]["methods"])
+
     def test_real_osipy_fit_and_geometry_order(self):
         b = np.array([0, 10, 20, 50, 100, 200, 400, 800.0])
         signal = 1000 * (0.8 * np.exp(-b * 0.001) + 0.2 * np.exp(-b * 0.02))

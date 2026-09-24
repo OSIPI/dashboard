@@ -13,6 +13,10 @@ export type FitConfig = {
 };
 export type Catalog = {
 	osipyVersion: string;
+	library: {
+		technique: 'IVIM' | 'DCE' | 'DSC' | 'ASL';
+		groups: { label: string; methods: string[] }[];
+	}[];
 	models: {
 		id: string;
 		label: string;

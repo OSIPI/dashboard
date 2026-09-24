@@ -16,9 +16,23 @@ os.environ.setdefault("OSIPY_NUM_THREADS", "1")
 
 import numpy as np
 import osipy
-from osipy.ivim import get_ivim_model, list_ivim_models
-from osipy.ivim.models.binding import BoundIVIMModel
+from osipy.asl import (
+    list_att_models,
+    list_difference_methods,
+    list_m0_calibrations,
+    list_quantification_models,
+)
 from osipy.common.fitting.least_squares import LevenbergMarquardtFitter
+from osipy.dce import list_concentration_models, list_models, list_t1_methods
+from osipy.dsc import (
+    list_arrival_detectors,
+    list_deconvolvers,
+    list_leakage_correctors,
+    list_normalizers,
+)
+from osipy.ivim import get_ivim_model
+from osipy.ivim.models.binding import BoundIVIMModel
+from osipy.ivim.models.registry import IVIM_MODEL_REGISTRY
 
 MAX_BYTES = 512 * 1024 * 1024
 DTYPES = {
@@ -50,8 +64,8 @@ def utcnow():
 
 
 def model_catalog():
-    # Expose the verified model/fitter pair; don't advertise registry entries we haven't integrated.
-    if "biexponential" not in list_ivim_models():
+    # Runnable models stay restricted to the verified pair; library entries are informational.
+    if "biexponential" not in IVIM_MODEL_REGISTRY:
         raise RuntimeError("Installed OSIPY does not provide the biexponential model")
     model = get_ivim_model("biexponential")
     return {
@@ -73,6 +87,28 @@ def model_catalog():
                 ],
                 "initialization": "OSIPY data-dependent segmented initialization; optional per-parameter overrides.",
             }
+        ],
+        "library": [
+            {"technique": "IVIM", "groups": [
+                {"label": "Signal models", "methods": sorted(IVIM_MODEL_REGISTRY)},
+            ]},
+            {"technique": "DCE", "groups": [
+                {"label": "Pharmacokinetic models", "methods": list_models()},
+                {"label": "T1 mapping", "methods": list_t1_methods()},
+                {"label": "Concentration conversion", "methods": list_concentration_models()},
+            ]},
+            {"technique": "DSC", "groups": [
+                {"label": "Deconvolution", "methods": list_deconvolvers()},
+                {"label": "Leakage correction", "methods": list_leakage_correctors()},
+                {"label": "Bolus arrival", "methods": list_arrival_detectors()},
+                {"label": "Normalization", "methods": list_normalizers()},
+            ]},
+            {"technique": "ASL", "groups": [
+                {"label": "Quantification", "methods": list_quantification_models()},
+                {"label": "Transit time", "methods": list_att_models()},
+                {"label": "M0 calibration", "methods": list_m0_calibrations()},
+                {"label": "Difference", "methods": list_difference_methods()},
+            ]},
         ],
         "defaults": {
             "model": "biexponential",

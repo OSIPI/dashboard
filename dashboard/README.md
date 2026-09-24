@@ -22,7 +22,7 @@ The app opens at <http://localhost:60010>. You can also use the dashboard-local 
 make dev
 ```
 
-The root Makefile delegates development here and owns the release entry points. Docker Compose remains dashboard-local until the backend is added.
+`make dev` starts the Docker frontend and the authenticated OSIPY companion on your host. It prints the companion session token; paste it into Inspector → IVIM analysis to connect. Ctrl+C stops both. The companion uses the sibling OSIPY virtual environment by default (override with `COMPANION_PYTHON` if needed). The root Makefile delegates development here and owns the release entry points.
 
 ## Data
 
@@ -35,7 +35,7 @@ Local NIfTI files and subject metadata remain in the browser session. Dataset pr
 The dashboard works without the companion. To run real IVIM fitting, install OSIPY and follow [companion/README.md](companion/README.md), then start:
 
 ```sh
-python companion/server.py
+../../osipy/.venv/bin/python companion/server.py
 ```
 
 The companion listens only on `127.0.0.1:60016` and requires the session token printed at startup.

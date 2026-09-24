@@ -5,6 +5,7 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { AnalysisClient } from '$lib/analysis-client.svelte';
 	import AnalysisPanel from '$lib/components/viewer/AnalysisPanel.svelte';
+	import MethodsMenu from '$lib/components/viewer/MethodsMenu.svelte';
 	import RoiPanel from '$lib/components/viewer/RoiPanel.svelte';
 	import ExportPanel from '$lib/components/viewer/ExportPanel.svelte';
 	import { RoiSession } from '$lib/roi-session.svelte';
@@ -543,6 +544,7 @@
 				>{dataset.dimensions[2]} slices</span
 			>
 		</div>{/if}
+	<MethodsMenu catalog={analysis.catalog} />
 	<span
 		class="badge ml-auto whitespace-nowrap text-muted-foreground"
 		title="Not for diagnosis. Local viewing and optional OSIPY fitting; no remote image uploads."

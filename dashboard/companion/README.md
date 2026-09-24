@@ -9,14 +9,14 @@ Requirements: Python 3.12+ and an installed OSIPY checkout with NumPy/nibabel. T
 From the dashboard directory, if the sibling OSIPY checkout already has an environment:
 
 ```sh
-../osipy/.venv/bin/python companion/server.py
+../../osipy/.venv/bin/python companion/server.py
 ```
 
-Otherwise, with OSIPY checked out at `../osipy`:
+Otherwise, with OSIPY checked out at `../../osipy`:
 
 ```sh
 python3.12 -m venv .venv
-.venv/bin/python -m pip install -e ../osipy
+.venv/bin/python -m pip install -e ../../osipy
 .venv/bin/python companion/server.py
 ```
 
