@@ -4,7 +4,7 @@ import { ImportError } from './nifti';
 
 export function loadLocal(
 	image: File,
-	bval: File,
+	bval: File | undefined,
 	bvec: File | undefined,
 	availableBytes: number,
 	signal?: AbortSignal

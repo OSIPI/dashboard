@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { on } from 'svelte/events';
 	import { planeWorld, type Plane, type Point } from '$lib/spatial';
 	let {
 		plane,
@@ -6,7 +7,13 @@
 		world,
 		name,
 		edges,
-		onpick
+		onpick,
+		zoom = 1,
+		pan = { x: 0, y: 0 },
+		smooth = false,
+		panMode = false,
+		onzoom,
+		onpan
 	}: {
 		plane: Plane;
 		pixels: Uint8ClampedArray;
@@ -14,6 +21,12 @@
 		name: string;
 		edges: readonly string[];
 		onpick: (point: Point) => void;
+		zoom?: number;
+		pan?: { x: number; y: number };
+		smooth?: boolean;
+		panMode?: boolean;
+		onzoom?: (value: number) => void;
+		onpan?: (value: { x: number; y: number }) => void;
 	} = $props();
 	let canvas: HTMLCanvasElement;
 	let stageWidth = $state(0),
@@ -22,13 +35,31 @@
 	const size = $derived(Math.max(0, Math.min(stageWidth - 32, (stageHeight - 32) * ratio)));
 	const u = $derived((world[plane.u] - plane.origin[plane.u]) / plane.horizontal);
 	const v = $derived((world[plane.v] - plane.origin[plane.v]) / plane.vertical);
+	let drag: { id: number; x: number; y: number; pan: { x: number; y: number } } | undefined;
+	let dragged = false;
+	function wheelZoom(node: HTMLElement) {
+		const destroy = on(
+			node,
+			'wheel',
+			(event) => {
+				if (!onzoom || !event.deltaY) return;
+				event.preventDefault();
+				onzoom(Math.max(1, Math.min(8, zoom * Math.exp(-event.deltaY * 0.001))));
+			},
+			{ passive: false }
+		);
+		return { destroy };
+	}
 	$effect(() => {
 		canvas
 			?.getContext('2d')
 			?.putImageData(new ImageData(new Uint8ClampedArray(pixels), plane.width, plane.height), 0, 0);
 	});
 	function pick(event: MouseEvent) {
-		if (!event.detail) return;
+		if (!event.detail || dragged || panMode) {
+			dragged = false;
+			return;
+		}
 		const bounds =
 			event.currentTarget instanceof HTMLElement
 				? event.currentTarget.getBoundingClientRect()
@@ -45,15 +76,41 @@
 </script>
 
 <div
-	class="relative grid min-h-0 flex-1 place-items-center"
+	class="relative grid min-h-0 flex-1 place-items-center overflow-hidden"
 	bind:clientWidth={stageWidth}
 	bind:clientHeight={stageHeight}
 >
 	<button
-		class="relative block cursor-crosshair bg-black p-0 focus-visible:outline-2 focus-visible:outline-selection"
+		use:wheelZoom
+		class="relative block bg-black p-0 focus-visible:outline-2 focus-visible:outline-selection {panMode
+			? 'cursor-grab touch-none'
+			: 'cursor-crosshair'}"
 		style:width="{size}px"
 		style:aspect-ratio={ratio}
+		style:transform="translate({pan.x}px, {pan.y}px) scale({zoom})"
 		aria-label="Select voxel in {name} view. Arrow keys move within plane; Page Up and Page Down move through it."
+		onpointerdown={(event) => {
+			if (!onpan || (!event.shiftKey && !panMode) || event.button !== 0) return;
+			dragged = false;
+			drag = { id: event.pointerId, x: event.clientX, y: event.clientY, pan: { ...pan } };
+			event.currentTarget.setPointerCapture(event.pointerId);
+		}}
+		onpointermove={(event) => {
+			if (!drag || drag.id !== event.pointerId) return;
+			const dx = event.clientX - drag.x,
+				dy = event.clientY - drag.y;
+			if (Math.abs(dx) + Math.abs(dy) > 3) dragged = true;
+			onpan?.({ x: drag.pan.x + dx, y: drag.pan.y + dy });
+		}}
+		onpointerup={() => {
+			drag = undefined;
+		}}
+		onpointercancel={() => {
+			drag = undefined;
+		}}
+		onlostpointercapture={() => {
+			drag = undefined;
+		}}
 		onclick={pick}
 		onkeydown={(event) => {
 			const point = [...world] as Point;
@@ -76,7 +133,7 @@
 			bind:this={canvas}
 			width={plane.width}
 			height={plane.height}
-			class="block size-full [image-rendering:pixelated]"
+			class="block size-full {smooth ? '[image-rendering:auto]' : '[image-rendering:pixelated]'}"
 			aria-label="{name} nearest-neighbour reformat">{name} slice</canvas
 		>
 		<span

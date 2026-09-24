@@ -5,6 +5,18 @@ import { compareScans, mapPoint, validDate, type Scan } from '../src/lib/imports
 import { autoWindow } from '../src/lib/workspace';
 import { niftiFixture, dicomFixture } from './fixtures/local-scans';
 
+test('standalone NIfTI viewing opens all volumes without diffusion sidecars', async () => {
+	const { dataset, volumes, issues } = await decodeNifti(niftiFixture());
+	expect(dataset.dimensions).toEqual([3, 2, 2, 3]);
+	expect(volumes).toHaveLength(3);
+	expect(volumes[2].length).toBe(12);
+	expect(issues.some((issue) => issue.message.includes('viewing only'))).toBe(true);
+	expect(issues.some((issue) => issue.message.includes('b-vectors'))).toBe(false);
+	const image3d = niftiFixture().slice(0, 352 + 12 * 4);
+	new DataView(image3d).setInt16(40, 3, true);
+	expect((await decodeNifti(image3d)).volumes).toHaveLength(1);
+});
+
 test('NIfTI imports preserve float/int samples, signed scaling, endian order and millimetre geometry', async () => {
 	for (const littleEndian of [true, false])
 		for (const float of [true, false]) {

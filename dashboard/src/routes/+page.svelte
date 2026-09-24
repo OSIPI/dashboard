@@ -151,6 +151,9 @@
 				</div>
 			</div>
 			<div class="flex flex-wrap items-center gap-2">
+				<a class="button button-outline h-8 px-2 text-xs" href={resolve('/nifti')}
+					>Standalone NIfTI viewer</a
+				>
 				{#if !__LOCAL_COMPANION_PROXY__}<LocalAnalysisSetup />{/if}
 				<ScanLibrary
 					scans={session}

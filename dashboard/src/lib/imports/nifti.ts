@@ -122,7 +122,7 @@ const digest = async (buffer: ArrayBuffer) =>
 
 export async function decodeNifti(
 	buffer: ArrayBuffer,
-	bval: string,
+	bval?: string,
 	bvec?: string,
 	name = 'Local acquisition',
 	availableBytes = FILE_LIMIT
@@ -227,15 +227,19 @@ export async function decodeNifti(
 			message:
 				'Affine spacing differs from pixdim. Physical display uses the affine column lengths.'
 		});
-	const bValues = parseBValues(bval, dimensions[3]);
+	// Standalone viewing has no diffusion metadata; these values are not used for analysis.
+	const bValues =
+		bval === undefined
+			? (Array(dimensions[3]).fill(0) as number[])
+			: parseBValues(bval, dimensions[3]);
 	const bVectors = parseBVectors(bvec, dimensions[3]);
-	if (!bValues.includes(0))
+	if (bval !== undefined && !bValues.includes(0))
 		issues.push({
 			severity: 'warning',
 			message:
 				'No b=0 baseline acquisition. Viewing is available; this may limit future fitting methods.'
 		});
-	if (!bVectors.length)
+	if (bval !== undefined && !bVectors.length)
 		issues.push({
 			severity: 'warning',
 			message: 'No b-vectors supplied. Diffusion directions are unknown.'
@@ -311,7 +315,7 @@ export async function decodeNifti(
 	const volumes = bValues.map((_, i) => data.subarray(i * voxels, (i + 1) * voxels));
 	issues.push({
 		severity: 'info',
-		message: `Validated ${dimensions.join(' × ')} dimensions, ${bValues.length} b-values, affine, spacing, scaling and ${count.toLocaleString()} finite samples. ${new Set(bValues).size} distinct b-values; repeated acquisitions preserved.`
+		message: `Validated ${dimensions.join(' × ')} dimensions, affine, spacing, scaling and ${count.toLocaleString()} finite samples.${bval === undefined ? ' No diffusion metadata supplied; viewing only.' : ` ${bValues.length} b-values; ${new Set(bValues).size} distinct b-values; repeated acquisitions preserved.`}`
 	});
 	return { dataset, volumes, issues };
 }

@@ -8,7 +8,9 @@
 	import { base } from '$app/paths';
 
 	let { children } = $props();
-	const appRoute = $derived(page.route.id === '/' || page.route.id === '/viewer');
+	const appRoute = $derived(
+		page.route.id === '/' || page.route.id === '/viewer' || page.route.id === '/nifti'
+	);
 	onMount(() => {
 		if (!dev && window.isSecureContext && 'serviceWorker' in navigator)
 			void navigator.serviceWorker
