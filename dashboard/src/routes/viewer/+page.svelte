@@ -6,6 +6,7 @@
 	import { AnalysisClient } from '$lib/analysis-client.svelte';
 	import AnalysisPanel from '$lib/components/viewer/AnalysisPanel.svelte';
 	import MethodsMenu from '$lib/components/viewer/MethodsMenu.svelte';
+	import FitDialog from '$lib/components/viewer/FitDialog.svelte';
 	import RoiPanel from '$lib/components/viewer/RoiPanel.svelte';
 	import ExportPanel from '$lib/components/viewer/ExportPanel.svelte';
 	import { RoiSession } from '$lib/roi-session.svelte';
@@ -145,6 +146,12 @@
 	let message = $state('');
 	let workspaceWidth = $state(900);
 	const analysis = new AnalysisClient();
+	let fitDialogOpen = $state(false);
+	let fitMethod = $state('biexponential');
+	function configureFit(method: string) {
+		fitMethod = method;
+		fitDialogOpen = true;
+	}
 	analysis.onresult = (result) => {
 		for (const item of catalog.filter((s) => s.sha256 === result.report.dataset.sha256))
 			void saveResult(item.id, result).catch(
@@ -206,6 +213,7 @@
 
 	onMount(() => {
 		alive = true;
+		if (__LOCAL_COMPANION_PROXY__) void analysis.connect();
 		void listStoredScans()
 			.then((items) => {
 				if (!alive) return;
@@ -544,7 +552,11 @@
 				>{dataset.dimensions[2]} slices</span
 			>
 		</div>{/if}
-	<MethodsMenu catalog={analysis.catalog} />
+	<MethodsMenu
+		catalog={analysis.catalog}
+		canFit={!!dataset && !!volumes.length && technique === 'IVIM'}
+		onselect={configureFit}
+	/>
 	<span
 		class="badge ml-auto whitespace-nowrap text-muted-foreground"
 		title="Not for diagnosis. Local viewing and optional OSIPY fitting; no remote image uploads."
@@ -763,13 +775,12 @@
 				<AnalysisPanel
 					client={analysis}
 					{dataset}
-					{volumes}
 					{x}
 					{y}
 					{slice}
 					result={fitResult}
 					bind:openPanel={preferences.current.analysisOpen}
-					roiIndices={roiSession?.current?.indices ?? []}
+					onconfigure={() => configureFit(analysis.catalog?.models[0].id ?? 'biexponential')}
 				/>
 				{#if roiSession}<RoiPanel
 						{slice}
@@ -838,3 +849,20 @@
 			>
 		</div>{/if}
 </main>
+{#if dataset && volumes.length}
+	<FitDialog
+		client={analysis}
+		{dataset}
+		{volumes}
+		{x}
+		{y}
+		{slice}
+		roiIndices={roiSession?.current?.indices ?? []}
+		method={fitMethod}
+		bind:open={fitDialogOpen}
+		onrun={() => {
+			preferences.current.analysisOpen = true;
+			preferences.current.panel = 'Inspector';
+		}}
+	/>
+{/if}

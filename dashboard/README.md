@@ -22,7 +22,7 @@ The app opens at <http://localhost:60010>. You can also use the dashboard-local 
 make dev
 ```
 
-`make dev` starts the Docker frontend and the authenticated OSIPY companion on your host. It prints the companion session token; paste it into Inspector → IVIM analysis to connect. Ctrl+C stops both. The companion uses the sibling OSIPY virtual environment by default (override with `COMPANION_PYTHON` if needed). The root Makefile delegates development here and owns the release entry points.
+`make dev` starts the Bun frontend and the authenticated OSIPY companion on your host. The browser connects automatically; no token entry is needed. The private credential stays between the local dev server and companion. Ctrl+C stops both. The companion uses the sibling OSIPY virtual environment by default (override with `COMPANION_PYTHON` if needed). The root Makefile delegates development here and owns the release entry points. Docker Compose can still start the frontend alone, but it does not provide automatic companion pairing.
 
 ## Data
 

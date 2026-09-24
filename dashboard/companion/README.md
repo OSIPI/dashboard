@@ -4,6 +4,8 @@ Runs actual IVIM fitting on the same computer as the browser. The viewer remains
 
 ## Start
 
+For the dashboard development workflow, run `make dev` from the parent repository. It starts the companion and pairs the local browser automatically without displaying or entering a token. Manual companion startup below is for the independently hosted dashboard.
+
 Requirements: Python 3.12+ and an installed OSIPY checkout with NumPy/nibabel. The integration is verified against OSIPY 0.1.1's public biexponential model and Levenberg–Marquardt batch API.
 
 From the dashboard directory, if the sibling OSIPY checkout already has an environment:

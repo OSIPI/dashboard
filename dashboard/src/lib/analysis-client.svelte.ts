@@ -37,7 +37,10 @@ export class AnalysisClient {
 			...init,
 			redirect: 'error',
 			signal: this.controller.signal,
-			headers: { Authorization: `Bearer ${this.credential}`, ...init.headers }
+			headers: {
+				...(!__LOCAL_COMPANION_PROXY__ ? { Authorization: `Bearer ${this.credential}` } : {}),
+				...init.headers
+			}
 		});
 		if (!response.ok) {
 			const body = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
@@ -50,9 +53,10 @@ export class AnalysisClient {
 		this.error = '';
 		this.busy = true;
 		try {
-			this.endpoint = companionUrl(this.url);
-			this.credential = this.token.trim();
-			if (!this.credential) throw new Error('Paste the companion session token.');
+			this.endpoint = __LOCAL_COMPANION_PROXY__ ? '/local-companion' : companionUrl(this.url);
+			this.credential = __LOCAL_COMPANION_PROXY__ ? '' : this.token.trim();
+			if (!__LOCAL_COMPANION_PROXY__ && !this.credential)
+				throw new Error('Paste the companion session token.');
 			this.controller.abort();
 			this.controller = new AbortController();
 			clearTimeout(this.timer);

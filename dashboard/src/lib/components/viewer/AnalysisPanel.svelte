@@ -2,57 +2,39 @@
 	import FlaskIcon from '~icons/lucide/flask-conical';
 	import ChevronDownIcon from '~icons/lucide/chevron-down';
 	import ChevronRightIcon from '~icons/lucide/chevron-right';
-	import type { Dataset, VoxelVolume } from '$lib/ivim';
+	import type { Dataset } from '$lib/ivim';
 	import { voxelIndex } from '$lib/ivim';
 	import { download } from '$lib/workspace';
 	import { niftiBytes } from '$lib/nifti-export';
 	import type { AnalysisClient } from '$lib/analysis-client.svelte';
-	import type { FitConfig, FitResult } from '$lib/analysis';
+	import type { FitResult } from '$lib/analysis';
 	import { persistedPreference } from '$lib/persisted-preference.svelte';
 	let {
 		client,
 		dataset,
-		volumes,
 		x,
 		y,
 		slice,
 		result,
 		openPanel = $bindable(true),
-		roiIndices = []
+		onconfigure
 	}: {
 		client: AnalysisClient;
 		dataset: Dataset;
-		volumes: VoxelVolume[];
 		x: number;
 		y: number;
 		slice: number;
 		result?: FitResult;
 		openPanel: boolean;
-		roiIndices?: number[];
+		onconfigure: () => void;
 	} = $props();
-	let config = $state<FitConfig>();
-	$effect(() => {
-		if (client.catalog && !config) config = JSON.parse(JSON.stringify(client.catalog.defaults));
-	});
-	let scope = $state<'voxel' | 'roi' | 'dataset'>('voxel');
-	const open = persistedPreference('osipy.analysis.settings-open', true, (raw) => raw === 'true');
+	const open = persistedPreference('osipy.analysis.settings-open', false, (raw) => raw === 'true');
 	const running = $derived(client.runs.find((r) => r.state === 'running'));
 	const ready = $derived(dataset.bValues.includes(0) && new Set(dataset.bValues).size >= 4);
 	const index = $derived(voxelIndex(x, y, slice, dataset.dimensions));
 	const status = $derived(result?.maps.Status[index]);
 	async function connect() {
 		await client.connect();
-		if (client.catalog) config = JSON.parse(JSON.stringify(client.catalog.defaults));
-	}
-	function run() {
-		if (config)
-			client.start(
-				dataset,
-				volumes,
-				JSON.parse(JSON.stringify(config)),
-				scope,
-				scope === 'voxel' ? [index] : roiIndices
-			);
 	}
 </script>
 
@@ -75,160 +57,52 @@
 		</button>
 	</h2>
 	<details bind:open={open.current}>
-		<summary class="cursor-pointer text-xs font-medium">Local companion & fitting settings</summary>
+		<summary class="cursor-pointer text-xs font-medium">Local companion</summary>
 		<div class="mt-3 space-y-3 text-xs">
-			<p class="text-muted-foreground">
-				Start the Python companion locally, then enter its session token. Data goes only to the
-				loopback endpoint; credentials are not saved.
-			</p>
-			<label class="block"
-				>Companion URL<input class="input mt-1 w-full px-2 py-1.5" bind:value={client.url} /></label
-			>
-			<label class="block"
-				>Session token<input
-					class="input mt-1 w-full px-2 py-1.5"
-					type="password"
-					autocomplete="off"
-					bind:value={client.token}
-				/></label
-			>
-			<button class="button button-outline" disabled={client.busy} onclick={connect}
-				>Connect companion</button
-			>
-			{#if client.catalog && config}
-				<fieldset class="space-y-2" disabled={client.busy || !!running}>
-					<label class="block"
-						>Fitting method<select class="input mt-1 w-full text-xs" bind:value={config.model}
-							>{#each client.catalog.models as model (model.id)}<option value={model.id}
-									>{model.label}</option
-								>{/each}</select
-						></label
-					>
-					<p class="text-muted-foreground">
-						OSIPY {client.catalog.osipyVersion} · {client.catalog.models[0].initialization}
-					</p>
-					<div class="grid grid-cols-2 gap-2">
-						<label
-							>Iterations<input
-								class="input mt-1 w-full px-2 py-1"
-								type="number"
-								min="2"
-								max="2000"
-								step="1"
-								bind:value={config.iterations}
-							/></label
-						>
-						<label
-							>Tolerance<input
-								class="input mt-1 w-full px-2 py-1"
-								type="number"
-								min="0.000000000001"
-								max="0.1"
-								step="any"
-								bind:value={config.tolerance}
-							/></label
-						>
-						<label
-							>Initial-guess b threshold<input
-								class="input mt-1 w-full px-2 py-1"
-								type="number"
-								min="0"
-								step="any"
-								bind:value={config.threshold}
-							/></label
-						>
-						<label
-							>Minimum baseline (a.u.)<input
-								class="input mt-1 w-full px-2 py-1"
-								type="number"
-								min="0"
-								step="any"
-								bind:value={config.minimumBaseline}
-							/></label
-						>
-						<label
-							>Minimum R²<input
-								class="input mt-1 w-full px-2 py-1"
-								type="number"
-								min="-100"
-								max="1"
-								step="any"
-								bind:value={config.minimumR2}
-							/></label
-						>
-						<label
-							>Maximum RMSE (optional)<input
-								class="input mt-1 w-full px-2 py-1"
-								type="number"
-								min="0"
-								step="any"
-								value={config.maximumRmse ?? ''}
-								onchange={(e) =>
-									(config!.maximumRmse =
-										e.currentTarget.value === '' ? null : e.currentTarget.valueAsNumber)}
-							/></label
-						>
-					</div>
-					<details>
-						<summary class="cursor-pointer font-medium">Bounds and initialization</summary>
-						<p class="my-2 text-muted-foreground">
-							Blank initial values use data-dependent estimates. Blank bounds use OSIPY defaults; S₀
-							has no default upper bound.
-						</p>
-						{#each client.catalog.models[0].parameters as parameter (parameter.name)}
-							<fieldset class="mb-2 rounded border p-2">
-								<legend>{parameter.name} · {parameter.unit}</legend>
-								<div class="grid grid-cols-3 gap-1">
-									{#each [0, 1] as edge (edge)}<label
-											>{edge === 0 ? 'Lower' : 'Upper'}<input
-												class="input mt-1 w-full px-1 py-1"
-												type="number"
-												step="any"
-												placeholder={parameter.bounds[edge] === null
-													? 'Unbounded'
-													: String(parameter.bounds[edge])}
-												value={config.bounds[parameter.name]?.[edge] ?? ''}
-												onchange={(e) => {
-													const bounds = config!.bounds[parameter.name] ?? [null, null];
-													bounds[edge] =
-														e.currentTarget.value === '' ? null : e.currentTarget.valueAsNumber;
-													config!.bounds[parameter.name] = bounds;
-												}}
-											/></label
-										>{/each}
-									<label
-										>Initial<input
-											class="input mt-1 w-full px-1 py-1"
-											type="number"
-											step="any"
-											placeholder="Auto"
-											value={config.initial[parameter.name] ?? ''}
-											onchange={(e) =>
-												(config!.initial[parameter.name] =
-													e.currentTarget.value === '' ? null : e.currentTarget.valueAsNumber)}
-										/></label
-									>
-								</div>
-							</fieldset>
-						{/each}
-					</details>
-				</fieldset>
+			{#if import.meta.env.DEV && !__LOCAL_COMPANION_PROXY__}
+				<p class="text-muted-foreground">
+					This dashboard was started without its local companion. Stop the server using port 60010,
+					then run make dev from the dashboard repository. It connects automatically—no token
+					needed.
+				</p>
+			{:else if __LOCAL_COMPANION_PROXY__}
+				<p class="text-muted-foreground">
+					The local companion connects automatically when you run make dev. Imaging data stays on
+					this computer.
+				</p>
+				{#if !client.catalog}<button
+						class="button button-outline"
+						disabled={client.busy}
+						onclick={connect}>{client.busy ? 'Connecting…' : 'Retry connection'}</button
+					>{/if}
+			{:else}
+				<p class="text-muted-foreground">
+					Start the Python companion locally, then enter its session token. Data goes only to the
+					loopback endpoint; credentials are not saved.
+				</p>
+				<label class="block"
+					>Companion URL<input
+						class="input mt-1 w-full px-2 py-1.5"
+						bind:value={client.url}
+					/></label
+				>
+				<label class="block"
+					>Session token<input
+						class="input mt-1 w-full px-2 py-1.5"
+						type="password"
+						autocomplete="off"
+						bind:value={client.token}
+					/></label
+				>
+				<button class="button button-outline" disabled={client.busy} onclick={connect}
+					>Connect companion</button
+				>
 			{/if}
 		</div>
 	</details>
-	{#if client.catalog && config}<div class="flex flex-wrap gap-2">
-			<label class="min-w-0 flex-1 text-xs"
-				>Fit scope<select class="input mt-1 w-full text-xs" bind:value={scope}
-					><option value="voxel">Selected voxel</option><option
-						value="roi"
-						disabled={!roiIndices.length}>ROI · voxelwise ({roiIndices.length})</option
-					><option value="dataset">Whole dataset</option></select
-				></label
-			><button
-				class="button button-primary self-end"
-				disabled={client.busy || !!running || !ready || (scope === 'roi' && !roiIndices.length)}
-				onclick={run}>Run fitting</button
-			>
+	{#if client.catalog}<div class="flex items-center justify-between gap-2 text-xs">
+			<p class="min-w-0 text-muted-foreground">{client.catalog.models[0].label}</p>
+			<button class="button button-outline shrink-0" onclick={onconfigure}>Configure fit</button>
 		</div>{/if}
 	{#if !ready}<p class="text-xs text-muted-foreground">
 			Fitting needs b=0 and at least four distinct b-values.

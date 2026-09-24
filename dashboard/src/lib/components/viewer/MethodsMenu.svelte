@@ -1,7 +1,12 @@
 <script lang="ts">
 	import type { Catalog } from '$lib/analysis';
 
-	let { catalog }: { catalog?: Catalog } = $props();
+	let {
+		catalog,
+		canFit = false,
+		onselect
+	}: { catalog?: Catalog; canFit?: boolean; onselect: (id: string) => void } = $props();
+	let expanded = $state(false);
 	const names: Record<string, string> = {
 		biexponential: 'Biexponential',
 		simplified: 'Simplified IVIM',
@@ -23,7 +28,7 @@
 	}
 </script>
 
-<details class="group relative shrink-0 text-xs max-[899px]:static">
+<details bind:open={expanded} class="group relative shrink-0 text-xs max-[899px]:static">
 	<summary
 		class="button button-outline min-h-9 cursor-pointer list-none px-3 max-[899px]:min-h-11 [&::-webkit-details-marker]:hidden"
 	>
@@ -46,19 +51,27 @@
 							<h4 class="text-muted-foreground">{group.label}</h4>
 							<ul class="mt-1 space-y-1">
 								{#each group.methods as method (method)}
-									<li class="flex items-baseline justify-between gap-2">
-										<span title={method}>{label(method)}</span>
-										<span
-											class="shrink-0 {section.technique === 'IVIM' &&
-											catalog.models.some((model) => model.id === method)
-												? 'text-selection'
-												: 'text-muted-foreground'}"
-										>
-											{section.technique === 'IVIM' &&
-											catalog.models.some((model) => model.id === method)
-												? 'Runnable'
-												: 'Library only'}
-										</span>
+									<li>
+										{#if section.technique === 'IVIM' && catalog.models.some((model) => model.id === method)}
+											<button
+												type="button"
+												class="flex min-h-9 w-full items-center justify-between gap-2 rounded-md px-2 text-left hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-50"
+												disabled={!canFit}
+												onclick={() => {
+													expanded = false;
+													onselect(method);
+												}}
+												><span title={method}>{label(method)}</span><span
+													class="shrink-0 text-selection">Configure →</span
+												></button
+											>
+										{:else}<div
+												class="flex items-baseline justify-between gap-2 px-2 py-1 text-muted-foreground"
+											>
+												<span title={method}>{label(method)}</span><span class="shrink-0"
+													>Library only</span
+												>
+											</div>{/if}
 									</li>
 								{/each}
 							</ul>
@@ -68,8 +81,11 @@
 			{/each}
 		{:else}
 			<p class="mt-2 text-muted-foreground">
-				Connect the local companion in Inspector → IVIM analysis to list installed methods. No
-				remote service is used.
+				{import.meta.env.DEV && !__LOCAL_COMPANION_PROXY__
+					? 'This dashboard was started without its companion. Stop the server using port 60010 and run make dev to list methods automatically.'
+					: __LOCAL_COMPANION_PROXY__
+						? 'Connecting to the local companion. If it stays disconnected, open Inspector → IVIM analysis to retry.'
+						: 'Connect the local companion in Inspector → IVIM analysis to list installed methods. No remote service is used.'}
 			</p>
 		{/if}
 	</div>

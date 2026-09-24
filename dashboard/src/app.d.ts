@@ -6,6 +6,7 @@ declare global {
 	const __APP_VERSION__: string;
 	const __BUILD_SHA__: string;
 	const __BUILD_DATE__: string;
+	const __LOCAL_COMPANION_PROXY__: boolean;
 
 	namespace App {
 		// interface Error {}
