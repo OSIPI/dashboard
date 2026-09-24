@@ -9,6 +9,7 @@ test('layout preferences restore every layout choice and normalize invalid brows
 		seriesWidth: 310,
 		inspectorWidth: 450,
 		panel: 'Inspector',
+		inspectorTab: 'Analyze',
 		linked: false,
 		navigationOpen: true,
 		metadataOpen: true,
@@ -22,6 +23,9 @@ test('layout preferences restore every layout choice and normalize invalid brows
 		validationOpen: false
 	};
 	expect(parseLayout(JSON.stringify(layout))).toEqual(layout);
+	expect(parseLayout('{"inspectorTab":"Analyze"}').inspectorTab).toBe('Analyze');
+	expect(parseLayout('{"inspectorTab":"ROI"}').inspectorTab).toBe('ROI');
+	expect(parseLayout('{"inspectorTab":"invalid"}').inspectorTab).toBe(DEFAULT_LAYOUT.inspectorTab);
 	for (const raw of ['invalid json', 'null', '[]', '2'])
 		expect(parseLayout(raw)).toEqual(DEFAULT_LAYOUT);
 	expect(

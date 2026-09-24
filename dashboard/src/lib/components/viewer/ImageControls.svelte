@@ -2,36 +2,25 @@
 	import type { Dataset } from '$lib/ivim';
 	import { minimumWindow, displayStep, type Display } from '$lib/workspace';
 	import NumericControl from '../NumericControl.svelte';
-	import type { ViewerTool } from '$lib/roi';
 	let {
 		dataset,
 		slice,
 		active,
 		display,
-		linked,
-		showLink = true,
 		scope = $bindable('slice'),
-		navigationOpen = $bindable(false),
-		tool,
 		onslice,
 		onvolume,
 		ondisplay,
-		onlink,
 		onauto
 	}: {
 		dataset: Dataset;
 		slice: number;
 		active: number;
 		display: Display;
-		linked: boolean;
-		showLink?: boolean;
 		scope: 'slice' | 'volume';
-		navigationOpen: boolean;
-		tool: ViewerTool;
 		onslice: (value: number) => void;
 		onvolume: (index: number) => void;
 		ondisplay: (value: Display) => void;
-		onlink: () => void;
 		onauto: (robust: boolean) => void;
 	} = $props();
 </script>
@@ -126,36 +115,4 @@
 			</div>
 		</div>
 	</fieldset>
-</div>
-<div class="grid items-start gap-2 border-t pt-2 @min-[640px]:grid-cols-[auto_minmax(0,1fr)]">
-	{#if showLink}<label
-			class="flex min-h-6 items-center gap-2 text-xs max-[899px]:min-h-11"
-			title="Link zoom, pan, window and level. Slice and voxel are always linked."
-			><input
-				type="checkbox"
-				aria-label="Link zoom, pan, window/level across montage"
-				checked={linked}
-				onchange={onlink}
-			/>Link display settings</label
-		>{:else}<span class="text-xs text-muted-foreground">Independent display settings</span>{/if}
-	<details
-		class="text-xs leading-5 text-muted-foreground @min-[640px]:text-right"
-		bind:open={navigationOpen}
-	>
-		<summary class="cursor-pointer font-medium">Navigation & native orientation</summary>
-		<p class="mt-2 text-left">
-			{showLink
-				? 'Slice and voxel are always linked within this dataset.'
-				: 'Between scans, use the verified physical-position link in the comparison toolbar.'} Display
-			controls affect {linked ? 'all linked views' : `volume ${active + 1}`}. Hold Space and drag
-			over an image to pan temporarily; release Space to return to the selected tool. Scroll over an
-			image to zoom at the pointer (1–4×). Shift+scroll moves through a larger multiview grid.
-			{tool === 'inspect'
-				? 'Click the image to inspect a voxel. Arrow keys move the selection when the image is focused.'
-				: 'Drag to pan. Arrow keys pan when the image is focused.'} Reset restores zoom, pan, window
-			and level. Coordinates are original NIfTI indices. The native plane may be oblique. Increasing
-			x / y / z points approximately {dataset.axisCodes.join(' / ')}; x runs right and y runs down
-			on screen. No reorientation.
-		</p>
-	</details>
 </div>

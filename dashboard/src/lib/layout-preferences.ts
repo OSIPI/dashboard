@@ -3,6 +3,7 @@ import type { Dataset } from './ivim';
 
 export type LayoutPreferences = {
 	panel: 'Image' | 'Controls' | 'Series' | 'Inspector';
+	inspectorTab: 'Saved' | 'Analyze' | 'ROI' | 'Data & export';
 	gridLayout: GridLayout;
 	seriesLayout: 'grid' | 'list';
 	seriesWidth: number;
@@ -24,6 +25,7 @@ export type LayoutPreferences = {
 };
 export const DEFAULT_LAYOUT: LayoutPreferences = {
 	panel: 'Image',
+	inspectorTab: 'Analyze',
 	gridLayout: 'auto',
 	seriesLayout: 'grid',
 	seriesWidth: 260,
@@ -51,6 +53,8 @@ export function parseLayout(raw: string): LayoutPreferences {
 		const result = { ...DEFAULT_LAYOUT };
 		if (['Image', 'Controls', 'Series', 'Inspector'].includes(value.panel))
 			result.panel = value.panel;
+		if (['Saved', 'Analyze', 'ROI', 'Data & export'].includes(value.inspectorTab))
+			result.inspectorTab = value.inspectorTab;
 		if (GRID_LAYOUTS.some((g) => g.id === value.gridLayout)) result.gridLayout = value.gridLayout;
 		if (['grid', 'list'].includes(value.seriesLayout)) result.seriesLayout = value.seriesLayout;
 		if (Number.isFinite(value.seriesWidth))

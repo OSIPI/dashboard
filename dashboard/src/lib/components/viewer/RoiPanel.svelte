@@ -5,6 +5,8 @@
 	import SquareDashedIcon from '~icons/lucide/square-dashed';
 	import PencilLineIcon from '~icons/lucide/pencil-line';
 	import CrosshairIcon from '~icons/lucide/crosshair';
+	import InfoIcon from '~icons/lucide/info';
+	import PlusIcon from '~icons/lucide/plus';
 	import { onDestroy } from 'svelte';
 	import type { Dataset, VoxelVolume } from '$lib/ivim';
 	import type { RoiSession } from '$lib/roi-session.svelte';
@@ -111,29 +113,31 @@
 	}
 </script>
 
-<section class="card space-y-3 p-3 {open ? '' : '[&>*:not(:first-child)]:hidden'}">
-	<h2>
-		<button
-			type="button"
-			class="flex min-h-8 w-full items-center gap-2 rounded-md text-left text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring max-[899px]:min-h-11"
-			aria-label="{open ? 'Collapse' : 'Expand'} regions of interest panel"
-			aria-expanded={open}
-			onclick={() => (open = !open)}
-		>
-			<ScanIcon class="size-4 shrink-0" aria-hidden="true" />Regions of interest
-			{#if open}<ChevronDownIcon class="ml-auto size-4" />{:else}<ChevronRightIcon
-					class="ml-auto size-4"
-				/>{/if}
-		</button>
-	</h2>
-	<div class="flex justify-end">
-		<button
-			class="button button-outline h-8 px-2 text-xs"
-			onclick={() => {
-				session.add();
-				onstart('rectangle');
-			}}>New ROI</button
-		>
+<section class="card space-y-2.5 p-3 {open ? '' : '[&>*:not(:first-child)]:hidden'}">
+	<div class="flex items-center gap-2">
+		<h2 class="min-w-0 flex-1">
+			<button
+				type="button"
+				class="flex min-h-8 w-full items-center gap-2 rounded-md text-left text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring max-[899px]:min-h-11"
+				aria-label="{open ? 'Collapse' : 'Expand'} regions of interest panel"
+				aria-expanded={open}
+				onclick={() => (open = !open)}
+			>
+				<ScanIcon class="size-4 shrink-0" aria-hidden="true" />Regions of interest
+				{#if open}<ChevronDownIcon class="ml-auto size-4" />{:else}<ChevronRightIcon
+						class="ml-auto size-4"
+					/>{/if}
+			</button>
+		</h2>
+		{#if open}
+			<button
+				class="button button-outline h-8 gap-1 px-2 text-xs max-[899px]:h-11"
+				onclick={() => {
+					session.add();
+					onstart('rectangle');
+				}}><PlusIcon class="size-4" aria-hidden="true" />New</button
+			>
+		{/if}
 	</div>
 	{#if session.rois.length}
 		<select class="input w-full text-xs" aria-label="Active ROI" bind:value={session.selected}
@@ -169,33 +173,36 @@
 						)}
 				/>
 			</div>
-			<div class="flex flex-wrap gap-1">
+			<div class="grid grid-cols-3 gap-1" role="group" aria-label="ROI drawing tool">
 				<button
-					class="button button-ghost h-8 px-2 text-xs"
+					class="button button-ghost h-8 min-w-0 gap-1 px-1 text-xs max-[899px]:h-11"
 					aria-pressed={tool === 'rectangle'}
 					onclick={() => onstart('rectangle')}
-					><SquareDashedIcon class="size-4 shrink-0" aria-hidden="true" />Rectangle</button
+					><SquareDashedIcon class="size-4 shrink-0" aria-hidden="true" />Rect</button
 				><button
-					class="button button-ghost h-8 px-2 text-xs"
+					class="button button-ghost h-8 min-w-0 gap-1 px-1 text-xs max-[899px]:h-11"
 					aria-pressed={tool === 'freehand'}
 					onclick={() => onstart('freehand')}
-					><PencilLineIcon class="size-4 shrink-0" aria-hidden="true" />Freehand</button
-				><button class="button button-ghost h-8 px-2 text-xs" onclick={() => onstart('inspect')}
-					><CrosshairIcon class="size-4 shrink-0" aria-hidden="true" />Inspect voxel</button
+					><PencilLineIcon class="size-4 shrink-0" aria-hidden="true" />Draw</button
+				><button
+					class="button button-ghost h-8 min-w-0 gap-1 px-1 text-xs max-[899px]:h-11"
+					aria-pressed={tool === 'inspect'}
+					onclick={() => onstart('inspect')}
+					><CrosshairIcon class="size-4 shrink-0" aria-hidden="true" />Inspect</button
 				>
 			</div>
-			<div class="flex flex-wrap items-center gap-3 text-xs">
+			<div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
 				<label class="flex items-center gap-1"
-					><input type="checkbox" bind:checked={session.erase} />Erase from ROI</label
+					><input type="checkbox" bind:checked={session.erase} />Erase</label
 				><label class="flex items-center gap-1"
-					><input type="checkbox" bind:checked={visible} />Show ROI</label
+					><input type="checkbox" bind:checked={visible} />Show</label
 				><button class="underline" disabled={!session.history.length} onclick={() => session.undo()}
 					>Undo</button
 				>
 			</div>
-			<label class="block text-xs"
-				>ROI opacity<input
-					class="w-full accent-selection"
+			<label class="flex items-center gap-2 text-xs"
+				><span class="shrink-0">Opacity</span><input
+					class="min-w-0 flex-1 accent-selection"
 					type="range"
 					min="0"
 					max="1"
@@ -203,12 +210,17 @@
 					bind:value={opacity}
 				/></label
 			>
-			<p class="text-xs text-muted-foreground">
-				Draw on native slices; freehand regions close on release. Escape cancels a stroke. Undo
-				retains 10 edits. Regions may span slices; no automatic propagation.
-			</p>
+			<details class="text-xs text-muted-foreground">
+				<summary class="inline-flex cursor-pointer items-center gap-1 text-foreground"
+					><InfoIcon class="size-3.5" aria-hidden="true" />Drawing tips</summary
+				>
+				<p class="mt-1">
+					Draw on native slices. Freehand closes on release; Escape cancels. Undo retains 10 edits.
+					No automatic slice propagation.
+				</p>
+			</details>
 			<details class="text-xs">
-				<summary class="cursor-pointer">Numeric rectangle (keyboard input)</summary>
+				<summary class="cursor-pointer">Coordinates</summary>
 				<p class="my-2 text-muted-foreground">
 					Zero-based voxel-edge bounds; end edges are exclusive. Applies on slice {slice + 1}.
 				</p>
@@ -237,7 +249,7 @@
 						)}>Apply rectangle</button
 				>
 			</details>
-			<div class="flex gap-2 text-xs">
+			<div class="flex gap-3 text-xs">
 				<button
 					class="underline"
 					onclick={() =>
@@ -254,7 +266,7 @@
 	{/if}
 	{#if session.error}<p class="text-xs text-destructive" role="alert">{session.error}</p>{/if}
 	<details class="text-xs">
-		<summary class="cursor-pointer font-medium">Mask import / export</summary>
+		<summary class="cursor-pointer font-medium">Mask files</summary>
 		<p class="my-2 text-muted-foreground">
 			Import a 3D integer-label NIfTI matching this dataset's dimensions and affine. Exported ROI
 			masks preserve geometry; names and colors can be included in a bundle.
@@ -274,34 +286,66 @@
 	</details>
 	{#if current?.indices.length}
 		<div class="space-y-2 border-t pt-2 text-xs">
-			<h3 class="font-semibold">ROI summary</h3>
+			<div class="flex items-center justify-between gap-2">
+				<h3 class="font-semibold">Summary</h3>
+				<span class="text-muted-foreground">{current.indices.length} voxels</span>
+			</div>
 			<label class="flex items-center gap-2"
-				><input type="checkbox" bind:checked={meanVisible} />Compare ROI mean signal in chart</label
+				><input type="checkbox" bind:checked={meanVisible} />Show mean in chart</label
 			>
-			<label
-				>Measure<select class="input mt-1 w-full text-xs" bind:value={metric}
-					><option value="signal">Current acquisition signal</option
-					>{#each result?.report.maps.filter((m) => !['Valid', 'Status'].includes(m.name)) ?? [] as map (map.name)}<option
-							value={map.name}>{map.name} · {map.unit}</option
-						>{/each}</select
-				></label
+			<label class="sr-only" for="roi-measure">Measure</label><select
+				id="roi-measure"
+				class="input w-full text-xs"
+				bind:value={metric}
+				><option value="signal">Current acquisition signal</option
+				>{#each result?.report.maps.filter((m) => !['Valid', 'Status'].includes(m.name)) ?? [] as map (map.name)}<option
+						value={map.name}>{map.name} · {map.unit}</option
+					>{/each}</select
 			>
-			<p>
-				{stats.count}/{stats.selected} finite {metric === 'signal' ? 'signal' : 'quality-valid map'}
-				voxels · {unit}
-			</p>
-			<dl class="grid grid-cols-2 gap-1">
-				{#each [['Mean', stats.mean], ['Median', stats.median], ['SD (population)', stats.sd], ['Minimum', stats.min], ['Maximum', stats.max]] as [label, value] (label)}<div
+			<div class="rounded-md border bg-background/40 px-3 py-2">
+				<div class="flex items-baseline justify-between gap-2">
+					<span class="text-muted-foreground">Mean</span><span class="text-muted-foreground"
+						>{stats.count}/{stats.selected} valid · {unit}</span
 					>
-						<dt class="text-muted-foreground">{label}</dt>
-						<dd>{typeof value === 'number' ? value.toPrecision(5) : 'Unavailable'}</dd>
+				</div>
+				<strong class="block text-lg font-semibold tabular-nums"
+					>{typeof stats.mean === 'number' ? stats.mean.toPrecision(5) : 'Unavailable'}</strong
+				>
+			</div>
+			<dl class="grid grid-cols-4 gap-1 text-center tabular-nums">
+				{#each [['Median', stats.median], ['SD', stats.sd], ['Min', stats.min], ['Max', stats.max]] as [label, value] (label)}<div
+						class="min-w-0"
+					>
+						<dt
+							class="text-muted-foreground"
+							title={label === 'SD' ? 'Population standard deviation' : String(label)}
+						>
+							{label}
+						</dt>
+						<dd
+							class="truncate"
+							title={typeof value === 'number' ? value.toPrecision(5) : 'Unavailable'}
+						>
+							{typeof value === 'number' ? value.toPrecision(4) : '—'}
+						</dd>
 					</div>{/each}
 			</dl>
-			<button class="button button-outline" onclick={exportMean}>Export ROI mean signal CSV</button>
-			<p class="text-muted-foreground">
-				Signal means are not fits. Map summaries average voxelwise estimates; they are not
-				parameters fitted to an averaged signal.
-			</p>
+			<div class="flex items-center justify-between gap-2">
+				<button class="button button-outline h-8 px-2 text-xs" onclick={exportMean}
+					>Export mean CSV</button
+				>
+				<details class="min-w-0 flex-1 text-right text-muted-foreground">
+					<summary
+						class="inline-flex cursor-pointer items-center gap-1"
+						aria-label="About ROI statistics"
+						><InfoIcon class="size-4" aria-hidden="true" />About</summary
+					>
+					<p class="mt-2 text-left">
+						Signal means are not fits. Map summaries average voxelwise estimates, not parameters
+						fitted to an averaged signal.
+					</p>
+				</details>
+			</div>
 		</div>
 	{/if}
 </section>

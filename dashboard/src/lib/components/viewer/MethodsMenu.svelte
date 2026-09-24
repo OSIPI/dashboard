@@ -1,11 +1,18 @@
 <script lang="ts">
+	import ChevronDownIcon from '~icons/lucide/chevron-down';
 	import type { Catalog } from '$lib/analysis';
 
 	let {
 		catalog,
 		canFit = false,
+		selectedMethod,
 		onselect
-	}: { catalog?: Catalog; canFit?: boolean; onselect: (id: string) => void } = $props();
+	}: {
+		catalog?: Catalog;
+		canFit?: boolean;
+		selectedMethod?: string;
+		onselect: (id: string) => void;
+	} = $props();
 	let expanded = $state(false);
 	const names: Record<string, string> = {
 		biexponential: 'Biexponential',
@@ -30,12 +37,13 @@
 
 <details bind:open={expanded} class="group relative shrink-0 text-xs max-[899px]:static">
 	<summary
-		class="button button-outline min-h-9 cursor-pointer list-none px-3 max-[899px]:min-h-11 [&::-webkit-details-marker]:hidden"
+		class="button button-primary min-h-9 cursor-pointer list-none px-3 max-[899px]:min-h-11 [&::-webkit-details-marker]:hidden"
 	>
-		Methods <span aria-hidden="true" class="ml-1 text-muted-foreground">▾</span>
+		{selectedMethod ? label(selectedMethod) : 'Methods'}
+		<ChevronDownIcon aria-hidden="true" class="size-4" />
 	</summary>
 	<div
-		class="absolute right-0 z-30 mt-1 max-h-[min(65dvh,32rem)] w-[min(22rem,calc(100vw-1rem))] overflow-y-auto rounded-md border bg-card p-3 shadow-lg max-[899px]:right-2 max-[899px]:left-2 max-[899px]:max-h-[calc(100dvh-14rem)] max-[899px]:w-auto"
+		class="absolute left-0 z-30 mt-1 max-h-[min(65dvh,32rem)] w-[min(22rem,calc(100vw-1rem))] overflow-y-auto rounded-md border bg-card p-3 shadow-lg max-[899px]:right-2 max-[899px]:left-2 max-[899px]:max-h-[calc(100dvh-14rem)] max-[899px]:w-auto"
 	>
 		<h2 class="text-sm font-semibold">OSIPY methods</h2>
 		{#if catalog?.library?.length}
@@ -56,6 +64,7 @@
 											<button
 												type="button"
 												class="flex min-h-9 w-full items-center justify-between gap-2 rounded-md px-2 text-left hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-50"
+												aria-current={selectedMethod === method ? 'true' : undefined}
 												disabled={!canFit}
 												onclick={() => {
 													expanded = false;
@@ -85,7 +94,7 @@
 					? 'This dashboard was started without its companion. Stop the server using port 60010 and run make dev to list methods automatically.'
 					: __LOCAL_COMPANION_PROXY__
 						? 'Connecting to the local companion. If it stays disconnected, open Inspector → IVIM analysis to retry.'
-						: 'Connect the local companion in Inspector → IVIM analysis to list installed methods. No remote service is used.'}
+						: 'Run the local Docker workspace from Datasets → Run local fitting to list installed methods. The public site does not run fitting.'}
 			</p>
 		{/if}
 	</div>

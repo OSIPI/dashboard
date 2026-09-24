@@ -179,7 +179,9 @@ export function chartSvg(
 	selected: number,
 	dark: boolean,
 	fit?: FittedCurve,
-	compact = false
+	compact = false,
+	interactive = false,
+	xRange?: [number, number]
 ): string {
 	const foreground = dark ? '#ddd' : '#242424';
 	const background = dark ? '#171717' : '#fff';
@@ -187,17 +189,57 @@ export function chartSvg(
 	const colors = dark
 		? ['#ed746b', '#b1c4df', '#d3bd91', '#b3c6ac', '#c7b1ce']
 		: ['#ad4942', '#365e8b', '#806019', '#46623b', '#785086'];
+	const maxB = Math.max(1, ...dataset.bValues);
+	const [startB, endB] =
+		xRange &&
+		Number.isFinite(xRange[0]) &&
+		Number.isFinite(xRange[1]) &&
+		xRange[0] >= 0 &&
+		xRange[0] < xRange[1] &&
+		xRange[1] <= maxB
+			? xRange
+			: [0, maxB];
+	const inRange = (b: number) => b >= startB && b <= endB;
 	const all = [
-		...series.flatMap((s) => s.values),
-		...(fit ? dataset.bValues.map((b) => predictIvim(b, fit.parameters)) : [])
+		...series.flatMap((s) => s.values.filter((_, i) => inRange(dataset.bValues[i]))),
+		...(fit
+			? Array.from({ length: 161 }, (_, i) =>
+					predictIvim(startB + (i / 160) * (endB - startB), fit.parameters)
+				)
+			: [])
 	];
 	const min = Math.min(0, ...all);
 	const observedMax = Math.max(0, ...all);
 	const max = observedMax > min ? observedMax : min + 1;
-	const maxB = Math.max(1, ...dataset.bValues);
-	const px = (b: number) => 90 + (b / maxB) * 650;
+	const px = (b: number) => 90 + ((b - startB) / (endB - startB)) * 650;
 	const py = (s: number) => 355 - ((s - min) / (max - min)) * 270;
-	const height = 440 + series.length * 23 + (fit ? (compact ? 23 : 210) : 0) - (compact ? 52 : 0);
+	const labels = [
+		...series.map((s, i) => (compact && i === 0 ? 'Measured samples' : s.label)),
+		...(fit
+			? [
+					`${fit.model} fit${compact ? (fit.valid ? '' : ' · flagged') : ` · ${fit.valid ? 'quality checks passed' : 'flagged estimate — inspect quality'}`}`
+				]
+			: [])
+	];
+	let legendX = 24;
+	let legendRow = 0;
+	const legendPositions = labels.map((label, index) => {
+		const width = label.length * 7.2 + 32;
+		if (!compact && legendX > 24 && legendX + width > 776) {
+			legendX = 24;
+			legendRow++;
+		}
+		const position = {
+			x: compact ? 24 : legendX,
+			y: (compact ? 438 : 454) + (compact ? index : legendRow) * 23
+		};
+		legendX += width;
+		return position;
+	});
+	const legendRows = compact ? series.length + (fit ? 1 : 0) : legendRow + 1;
+	const height = compact
+		? 440 + series.length * 23 + (fit ? 23 : 0) - 52
+		: 456 + legendRows * 23 + (fit ? 210 : 0);
 	let body = `<rect width="800" height="${height}" fill="${background}"/><g font-family="system-ui,sans-serif" font-size="${compact ? 23 : 13}" fill="${foreground}"${compact ? ' transform="translate(0,-52)"' : ''}>${compact ? '' : `<text x="90" y="28" font-size="15" font-weight="600">${escape(dataset.name)}</text><text x="90" y="48" font-size="11" fill="${muted}">${fit ? 'Acquired signals + fitted model · repeats kept separate' : 'Acquired signals · repeats kept separate'}</text>`}<text x="90" y="70" font-size="11" fill="${muted}">Signal (a.u.)</text>`;
 	const tickFormat = new Intl.NumberFormat('en', {
 		notation: 'compact',
@@ -205,39 +247,52 @@ export function chartSvg(
 	});
 	for (const tick of [min, (min + max) / 2, max])
 		body += `<line x1="90" x2="740" y1="${py(tick)}" y2="${py(tick)}" stroke="${foreground}" opacity="0.12"/><text x="80" y="${py(tick) + 4}" text-anchor="end" fill="${muted}">${tickFormat.format(tick)}</text>`;
-	for (const tick of [0, maxB / 4, maxB / 2, maxB * 0.75, maxB])
-		body += `<text x="${px(tick)}" y="379" text-anchor="middle" fill="${muted}">${tick}</text>`;
+	for (const tick of [0, 0.25, 0.5, 0.75, 1].map((fraction) => startB + fraction * (endB - startB)))
+		body += `<text x="${px(tick)}" y="379" text-anchor="middle" fill="${muted}">${Number(tick.toFixed(2))}</text>`;
 	body += `<text x="415" y="402" text-anchor="middle" fill="${muted}">b-value (s/mm²)</text>`;
+	if (interactive) {
+		const overviewX = 90 + (startB / maxB) * 650;
+		const overviewWidth = ((endB - startB) / maxB) * 650;
+		body += `<g aria-hidden="true"><rect x="90" y="414" width="650" height="6" rx="3" fill="${foreground}" opacity="0.15"/><rect x="${overviewX}" y="413" width="${overviewWidth}" height="8" rx="4" fill="${colors[0]}" opacity="${startB === 0 && endB === maxB ? '0.4' : '0.85'}"/><path d="M${overviewX},409v16 M${overviewX + overviewWidth},409v16" stroke="${colors[0]}" stroke-width="3" stroke-linecap="round"/></g><rect x="${overviewX}" y="394" width="${overviewWidth}" height="42" fill="transparent" data-chart-range="move" tabindex="0" role="slider" aria-label="Move zoom range" aria-valuemin="0" aria-valuemax="${maxB}" aria-valuenow="${startB}" aria-valuetext="${startB.toFixed(1)} to ${endB.toFixed(1)} s/mm²" style="cursor:grab;touch-action:none"/><rect x="${overviewX - 22}" y="394" width="44" height="42" fill="transparent" data-chart-range="start" tabindex="0" role="slider" aria-label="Start of zoom range" aria-valuemin="0" aria-valuemax="${endB}" aria-valuenow="${startB}" aria-valuetext="${startB.toFixed(1)} s/mm²" style="cursor:ew-resize;touch-action:none"/><rect x="${overviewX + overviewWidth - 22}" y="394" width="44" height="42" fill="transparent" data-chart-range="end" tabindex="0" role="slider" aria-label="End of zoom range" aria-valuemin="${startB}" aria-valuemax="${maxB}" aria-valuenow="${endB}" aria-valuetext="${endB.toFixed(1)} s/mm²" style="cursor:ew-resize;touch-action:none"/><rect x="90" y="85" width="650" height="270" fill="transparent" style="cursor:zoom-in" aria-hidden="true"/>`;
+	}
+	const pointsStart = body.length;
+	let curveHit = '';
 	series.forEach((s, si) => {
 		const color = colors[si % colors.length];
 		s.values.forEach((value, vi) => {
+			if (!inRange(dataset.bValues[vi])) return;
 			const cx = px(dataset.bValues[vi]);
 			const cy = py(value);
 			const r = vi === selected ? 6 : 3.5;
-			body += `<g fill="${vi === selected ? background : color}" stroke="${color}" stroke-width="${vi === selected ? 2.5 : 1.5}"><title>${escape(s.label)} · volume ${vi + 1} · b=${dataset.bValues[vi]} · ${value} a.u.</title>${si % 2 ? `<rect x="${cx - r}" y="${cy - r}" width="${r * 2}" height="${r * 2}"/>` : `<circle cx="${cx}" cy="${cy}" r="${r}"/>`}</g>`;
+			body += `<g fill="${vi === selected ? background : color}" stroke="${color}" stroke-width="${vi === selected ? 2.5 : 1.5}"${interactive ? ` data-chart-point data-series="${si}" data-volume="${vi}" tabindex="0" role="button" aria-label="${escape(`${s.label}, volume ${vi + 1}, b ${dataset.bValues[vi]} s/mm², signal ${value} a.u. Select volume`)}" style="cursor:pointer"` : ''}><title>${escape(s.label)} · volume ${vi + 1} · b=${dataset.bValues[vi]} · ${value} a.u.</title>${si % 2 ? `<rect x="${cx - r}" y="${cy - r}" width="${r * 2}" height="${r * 2}"/>` : `<circle cx="${cx}" cy="${cy}" r="${r}"/>`}${interactive ? `<circle cx="${cx}" cy="${cy}" r="12" fill="transparent" stroke="none"/><circle cx="${cx}" cy="${cy}" r="12" fill="none" stroke="${color}" stroke-width="2" class="chart-focus-ring"/>` : ''}</g>`;
 		});
-		body += `<text x="24" y="${438 + si * 23}" fill="${color}">${si % 2 ? '■' : '●'} ${escape(compact && si === 0 ? 'Measured samples' : s.label)}</text>`;
+		body += `<text x="${legendPositions[si].x}" y="${legendPositions[si].y}" fill="${color}">${si % 2 ? '■' : '●'} ${escape(labels[si])}</text>`;
 	});
 	if (fit) {
 		const color = dark ? '#b1c4df' : '#365e8b';
 		const curve = Array.from({ length: 161 }, (_, i) => {
-			const b = (i / 160) * maxB;
+			const b = startB + (i / 160) * (endB - startB);
 			return `${px(b)},${py(predictIvim(b, fit.parameters))}`;
 		}).join(' ');
-		body += `<polyline points="${curve}" fill="none" stroke="${color}" stroke-width="3"${fit.valid ? '' : ' stroke-dasharray="6 4"'}/><text x="24" y="${438 + series.length * 23}" fill="${color}">— ${escape(fit.model)} fit${compact ? (fit.valid ? '' : ' · flagged') : ` · ${fit.valid ? 'quality checks passed' : 'flagged estimate — inspect quality'}`}</text>`;
+		if (interactive)
+			curveHit = `<polyline points="${curve}" fill="none" stroke="transparent" stroke-width="18" data-chart-fit tabindex="0" role="group" aria-label="${escape(fit.model)} fitted curve${fit.valid ? '' : ', flagged estimate'}. Hover or use arrow keys to inspect predicted signal" style="cursor:crosshair"/>`;
+		body += `<polyline points="${curve}" fill="none" stroke="${color}" stroke-width="3"${fit.valid ? '' : ' stroke-dasharray="6 4"'}${interactive ? ' pointer-events="none"' : ''}/><text x="${legendPositions[series.length].x}" y="${legendPositions[series.length].y}" fill="${color}">— ${escape(labels[series.length])}</text>`;
 	}
 	if (fit && !compact) {
 		const color = dark ? '#b1c4df' : '#365e8b';
 		const residuals = series[0].values.map(
 			(v, i) => v - predictIvim(dataset.bValues[i], fit.parameters)
 		);
-		const extent = Math.max(1e-12, ...residuals.map(Math.abs));
-		const y0 = 510 + series.length * 23;
-		body += `<text x="24" y="${y0 - 24}">Residuals (observed − fitted), a.u.</text><line x1="90" x2="740" y1="${y0 + 45}" y2="${y0 + 45}" stroke="${foreground}" opacity="0.3"/><text x="80" y="${y0 + 50}" text-anchor="end">0</text>`;
-		residuals.forEach(
-			(v, i) =>
-				(body += `<circle cx="${px(dataset.bValues[i])}" cy="${y0 + 45 - (v / extent) * 40}" r="3" fill="${color}"><title>Volume ${i + 1}: ${v} a.u.</title></circle>`)
+		const extent = Math.max(
+			1e-12,
+			...residuals.filter((_, i) => inRange(dataset.bValues[i])).map(Math.abs)
 		);
+		const y0 = 526 + legendRows * 23;
+		body += `<text x="24" y="${y0 - 24}">Residuals (observed − fitted), a.u.</text><line x1="90" x2="740" y1="${y0 + 45}" y2="${y0 + 45}" stroke="${foreground}" opacity="0.3"/><text x="80" y="${y0 + 50}" text-anchor="end">0</text>`;
+		residuals.forEach((v, i) => {
+			if (!inRange(dataset.bValues[i])) return;
+			body += `<circle cx="${px(dataset.bValues[i])}" cy="${y0 + 45 - (v / extent) * 40}" r="3" fill="${color}"${interactive ? ` data-chart-point data-series="0" data-volume="${i}" data-residual="true" tabindex="0" role="button" aria-label="Volume ${i + 1}, residual ${v} a.u. Select volume" style="cursor:pointer;stroke:transparent;stroke-width:18"` : ''}><title>Volume ${i + 1}: ${v} a.u.</title></circle>`;
+		});
 		body += `<text x="24" y="${y0 + 108}">Residual scale ±${extent.toPrecision(4)} a.u. · repeated acquisitions retained</text>`;
 	}
 	const provenance = escape(
@@ -249,7 +304,7 @@ export function chartSvg(
 			fit
 		})
 	);
-	return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 ${height}" width="800" height="${height}" role="img" aria-label="Acquired voxel samples with labelled comparisons"><metadata>${provenance}</metadata>${body}</g></svg>`;
+	return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 ${height}" width="800" height="${height}" role="${interactive ? 'group' : 'img'}" aria-label="Acquired voxel samples with labelled comparisons"><metadata>${provenance}</metadata>${interactive ? `<style>.chart-focus-ring{opacity:0}g:focus-visible .chart-focus-ring{opacity:1}polyline[data-chart-fit]:focus-visible{stroke:${dark ? '#b1c4df' : '#365e8b'};stroke-opacity:.4}</style>` : ''}${body.slice(0, pointsStart)}${curveHit}${body.slice(pointsStart)}</g></svg>`;
 }
 
 export function voxelCsv(

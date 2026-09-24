@@ -2,7 +2,7 @@
 	import ClipboardCheckIcon from '~icons/lucide/clipboard-check';
 	import ChevronDownIcon from '~icons/lucide/chevron-down';
 	import ChevronRightIcon from '~icons/lucide/chevron-right';
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount, onDestroy, tick } from 'svelte';
 	import { AnalysisClient } from '$lib/analysis-client.svelte';
 	import AnalysisPanel from '$lib/components/viewer/AnalysisPanel.svelte';
 	import MethodsMenu from '$lib/components/viewer/MethodsMenu.svelte';
@@ -75,6 +75,38 @@
 		IVIM: 'Intravoxel incoherent motion'
 	};
 	const panels = ['Image', 'Controls', 'Series', 'Inspector'] as const;
+	const inspectorTabs = ['Analyze', 'ROI', 'Saved', 'Data & export'] as const;
+	async function selectInspectorTab(tab: (typeof inspectorTabs)[number]) {
+		preferences.current.inspectorTab = tab;
+		await tick();
+		document.getElementById(`inspector-panel-${inspectorTabs.indexOf(tab)}`)?.scrollIntoView({
+			block: 'nearest'
+		});
+	}
+	function inspectorTabKeydown(event: KeyboardEvent) {
+		const current = inspectorTabs.indexOf(preferences.current.inspectorTab);
+		const next =
+			event.key === 'ArrowRight'
+				? (current + 1) % inspectorTabs.length
+				: event.key === 'ArrowLeft'
+					? (current + inspectorTabs.length - 1) % inspectorTabs.length
+					: event.key === 'Home'
+						? 0
+						: event.key === 'End'
+							? inspectorTabs.length - 1
+							: -1;
+		if (next < 0) return;
+		event.preventDefault();
+		void selectInspectorTab(inspectorTabs[next]);
+		(event.currentTarget as HTMLButtonElement).parentElement
+			?.querySelectorAll<HTMLButtonElement>('[role="tab"]')
+			[next]?.focus();
+	}
+	async function showAnalysis() {
+		preferences.current.analysisOpen = true;
+		await selectInspectorTab('Analyze');
+		document.getElementById('ivim-analysis')?.scrollIntoView({ block: 'nearest' });
+	}
 	let technique = $state<keyof typeof techniques>('IVIM');
 	const preferences = persistedPreference(
 		'osipy.viewer.layout',
@@ -147,9 +179,15 @@
 	let workspaceWidth = $state(900);
 	const analysis = new AnalysisClient();
 	let fitDialogOpen = $state(false);
+	let fitDialogTab = $state<'configure' | 'results'>('configure');
 	let fitMethod = $state('biexponential');
 	function configureFit(method: string) {
 		fitMethod = method;
+		fitDialogTab = 'configure';
+		fitDialogOpen = true;
+	}
+	function openAnalysis() {
+		fitDialogTab = fitResult ? 'results' : 'configure';
 		fitDialogOpen = true;
 	}
 	analysis.onresult = (result) => {
@@ -555,6 +593,7 @@
 	<MethodsMenu
 		catalog={analysis.catalog}
 		canFit={!!dataset && !!volumes.length && technique === 'IVIM'}
+		selectedMethod={technique === 'IVIM' && analysis.catalog ? fitMethod : undefined}
 		onselect={configureFit}
 	/>
 	<span
@@ -691,6 +730,8 @@
 				{display}
 				{tiles}
 				linked={preferences.current.linked}
+				bind:navigationOpen={preferences.current.navigationOpen}
+				onlink={toggleLink}
 				bind:gridLayout={preferences.current.gridLayout}
 				bind:tool
 				panel={preferences.current.panel}
@@ -711,14 +752,10 @@
 						{slice}
 						{active}
 						display={activeDisplay}
-						linked={preferences.current.linked}
-						bind:navigationOpen={preferences.current.navigationOpen}
 						bind:scope
-						{tool}
 						onslice={(value) => (slice = value)}
 						onvolume={selectVolume}
 						ondisplay={setDisplay}
-						onlink={toggleLink}
 						onauto={applyWindow}
 					/>{/snippet}
 			</ViewerPanel>
@@ -735,7 +772,7 @@
 					.current.panel === 'Inspector'
 					? ''
 					: 'hidden min-[900px]:block'}"
-				aria-label="Signal and saved views"
+				aria-label="Inspector"
 				tabindex="0"
 			>
 				<SignalPanel
@@ -752,89 +789,148 @@
 					bind:open={preferences.current.signalOpen}
 					bind:valuesOpen={preferences.current.signalValuesOpen}
 					onerror={(text) => (message = text)}
+					onselect={selectVolume}
+					onanalysis={showAnalysis}
 				/>
-				<SavedVoxels
-					{dataset}
-					{bookmarks}
-					bind:compared
-					bind:note
-					bind:open={preferences.current.savedVoxelsOpen}
-					message={storageMessage}
-					onsave={saveView}
-					onrestore={restore}
-					ondelete={deleteView}
-				/>
-				<WorkspaceFiles
-					{dataset}
-					bind:open={preferences.current.workspaceOpen}
-					getworkspace={workspaceData}
-					onapply={applyWorkspace}
-					onresetlayout={resetLayout}
-					onmessage={(text) => (message = text)}
-				/>
-				<AnalysisPanel
-					client={analysis}
-					{dataset}
-					{x}
-					{y}
-					{slice}
-					result={fitResult}
-					bind:openPanel={preferences.current.analysisOpen}
-					onconfigure={() => configureFit(analysis.catalog?.models[0].id ?? 'biexponential')}
-				/>
-				{#if roiSession}<RoiPanel
-						{slice}
-						session={roiSession}
+				<div
+					class="sticky top-0 z-10 grid grid-cols-4 gap-1 rounded-lg border bg-card p-1"
+					role="tablist"
+					aria-label="Inspector sections"
+				>
+					{#each inspectorTabs as tab, index (tab)}
+						<button
+							type="button"
+							role="tab"
+							id="inspector-tab-{index}"
+							aria-controls="inspector-panel-{index}"
+							aria-selected={preferences.current.inspectorTab === tab}
+							tabindex={preferences.current.inspectorTab === tab ? 0 : -1}
+							class="min-h-9 rounded-md px-1 py-1 text-center text-xs leading-tight font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring aria-selected:bg-muted aria-selected:text-foreground max-[899px]:min-h-11 {preferences
+								.current.inspectorTab === tab
+								? ''
+								: 'text-muted-foreground'}"
+							onclick={() => selectInspectorTab(tab)}
+							onkeydown={inspectorTabKeydown}>{tab}</button
+						>
+					{/each}
+				</div>
+				<div
+					role="tabpanel"
+					id="inspector-panel-2"
+					aria-labelledby="inspector-tab-2"
+					class="scroll-mt-16 space-y-4 {preferences.current.inspectorTab === 'Saved'
+						? ''
+						: 'hidden'}"
+				>
+					<SavedVoxels
+						{dataset}
+						{bookmarks}
+						bind:compared
+						bind:note
+						bind:open={preferences.current.savedVoxelsOpen}
+						message={storageMessage}
+						onsave={saveView}
+						onrestore={restore}
+						ondelete={deleteView}
+					/>
+				</div>
+				<div
+					role="tabpanel"
+					id="inspector-panel-0"
+					aria-labelledby="inspector-tab-0"
+					class="scroll-mt-16 space-y-4 {preferences.current.inspectorTab === 'Analyze'
+						? ''
+						: 'hidden'}"
+				>
+					<AnalysisPanel
+						client={analysis}
+						{dataset}
+						result={fitResult}
+						selectedMethod={fitMethod}
+						bind:openPanel={preferences.current.analysisOpen}
+						onopen={openAnalysis}
+					/>
+				</div>
+				<div
+					role="tabpanel"
+					id="inspector-panel-1"
+					aria-labelledby="inspector-tab-1"
+					class="scroll-mt-16 space-y-4 {preferences.current.inspectorTab === 'ROI'
+						? ''
+						: 'hidden'}"
+				>
+					{#if roiSession}<RoiPanel
+							{slice}
+							session={roiSession}
+							{dataset}
+							{volumes}
+							{active}
+							{tool}
+							result={fitResult}
+							bind:visible={preferences.current.roiVisible}
+							bind:opacity={preferences.current.roiOpacity}
+							bind:meanVisible={preferences.current.roiMean}
+							bind:open={preferences.current.roiOpen}
+							onstart={(value) => {
+								tool = value;
+								preferences.current.panel = 'Image';
+							}}
+						/>{/if}
+				</div>
+				<div
+					role="tabpanel"
+					id="inspector-panel-3"
+					aria-labelledby="inspector-tab-3"
+					class="scroll-mt-16 space-y-4 {preferences.current.inspectorTab === 'Data & export'
+						? ''
+						: 'hidden'}"
+				>
+					<WorkspaceFiles
+						{dataset}
+						bind:open={preferences.current.workspaceOpen}
+						getworkspace={workspaceData}
+						onapply={applyWorkspace}
+						onresetlayout={resetLayout}
+						onmessage={(text) => (message = text)}
+					/>
+					<DatasetDetails {dataset} {active} bind:open={preferences.current.metadataOpen} />
+					<ExportPanel
 						{dataset}
 						{volumes}
-						{active}
-						{tool}
+						rois={roiSession?.rois ?? []}
+						{bookmarks}
+						point={[x, y, slice]}
 						result={fitResult}
-						bind:visible={preferences.current.roiVisible}
-						bind:opacity={preferences.current.roiOpacity}
-						bind:meanVisible={preferences.current.roiMean}
-						bind:open={preferences.current.roiOpen}
-						onstart={(value) => {
-							tool = value;
-							preferences.current.panel = 'Image';
-						}}
-					/>{/if}
-				<DatasetDetails {dataset} {active} bind:open={preferences.current.metadataOpen} />
-				<ExportPanel
-					{dataset}
-					{volumes}
-					rois={roiSession?.rois ?? []}
-					{bookmarks}
-					point={[x, y, slice]}
-					result={fitResult}
-					bind:open={preferences.current.exportOpen}
-					metadata={currentScan?.metadata}
-					getworkspace={workspaceData}
-				/>
-				{#if currentScan}<section
-						class="card space-y-2 p-3 {preferences.current.validationOpen
-							? ''
-							: '[&>*:not(:first-child)]:hidden'}"
-					>
-						<h2>
-							<button
-								type="button"
-								class="flex min-h-8 w-full items-center gap-2 rounded-md text-left text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring max-[899px]:min-h-11"
-								aria-label="{preferences.current.validationOpen
-									? 'Collapse'
-									: 'Expand'} dataset validation panel"
-								aria-expanded={preferences.current.validationOpen}
-								onclick={() =>
-									(preferences.current.validationOpen = !preferences.current.validationOpen)}
-							>
-								<ClipboardCheckIcon class="size-4 shrink-0" aria-hidden="true" />Dataset validation
-								{#if preferences.current.validationOpen}<ChevronDownIcon
-										class="ml-auto size-4"
-									/>{:else}<ChevronRightIcon class="ml-auto size-4" />{/if}
-							</button>
-						</h2>
-						<ScanValidation issues={currentScan.issues} />
-					</section>{/if}
+						bind:open={preferences.current.exportOpen}
+						metadata={currentScan?.metadata}
+						getworkspace={workspaceData}
+					/>
+					{#if currentScan}<section
+							class="card space-y-2 p-3 {preferences.current.validationOpen
+								? ''
+								: '[&>*:not(:first-child)]:hidden'}"
+						>
+							<h2>
+								<button
+									type="button"
+									class="flex min-h-8 w-full items-center gap-2 rounded-md text-left text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring max-[899px]:min-h-11"
+									aria-label="{preferences.current.validationOpen
+										? 'Collapse'
+										: 'Expand'} dataset validation panel"
+									aria-expanded={preferences.current.validationOpen}
+									onclick={() =>
+										(preferences.current.validationOpen = !preferences.current.validationOpen)}
+								>
+									<ClipboardCheckIcon class="size-4 shrink-0" aria-hidden="true" />Dataset
+									validation
+									{#if preferences.current.validationOpen}<ChevronDownIcon
+											class="ml-auto size-4"
+										/>{:else}<ChevronRightIcon class="ml-auto size-4" />{/if}
+								</button>
+							</h2>
+							<ScanValidation issues={currentScan.issues} />
+						</section>{/if}
+				</div>
 			</aside>
 		</div>
 	{/if}
@@ -852,6 +948,7 @@
 {#if dataset && volumes.length}
 	<FitDialog
 		client={analysis}
+		result={fitResult}
 		{dataset}
 		{volumes}
 		{x}
@@ -860,9 +957,11 @@
 		roiIndices={roiSession?.current?.indices ?? []}
 		method={fitMethod}
 		bind:open={fitDialogOpen}
+		bind:activeTab={fitDialogTab}
 		onrun={() => {
 			preferences.current.analysisOpen = true;
 			preferences.current.panel = 'Inspector';
+			preferences.current.inspectorTab = 'Analyze';
 		}}
 	/>
 {/if}

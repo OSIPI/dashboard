@@ -218,6 +218,8 @@
 			</h2>
 			<ViewerPanel
 				singleScan
+				showLink={false}
+				bind:navigationOpen={leftHelp}
 				dataset={primary.dataset}
 				volumes={primary.volumes}
 				active={volume}
@@ -237,21 +239,14 @@
 				onreset={() => ondisplay(defaultDisplay(primary.dataset))}
 			>
 				{#snippet controls()}<ImageControls
-						showLink={false}
 						dataset={primary.dataset}
 						slice={point[2]}
 						active={volume}
 						{display}
-						linked={false}
 						bind:scope={leftScope}
-						bind:navigationOpen={leftHelp}
-						tool={leftTool}
 						onslice={(z) => onpoint([point[0], point[1], z])}
 						{onvolume}
 						{ondisplay}
-						onlink={() =>
-							(notice =
-								'Comparison display settings are independent. Use the physical-position link above for navigation.')}
 						onauto={(robust) =>
 							ondisplay({
 								...display,
@@ -287,6 +282,8 @@
 			{:else}
 				<ViewerPanel
 					singleScan
+					showLink={false}
+					bind:navigationOpen={rightHelp}
 					dataset={secondary.dataset}
 					volumes={secondary.volumes}
 					active={rightVolume}
@@ -306,21 +303,14 @@
 					onreset={() => (rightDisplay = defaultDisplay(secondary.dataset))}
 				>
 					{#snippet controls()}<ImageControls
-							showLink={false}
 							dataset={secondary.dataset}
 							slice={rightPoint[2]}
 							active={rightVolume}
 							display={rightDisplay}
-							linked={false}
 							bind:scope={rightScope}
-							bind:navigationOpen={rightHelp}
-							tool={rightTool}
 							onslice={(z) => changeRight([rightPoint[0], rightPoint[1], z])}
 							onvolume={(i) => (rightVolume = i)}
 							ondisplay={(d) => (rightDisplay = d)}
-							onlink={() =>
-								(notice =
-									'Comparison display settings are independent. Use the physical-position link above for navigation.')}
 							onauto={(robust) =>
 								(rightDisplay = {
 									...rightDisplay,

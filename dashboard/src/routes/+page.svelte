@@ -6,6 +6,7 @@
 	import ScanLibrary from '$lib/components/viewer/ScanLibrary.svelte';
 	import StoredDatasetCard from '$lib/components/StoredDatasetCard.svelte';
 	import OfflineStatus from '$lib/components/OfflineStatus.svelte';
+	import LocalAnalysisSetup from '$lib/components/LocalAnalysisSetup.svelte';
 	import {
 		listStoredScans,
 		saveScan,
@@ -150,6 +151,7 @@
 				</div>
 			</div>
 			<div class="flex flex-wrap items-center gap-2">
+				{#if !__LOCAL_COMPANION_PROXY__}<LocalAnalysisSetup />{/if}
 				<ScanLibrary
 					scans={session}
 					activeId=""

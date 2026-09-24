@@ -90,22 +90,32 @@ export class AnalysisClient {
 		this.busy = true;
 		try {
 			let datasetId = this.datasets.get(dataset.sha256);
-			if (!datasetId) {
+			const upload = async () => {
 				this.stage = 'Sending dataset to your loopback companion…';
 				const response = await this.request('/datasets', {
 					method: 'POST',
 					body: datasetEnvelope(dataset, volumes)
 				});
-				datasetId = (await response.json()).id as string;
-				this.datasets.set(dataset.sha256, datasetId);
-			}
-			const job = (await (
-				await this.request('/runs', {
+				const id = (await response.json()).id as string;
+				this.datasets.set(dataset.sha256, id);
+				return id;
+			};
+			if (!datasetId) datasetId = await upload();
+			const submit = (id: string) =>
+				this.request('/runs', {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ datasetId, config, scope, indices })
-				})
-			).json()) as FitJob;
+					body: JSON.stringify({ datasetId: id, config, scope, indices })
+				});
+			let response: Response;
+			try {
+				response = await submit(datasetId);
+			} catch (error) {
+				if (!(error instanceof Error) || error.message !== 'Unknown dataset') throw error;
+				this.datasets.delete(dataset.sha256);
+				response = await submit(await upload());
+			}
+			const job = (await response.json()) as FitJob;
 			this.runs = [...this.runs, job];
 			this.selected = job.id;
 			this.stage = 'Fitting locally';

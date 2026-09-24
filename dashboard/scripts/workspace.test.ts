@@ -164,5 +164,68 @@ test('compact charts preserve real fits and acquisitions while expanded exports 
 	const expanded = chartSvg(dataset, series, 2, false, fit);
 	expect(expanded).toContain('Residuals (');
 	expect(expanded).toContain('flagged estimate');
+	expect(expanded).not.toContain('data-chart-fit');
+	const interactive = chartSvg(dataset, series, 2, true, fit, false, true);
+	expect(interactive).toContain('data-chart-fit');
+	expect(interactive).toContain('Hover or use arrow keys to inspect predicted signal');
 	expect(chartSvg(dataset, series, 2, true, undefined, true)).not.toContain('<polyline');
+});
+
+test('interactive chart exposes each acquisition without adding handlers to exported SVG', () => {
+	const series = [{ label: 'Current <voxel>', values: [100, 65, 60] }];
+	const interactive = chartSvg(dataset, series, 2, true, undefined, false, true);
+	expect(interactive.match(/data-chart-point/g)).toHaveLength(3);
+	expect(interactive).toContain('data-volume="1"');
+	expect(interactive).toContain('b 10 s/mm², signal 65 a.u.');
+	expect(interactive).toContain('Current &lt;voxel&gt;');
+	expect(interactive).not.toContain('Current <voxel>');
+	expect(interactive).toContain('style="cursor:zoom-in"');
+	expect(interactive).toContain('x="90" y="414" width="650"');
+	expect(interactive).toContain('data-chart-range="move"');
+	expect(interactive).toContain('data-chart-range="start"');
+	expect(interactive).toContain('data-chart-range="end"');
+	const exported = chartSvg(dataset, series, 2, true);
+	expect(exported).not.toContain('data-chart-point');
+	expect(exported).not.toContain('tabindex=');
+	expect(exported).not.toContain('cursor:zoom-in');
+	expect(exported).not.toContain('data-chart-range');
+});
+
+test('zoomed chart restricts the view without changing acquisition identities or the full export', () => {
+	const series = [{ label: 'Current', values: [100, 65, 60] }];
+	const zoomed = chartSvg(dataset, series, 2, true, undefined, false, true, [0, 5]);
+	expect(zoomed.match(/data-chart-point/g)).toHaveLength(1);
+	expect(zoomed).toContain('data-volume="0"');
+	expect(zoomed).toContain('>5</text>');
+	expect(zoomed).toContain('x="90" y="413" width="325"');
+	expect(chartSvg(dataset, series, 2, true, undefined, false, true, [5, 10])).toContain(
+		'>65</text>'
+	);
+	expect(chartSvg(dataset, series, 2, true).match(/<circle /g)).toHaveLength(3);
+});
+
+test('expanded legend lays comparisons in a row and wraps long labels without clipping', () => {
+	const series = [
+		{ label: 'Current (64, 45, 55)', values: [100, 65, 60] },
+		{ label: 'Saved (43, 50, 6) · comment', values: [90, 50, 40] },
+		{ label: 'Saved (66, 78, 6) · weeee', values: [80, 45, 30] }
+	];
+	const svg = chartSvg(dataset, series, 2, true);
+	const positions = [
+		...svg.matchAll(/<text x="([\d.]+)" y="([\d.]+)" fill="[^"]+">[●■] (?:Current|Saved)/g)
+	];
+	expect(positions).toHaveLength(3);
+	expect(positions.map((match) => Number(match[2]))).toEqual([454, 454, 454]);
+	expect(Number(positions[0][1])).toBeLessThan(Number(positions[1][1]));
+	expect(Number(positions[1][1])).toBeLessThan(Number(positions[2][1]));
+	const wrapped = chartSvg(
+		dataset,
+		Array.from({ length: 4 }, (_, i) => ({
+			label: `Saved ${i} · ${'long note '.repeat(3)}`,
+			values: [100, 65, 60]
+		})),
+		2,
+		true
+	);
+	expect(wrapped).toContain('y="477"');
 });
