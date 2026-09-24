@@ -1,0 +1,18 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "osipy REST API"
+version: "0.1.0"
+date-released: "2026-09-10"
+repository-code: "https://github.com/OSIPI/osipy-rest-api"
+license: Apache-2.0
+authors:
+  - name: "The OSIPI contributors"
+references:
+  - type: software
+    title: "osipy"
+    notes: >-
+      This API wraps the osipy perfusion analysis toolkit and adapts its IVIM
+      analysis workflow (https://osipi.github.io/osipy/tutorials/ivim-analysis/).
+    repository-code: "https://github.com/OSIPI/osipy"
+    authors:
+      - name: "The OSIPI contributors"

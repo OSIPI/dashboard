@@ -33,3 +33,19 @@ __pycache__/
 .venv/
 .ruff_cache/
 .pytest_cache/
+dist/
+build/
+*.egg-info/
+.coverage
+
+# Agent tooling
+.claude/
+.agents/
+.cursor/
+.superpowers/
+.rseng-agent-skills-*
+.rseng-backup-*
+.rseng-check-waivers
+
+# Pycharm
+.idea/

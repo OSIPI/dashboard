@@ -3,7 +3,7 @@
 This repository contains the OSIPY web platform.
 
 - [`dashboard/`](dashboard/) contains the SvelteKit dashboard and its optional local Python companion.
-- The backend will be added as a separate top-level project.
+- [`rest-api/`](rest-api/) contains the local IVIM REST API.
 
 ## Dashboard development
 

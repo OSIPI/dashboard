@@ -53,3 +53,29 @@ jobs:
 
       - name: Test
         run: bun test
+
+  rest-api:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: rest-api
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Setup uv and Python
+        uses: astral-sh/setup-uv@d0d8abe699bfb85fec6de9f7adb5ae17292296ff # v6
+        with:
+          version: '0.11.29'
+          python-version: '3.13'
+
+      - name: Install locked dependencies
+        run: uv sync --locked --extra dev
+
+      - name: Test
+        run: uv run --locked pytest -q
+
+      - name: Lint
+        run: uv run --locked ruff check .

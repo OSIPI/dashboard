@@ -1,0 +1,15 @@
+{
+  "@context": "https://doi.org/10.5063/schema/codemeta-2.0",
+  "@type": "SoftwareSourceCode",
+  "name": "osipy REST API",
+  "description": "REST API backend wrapping the osipy toolkit for IVIM perfusion analysis, serving the OSIPI dashboard.",
+  "version": "0.1.0",
+  "license": "https://spdx.org/licenses/Apache-2.0",
+  "codeRepository": "https://github.com/OSIPI/osipy-rest-api",
+  "programmingLanguage": "Python",
+  "runtimePlatform": "Python 3.12",
+  "softwareRequirements": ["fastapi", "uvicorn", "nibabel", "numpy", "pydantic", "osipy"],
+  "author": [{ "@type": "Organization", "name": "The OSIPI contributors" }],
+  "referencePublication": null,
+  "keywords": ["MRI", "perfusion", "IVIM", "REST API", "OSIPI"]
+}
