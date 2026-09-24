@@ -1,6 +1,6 @@
 # Releases
 
-Run from the repository root. `make release` is the intentional one-command release for `OSIPI/dashboard`: dashboard checks, build and packaging run locally; commit, tag, atomic push and GitHub Release publication follow. Separately, every push to `main` makes GitHub Actions build that exact commit and deploy it to Pages. Main pushes never publish a GitHub Release. This private npm package is a static website, not a registry product.
+Run from the repository root. `make release` is the intentional one-command release for `OSIPI/dashboard`: dashboard checks, build and packaging run locally; commit, tag, atomic push and GitHub Release publication follow. Separately, every push to `main` makes GitHub Actions build that exact commit and deploy it to Pages. Main pushes never publish a GitHub Release. This private npm package builds a static website and a separate local Docker image; it is not published to npm.
 
 ## Preview and prerequisites
 
@@ -24,6 +24,8 @@ Run real `make release` only with explicit authorization for commits, tags, push
 8. The atomic push of the release commit to `main` triggers the independent Pages workflow. It checks out that exact SHA, installs locked dependencies, prepares the public IVIM demo data, builds with `APP_SHA` set to the pushed SHA, uploads the Pages artifact and deploys only after that build succeeds. The tagged archive and checksum remain GitHub Release assets; keep published tags protected. GitHub's repository-level immutable releases may additionally be enabled by maintainers, but tooling never changes repository settings.
 
 Command completion confirms Release publication, not successful Pages deployment. Inspect the pushed-main Pages workflow's final deployment status at GitHub. Pages remains `https://osipi.github.io/dashboard/`.
+
+Publishing a stable GitHub Release also triggers `.github/workflows/container.yml`. That independent workflow builds the tagged dashboard plus OSIPY 0.1.4 for Linux amd64/arm64 and pushes `ghcr.io/osipi/dashboard:vX.Y.Z` and `:latest`. It cannot publish an arbitrary PR/main image and does not block the intentional local release command. After the first successful push, an organization package admin must make the GHCR package **public** in GitHub package settings; the workflow's `GITHUB_TOKEN` cannot be assumed to set visibility. Verify both tags can be pulled anonymously before advertising the one-command `docker run` option. The public Pages app and the local Docker workspace use different browser origins and do not share saved scans automatically.
 
 ## Retry and recovery
 

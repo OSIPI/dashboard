@@ -10,7 +10,9 @@ import { version as manifestVersion } from './package.json';
 const getSha = (): string => {
 	if (process.env.APP_SHA) return process.env.APP_SHA.slice(0, 12);
 	try {
-		return execSync('git rev-parse --short=12 HEAD').toString().trim();
+		return execSync('git rev-parse --short=12 HEAD', { stdio: ['ignore', 'pipe', 'ignore'] })
+			.toString()
+			.trim();
 	} catch {
 		return 'unknown';
 	}
@@ -90,6 +92,8 @@ function localCompanionProxy(token: string): Plugin {
 
 export default defineConfig(({ command }) => {
 	const localToken = command === 'serve' ? process.env.OSIPY_DASHBOARD_TOKEN : undefined;
+	const localProxy =
+		!!localToken || (command === 'build' && process.env.OSIPY_LOCAL_COMPANION_PROXY === '1');
 	return {
 		// Discover worker dependencies at startup, rather than reloading a session after its first export.
 		optimizeDeps: { include: ['nifti-reader-js', 'dicom-parser', 'fflate'] },
@@ -104,7 +108,7 @@ export default defineConfig(({ command }) => {
 			strictPort: true
 		},
 		define: {
-			__LOCAL_COMPANION_PROXY__: JSON.stringify(!!localToken),
+			__LOCAL_COMPANION_PROXY__: JSON.stringify(localProxy),
 			__APP_VERSION__: JSON.stringify(appVersion),
 			__BUILD_SHA__: JSON.stringify(buildSha),
 			__BUILD_DATE__: JSON.stringify(new Date().toISOString())

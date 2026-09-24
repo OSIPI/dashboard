@@ -54,6 +54,18 @@ jobs:
       - name: Test
         run: bun test
 
+  container:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Build local dashboard image without publishing
+        run: docker build -f dashboard/Dockerfile dashboard
+
   rest-api:
     runs-on: ubuntu-latest
     defaults:

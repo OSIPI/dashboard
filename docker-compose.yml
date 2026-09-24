@@ -1,0 +1,6 @@
+services:
+  frontend:
+    build: ./dashboard
+    ports:
+      - '127.0.0.1:60010:37183'
+    init: true

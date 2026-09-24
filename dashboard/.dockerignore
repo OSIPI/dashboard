@@ -1,0 +1,11 @@
+node_modules
+.svelte-kit
+build
+.git
+.venv
+.env*
+coverage
+artifacts
+data
+.ruff_cache
+*.log

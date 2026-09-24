@@ -22,7 +22,17 @@ The app opens at <http://localhost:60010>. You can also use the dashboard-local 
 make dev
 ```
 
-`make dev` starts the Bun frontend and the authenticated OSIPY companion on your host. The browser connects automatically; no token entry is needed. The private credential stays between the local dev server and companion. Ctrl+C stops both. The companion uses the sibling OSIPY virtual environment by default (override with `COMPANION_PYTHON` if needed). The root Makefile delegates development here and owns the release entry points. Docker Compose can still start the frontend alone, but it does not provide automatic companion pairing.
+`make dev` starts the Bun frontend and the authenticated OSIPY companion on your host. The browser connects automatically; no token entry is needed. The private credential stays between the local dev server and companion. Ctrl+C stops both. The companion uses the sibling OSIPY virtual environment by default (override with `COMPANION_PYTHON` if needed). The root Makefile delegates development here and owns the release entry points.
+
+To run the built dashboard and local fitting companion without a host Python or Bun environment, run from the parent repository directory (the same place you run `make dev`):
+
+```sh
+docker compose up
+```
+
+Open <http://localhost:60010/dashboard/>. Compose builds the production image on first use; use `docker compose up --build` after changing the source. It installs OSIPY 0.1.4 in the image, serves the static dashboard, and starts the companion inside the same container. The GHCR release image includes prepared public demo data; a local Compose build includes it only if you first follow [data/README.md](data/README.md). Only port 60010 is published, on your computer's loopback interface. The companion remains private on container loopback, and its credential is generated in memory and never shown in the browser. Stop the container with Ctrl+C. Stop `make dev` before starting Compose (and vice versa), since both use port 60010.
+
+Once the stable GHCR image is published and public, the shorter command is `docker run --rm --pull=always -p 127.0.0.1:60010:37183 ghcr.io/osipi/dashboard:latest`. Replace `latest` with a published `vX.Y.Z` tag for a reproducible version. The public GitHub Pages site remains a separate browser origin; its locally saved scans are not transferred into the container workspace automatically.
 
 ## Data
 
