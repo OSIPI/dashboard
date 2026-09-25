@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.2.0 - 2026-09-25
+
+### Features
+
+- viewer: import public demo from Zenodo (121731a)
+- viewer: add standalone NIfTI spatial views (3fc9b48)
+
+### Fixes
+
+- delivery: exclude MRI data from artifacts (0d39e7f)
+- api: preserve terminal job progress (95371dd)
+- ci: build container from dashboard directory (557211e)
+
 ## 0.1.0 - 2026-09-24
 
 ### Features
