@@ -6,7 +6,9 @@ COPY . .
 ENV NODE_ENV=production OSIPY_LOCAL_COMPANION_PROXY=1
 ARG APP_SHA=local
 ENV APP_SHA=${APP_SHA}
-RUN bun run build
+RUN bun scripts/assert_sample_free.ts static \
+    && bun run build \
+    && bun scripts/assert_sample_free.ts build
 
 FROM python:3.12-slim
 RUN pip install --no-cache-dir osipy==0.1.4 \

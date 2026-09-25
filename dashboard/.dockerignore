@@ -6,6 +6,7 @@ build
 .env*
 coverage
 artifacts
-data
+/data
+/static/datasets
 .ruff_cache
 *.log

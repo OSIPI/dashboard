@@ -115,12 +115,18 @@ import { mkdtempSync, writeFileSync, readFileSync, rmSync, readdirSync, mkdirSyn
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { assertArchive, fileDigest, publishRelease, type State } from './release';
+import { assertSampleFreeArchive, assertSampleFreeDirectory } from './assert_sample_free';
 
 function publicationFixture() {
 	const directory = mkdtempSync(join(tmpdir(), 'dashboard-release-test-'));
 	const path = join(directory, 'osipy-v1.2.3.tar.gz');
-	writeFileSync(path, 'exact prebuilt bytes');
+	const contents = join(directory, 'contents');
+	mkdirSync(contents);
+	writeFileSync(join(contents, 'index.html'), 'exact prebuilt bytes');
+	execFileSync('tar', ['-czf', path, '-C', contents, '.']);
+	const archiveBytes = readFileSync(path);
 	const sha256 = fileDigest(path);
 	writeFileSync(`${path}.sha256`, `${sha256}  osipy-v1.2.3.tar.gz\n`);
 	const state: State = {
@@ -212,7 +218,8 @@ function publicationFixture() {
 		setInterrupt: (value: string) => {
 			interrupt = value;
 		},
-		remote: () => remote
+		remote: () => remote,
+		archiveBytes
 	};
 }
 
@@ -241,7 +248,7 @@ test('publication reconciles crash after create/upload/publish without duplicate
 				'osipy-v1.2.3.tar.gz',
 				'osipy-v1.2.3.tar.gz.sha256'
 			]);
-			expect(f.assets[0].bytes.toString()).toBe('exact prebuilt bytes');
+			expect(f.assets[0].bytes).toEqual(f.archiveBytes);
 		} finally {
 			rmSync(f.directory, { recursive: true });
 		}
@@ -258,7 +265,7 @@ test('draft metadata can update; published metadata, missing assets and conflict
 		expect(f.remote()!.name).toBe('v1.2.3');
 		f.assets[0].bytes = Buffer.from('tampered');
 		expect(() => publishRelease(f.state, () => {}, f.gh)).toThrow('Conflicting asset');
-		f.assets[0].bytes = Buffer.from('exact prebuilt bytes');
+		f.assets[0].bytes = f.archiveBytes;
 		f.remote()!.body = 'edited';
 		expect(() => publishRelease(f.state, () => {}, f.gh)).toThrow('metadata differs');
 		f.remote()!.body = '## 1.2.3 - 2026-09-16\n\n### Fixes\n\n- fixed';
@@ -266,6 +273,34 @@ test('draft metadata can update; published metadata, missing assets and conflict
 		expect(() => publishRelease(f.state, () => {}, f.gh)).toThrow('missing');
 	} finally {
 		rmSync(f.directory, { recursive: true });
+	}
+});
+
+test('publication inputs and archives reject dataset paths and known sample bytes', () => {
+	const directory = mkdtempSync(join(tmpdir(), 'dashboard-sample-free-test-'));
+	const samples = Buffer.from('synthetic MRI sample fixture');
+	const digest = createHash('sha256').update(samples).digest('hex');
+	const digests = new Set([digest]);
+	try {
+		const safe = join(directory, 'safe');
+		mkdirSync(safe);
+		writeFileSync(join(safe, 'index.html'), 'safe');
+		expect(() => assertSampleFreeDirectory(safe, digests)).not.toThrow();
+
+		writeFileSync(join(safe, 'renamed.bin'), samples);
+		expect(() => assertSampleFreeDirectory(safe, digests)).toThrow('MRI sample data');
+		const renamedArchive = join(directory, 'renamed.tar.gz');
+		execFileSync('tar', ['-czf', renamedArchive, '-C', safe, '.']);
+		expect(() => assertSampleFreeArchive(renamedArchive, digests)).toThrow('MRI sample data');
+
+		rmSync(safe, { recursive: true });
+		mkdirSync(join(safe, 'datasets'), { recursive: true });
+		writeFileSync(join(safe, 'datasets', 'manifest.json'), '{}');
+		const datasetArchive = join(directory, 'dataset.tar.gz');
+		execFileSync('tar', ['-czf', datasetArchive, '-C', safe, '.']);
+		expect(() => assertSampleFreeArchive(datasetArchive, digests)).toThrow('MRI sample data');
+	} finally {
+		rmSync(directory, { recursive: true });
 	}
 });
 
@@ -318,6 +353,9 @@ type Workflow = {
 const repositoryRoot = new URL('../../', import.meta.url);
 const workflowPath = new URL('.github/workflows/', repositoryRoot);
 const pages = Bun.YAML.parse(readFileSync(new URL('pages.yml', workflowPath), 'utf8')) as Workflow;
+const container = Bun.YAML.parse(
+	readFileSync(new URL('container.yml', workflowPath), 'utf8')
+) as Workflow;
 
 test('repository root owns release entry points and documents all release effects', () => {
 	const makefile = readFileSync(new URL('Makefile', repositoryRoot), 'utf8');
@@ -348,10 +386,10 @@ test('Pages builds and deploys the exact pushed main commit with least privilege
 	expect(steps[0].with).toEqual({ ref: '${{ github.sha }}', 'persist-credentials': false });
 	expect(steps[1].uses).toBe('oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6');
 	expect(steps[2].run).toBe('bun install --frozen-lockfile');
-	expect(steps[3].run).toContain('numpy==2.3.5 nibabel==5.3.3');
-	expect(steps[3].run).toContain('python3 scripts/prepare_ivim.py');
-	expect(steps[4].run).toBe('bun run build');
-	expect(steps[4].env).toEqual({ APP_SHA: '${{ github.sha }}' });
+	expect(steps[3].run).toContain('bun scripts/assert_sample_free.ts static');
+	expect(steps[3].run).toContain('bun run build');
+	expect(steps[3].run).toContain('bun scripts/assert_sample_free.ts build');
+	expect(steps[3].env).toEqual({ APP_SHA: '${{ github.sha }}' });
 	expect(steps.at(-1)?.uses).toStartWith('actions/upload-pages-artifact@');
 	expect(pages.jobs.deploy.steps[0].uses).toStartWith('actions/deploy-pages@');
 	const workflow = JSON.stringify(pages);
@@ -359,14 +397,28 @@ test('Pages builds and deploys the exact pushed main commit with least privilege
 	expect(workflow).not.toMatch(/gh release|release create|release upload|tags/);
 });
 
+test('container builds exclude local datasets and verify sample-free output', () => {
+	const workflow = JSON.stringify(container);
+	expect(workflow).not.toContain('prepare_ivim.py');
+	expect(workflow).not.toContain('zenodo.org');
+	const dockerignore = readFileSync(new URL('dashboard/.dockerignore', repositoryRoot), 'utf8');
+	expect(dockerignore).toContain('/data\n');
+	expect(dockerignore).toContain('/static/datasets\n');
+	const dockerfile = readFileSync(new URL('dashboard/Dockerfile', repositoryRoot), 'utf8');
+	expect(dockerfile).toContain('bun scripts/assert_sample_free.ts static');
+	expect(dockerfile).toContain('bun scripts/assert_sample_free.ts build');
+});
+
 test('release structure preserves local gates, freezes before commit and atomically pushes before publication', () => {
 	const source = readFileSync(new URL('./release.ts', import.meta.url), 'utf8');
 	for (const gate of [
+		"assertSampleFreeDirectory('static')",
 		"['run', 'check']",
 		"['test']",
 		"['-m', 'unittest', 'discover', '-s', 'companion']",
-		"['scripts/prepare_ivim.py', '--verify']",
-		"['run', 'build']"
+		"['run', 'build']",
+		"assertSampleFreeDirectory('build')",
+		'assertSampleFreeArchive(`${path}.tmp`)'
 	])
 		expect(source).toContain(gate);
 	expect(source.indexOf('if (dry)')).toBeLessThan(source.indexOf("'ls-remote'"));

@@ -22,7 +22,7 @@ docker compose up
 
 Open <http://localhost:60010/dashboard/>. Stop `make dev` first; both commands use port 60010. Rebuild after source changes with `docker compose up --build`.
 
-After a stable release publishes the container to GHCR **and the package is made public**, users can skip cloning and run:
+After a sample-free container release is verified, the old data-bearing `v0.1.0` package version is removed, **and** the GHCR package is made public, users can skip cloning and run:
 
 ```sh
 docker run --rm --pull=always -p 127.0.0.1:60010:37183 ghcr.io/osipi/dashboard:latest

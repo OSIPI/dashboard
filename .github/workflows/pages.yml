@@ -36,15 +36,13 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Prepare public demo data
-        run: |
-          python3 -m pip install --disable-pip-version-check numpy==2.3.5 nibabel==5.3.3
-          python3 scripts/prepare_ivim.py
-
       - name: Build pushed commit
         env:
           APP_SHA: ${{ github.sha }}
-        run: bun run build
+        run: |
+          bun scripts/assert_sample_free.ts static
+          bun run build
+          bun scripts/assert_sample_free.ts build
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3

@@ -13,6 +13,7 @@ import {
 	renameSync
 } from 'node:fs';
 import { resolve } from 'node:path';
+import { assertSampleFreeArchive, assertSampleFreeDirectory } from './assert_sample_free';
 
 const files = ['package.json', 'CITATION.cff', 'codemeta.json', 'CHANGELOG.md'];
 const semver = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
@@ -171,6 +172,7 @@ export function assertArchive(state: State) {
 		throw new Error(
 			'Frozen archive missing or changed; restore original bytes, never rebuild a published release'
 		);
+	assertSampleFreeArchive(state.archive.path);
 }
 
 type Github = (args: string[], output?: string) => Buffer;
@@ -350,7 +352,7 @@ export function release(dry: boolean) {
 			);
 		}
 		console.log(
-			'Plan (only if release-worthy commits or pending receipt): verify clean/current main and remote tags; update package.json, CITATION.cff, codemeta.json, CHANGELOG.md; run bun run check, bun test, Python companion tests and prepared-data verification; build; freeze tar archive + SHA-256 + version manifest; checkpoint; create release commit and annotated checksum-bound tag; atomic push main + tag; create/update draft GitHub Release; reconcile/upload exact archive and checksum without clobber; publish. The main push independently triggers Pages to build and deploy that exact commit. Retries reuse frozen archive and reconcile remote effects.'
+			'Plan (only if release-worthy commits or pending receipt): verify clean/current main and remote tags; update package.json, CITATION.cff, codemeta.json, CHANGELOG.md; reject MRI samples; run bun run check, bun test and Python companion tests; build and verify sample-free output; freeze and inspect tar archive + SHA-256 + version manifest; checkpoint; create release commit and annotated checksum-bound tag; atomic push main + tag; create/update draft GitHub Release; reconcile/upload exact archive and checksum without clobber; publish. The main push independently triggers Pages to build and deploy that exact commit. Retries reuse frozen archive and reconcile remote effects.'
 		);
 		console.log(
 			`Checkpoint: ${state ? JSON.stringify({ version: state.version, archive: state.archive?.sha256, commit: state.commit, pushed: state.pushed, releaseId: state.releaseId, complete: state.complete }) : 'none'}`
@@ -440,11 +442,12 @@ export function release(dry: boolean) {
 	if (!state.archive) {
 		if (state.pushed || state.releaseId) throw new Error('Missing frozen archive checkpoint');
 		const python = process.env.RELEASE_PYTHON ?? '../../osipy/.venv/bin/python';
+		assertSampleFreeDirectory('static');
 		run('bun', ['run', 'check']);
 		run('bun', ['test']);
 		run(python, ['-m', 'unittest', 'discover', '-s', 'companion']);
-		run(python, ['scripts/prepare_ivim.py', '--verify']);
 		run('bun', ['run', 'build'], { ...process.env, APP_VERSION: tag, APP_SHA: base });
+		assertSampleFreeDirectory('build');
 		writeFileSync(
 			'build/release.json',
 			JSON.stringify({ version: tag, source: base, basePath: '/dashboard' }) + '\n'
@@ -454,6 +457,7 @@ export function release(dry: boolean) {
 		mkdirSync(directory, { recursive: true });
 		const path = resolve(directory, `osipy-${tag}.tar.gz`);
 		run('tar', ['-czf', `${path}.tmp`, '-C', 'build', '--exclude=*.tar.gz*', '.']);
+		assertSampleFreeArchive(`${path}.tmp`);
 		renameSync(`${path}.tmp`, path);
 		state.archive = { path, sha256: fileDigest(path) };
 	}

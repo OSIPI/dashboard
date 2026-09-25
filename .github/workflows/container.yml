@@ -31,12 +31,6 @@ jobs:
           echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
-      - name: Prepare public IVIM demo data
-        working-directory: dashboard
-        run: |
-          python3 -m pip install --disable-pip-version-check numpy==2.3.5 nibabel==5.3.3
-          python3 scripts/prepare_ivim.py
-
       - name: Enable emulation for Apple Silicon Docker users
         uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
 

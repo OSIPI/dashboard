@@ -30,15 +30,15 @@ To run the built dashboard and local fitting companion without a host Python or 
 docker compose up
 ```
 
-Open <http://localhost:60010/dashboard/>. Compose builds the production image on first use; use `docker compose up --build` after changing the source. It installs OSIPY 0.1.4 in the image, serves the static dashboard, and starts the companion inside the same container. The GHCR release image includes prepared public demo data; a local Compose build includes it only if you first follow [data/README.md](data/README.md). Only port 60010 is published, on your computer's loopback interface. The companion remains private on container loopback, and its credential is generated in memory and never shown in the browser. Stop the container with Ctrl+C. Stop `make dev` before starting Compose (and vice versa), since both use port 60010.
+Open <http://localhost:60010/dashboard/>. Compose builds the production image on first use; use `docker compose up --build` after changing the source. It installs OSIPY 0.1.4 in the image, serves the static dashboard, and starts the companion inside the same container. New local Compose images exclude prepared MRI samples; the browser imports public data directly from Zenodo. Do not make the existing `v0.1.0` GHCR image public: it contains the old prepared demo and must be removed before package visibility changes. Only port 60010 is published, on your computer's loopback interface. The companion remains private on container loopback, and its credential is generated in memory and never shown in the browser. Stop the container with Ctrl+C. Stop `make dev` before starting Compose (and vice versa), since both use port 60010.
 
 Once the stable GHCR image is published and public, the shorter command is `docker run --rm --pull=always -p 127.0.0.1:60010:37183 ghcr.io/osipi/dashboard:latest`. Replace `latest` with a published `vX.Y.Z` tag for a reproducible version. The public GitHub Pages site remains a separate browser origin; its locally saved scans are not transferred into the container workspace automatically.
 
 ## Data
 
-The public demo dataset is not committed. Follow [data/README.md](data/README.md) to download and prepare it. An unprepared checkout still builds but reports that the brain dataset is unavailable.
+The public dataset is not committed. New Pages, release and container builds exclude MRI samples; the browser imports the demo directly from Zenodo. The old v0.1.0 container remains private pending deletion. Follow [data/README.md](data/README.md) only to prepare a local verification copy.
 
-Local NIfTI files and subject metadata remain in the browser session. Dataset preferences and notes may use local storage, but MRI samples do not.
+Imported NIfTI files and subject metadata remain in the browser; saved scans, including MRI samples, use browser-local IndexedDB. They are not uploaded to OSIPI hosting. Notes and layout preferences use local storage.
 
 ## Local fitting companion
 
