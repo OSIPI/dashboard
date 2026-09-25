@@ -25,7 +25,7 @@ Run real `make release` only with explicit authorization for commits, tags, push
 
 Command completion confirms Release publication, not successful Pages deployment. Inspect the pushed-main Pages workflow's final deployment status at GitHub. Pages remains `https://osipi.github.io/dashboard/`.
 
-Publishing a stable GitHub Release also triggers `.github/workflows/container.yml`. That independent workflow builds the tagged, sample-free dashboard plus OSIPY 0.1.4 for Linux amd64/arm64 and pushes `ghcr.io/osipi/dashboard:vX.Y.Z` and `:latest`. Docker build context excludes local data and prepared datasets, and the image build verifies both static inputs and output. It cannot publish an arbitrary PR/main image and does not block the intentional local release command. Package visibility is managed separately; do not make historical images public unless their contents have been verified sample-free. The public Pages app and the local Docker workspace use different browser origins and do not share saved scans automatically.
+Publishing a stable GitHub Release also triggers `.github/workflows/container.yml`. That independent workflow builds the tagged, sample-free Python companion with OSIPY 0.1.4 for Linux amd64/arm64 and pushes `ghcr.io/osipi/dashboard:vX.Y.Z` and `:latest`. Its Dockerfile copies only `companion/`, never the static frontend or datasets. It cannot publish an arbitrary PR/main image and does not block the intentional local release command. The current published v0.2.0 image predates the backend-only change; publish a new version before using its `:latest` tag as a companion. The public Pages app connects to the local companion with a session token and browser local-network permission.
 
 ## Retry and recovery
 

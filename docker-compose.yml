@@ -1,6 +1,6 @@
 services:
-  frontend:
+  companion:
     build: ./dashboard
     ports:
-      - '127.0.0.1:60010:37183'
+      - '127.0.0.1:60016:60016'
     init: true

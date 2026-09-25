@@ -24,19 +24,19 @@ make dev
 
 `make dev` starts the Bun frontend and the authenticated OSIPY companion on your host. The browser connects automatically; no token entry is needed. The private credential stays between the local dev server and companion. Ctrl+C stops both. The companion uses the sibling OSIPY virtual environment by default (override with `COMPANION_PYTHON` if needed). The root Makefile delegates development here and owns the release entry points.
 
-To run the built dashboard and local fitting companion without a host Python or Bun environment, run from the parent repository directory (the same place you run `make dev`):
+To run the local fitting companion without a host Python or Bun environment, run from the parent repository directory (the same place you run `make dev`):
 
 ```sh
 docker compose up
 ```
 
-Open <http://localhost:60010/dashboard/>. Compose builds the production image on first use; use `docker compose up --build` after changing the source. It installs OSIPY 0.1.4 in the image, serves the static dashboard, and starts the companion inside the same container. New local Compose images exclude prepared MRI samples; the browser imports public data directly from Zenodo. Do not make the existing `v0.1.0` GHCR image public: it contains the old prepared demo and must be removed before package visibility changes. Only port 60010 is published, on your computer's loopback interface. The companion remains private on container loopback, and its credential is generated in memory and never shown in the browser. Stop the container with Ctrl+C. Stop `make dev` before starting Compose (and vice versa), since both use port 60010.
+Continue using <https://osipi.github.io/dashboard/>. Compose builds a Python-only image with OSIPY 0.1.4 and the authenticated REST companion; no frontend or MRI sample files are included. It prints a random session token in the terminal. Paste the token into Inspector → IVIM analysis after importing a scan. If the browser requests local network access, allow it for this site. Only port 60016 is published, on your computer's loopback interface. Use `docker compose up --build` after changing the source; stop with Ctrl+C. Stop `make dev` before starting Compose (and vice versa), since both use companion port 60016.
 
-Once the stable GHCR image is published and public, the shorter command is `docker run --rm --pull=always -p 127.0.0.1:60010:37183 ghcr.io/osipi/dashboard:latest`. Replace `latest` with a published `vX.Y.Z` tag for a reproducible version. The public GitHub Pages site remains a separate browser origin; its locally saved scans are not transferred into the container workspace automatically.
+The public `v0.2.0` GHCR image still contains the old self-hosted frontend. After a backend-only image is released, the shorter command will be `docker run --rm --pull=always -p 127.0.0.1:60016:60016 ghcr.io/osipi/dashboard:latest`. Until then use Compose from this checkout.
 
 ## Data
 
-The public dataset is not committed. New Pages, release and container builds exclude MRI samples; the browser imports the demo directly from Zenodo. The old v0.1.0 container remains private pending deletion. Follow [data/README.md](data/README.md) only to prepare a local verification copy.
+The public dataset is not committed. New Pages, release and container builds exclude MRI samples; the browser imports the demo directly from Zenodo. The old data-bearing v0.1.0 GHCR image and historical Pages artifacts were deleted. Follow [data/README.md](data/README.md) only to prepare a local verification copy.
 
 Imported NIfTI files and subject metadata remain in the browser; saved scans, including MRI samples, use browser-local IndexedDB. They are not uploaded to OSIPI hosting. Notes and layout preferences use local storage.
 

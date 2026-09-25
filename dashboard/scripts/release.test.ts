@@ -397,16 +397,22 @@ test('Pages builds and deploys the exact pushed main commit with least privilege
 	expect(workflow).not.toMatch(/gh release|release create|release upload|tags/);
 });
 
-test('container builds exclude local datasets and verify sample-free output', () => {
+test('container builds only the authenticated companion, never the frontend or datasets', () => {
 	const workflow = JSON.stringify(container);
 	expect(workflow).not.toContain('prepare_ivim.py');
 	expect(workflow).not.toContain('zenodo.org');
+	expect(workflow).toContain('releases/latest');
+	expect(workflow).toContain('refusing stale latest promotion');
+	expect(container.concurrency['cancel-in-progress']).toBe(false);
 	const dockerignore = readFileSync(new URL('dashboard/.dockerignore', repositoryRoot), 'utf8');
 	expect(dockerignore).toContain('/data\n');
 	expect(dockerignore).toContain('/static/datasets\n');
 	const dockerfile = readFileSync(new URL('dashboard/Dockerfile', repositoryRoot), 'utf8');
-	expect(dockerfile).toContain('bun scripts/assert_sample_free.ts static');
-	expect(dockerfile).toContain('bun scripts/assert_sample_free.ts build');
+	expect(dockerfile).toContain('COPY companion /app/companion');
+	expect(dockerfile).toContain('CMD ["python", "companion/server.py", "--bind", "0.0.0.0"]');
+	expect(dockerfile).not.toMatch(/COPY\s+(?:\.|(?:static|build|data|docker)(?:\s|\/))/);
+	const compose = readFileSync(new URL('docker-compose.yml', repositoryRoot), 'utf8');
+	expect(compose).toContain('127.0.0.1:60016:60016');
 });
 
 test('release structure preserves local gates, freezes before commit and atomically pushes before publication', () => {

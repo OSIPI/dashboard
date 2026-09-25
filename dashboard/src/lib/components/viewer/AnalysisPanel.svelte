@@ -72,9 +72,37 @@
 					>{/if}
 			{:else}
 				<p class="text-muted-foreground">
-					This public dashboard is for local viewing. To run fitting without a token, open the
-					Datasets page and choose Run local fitting to start a private Docker workspace.
+					Run the local OSIPY companion with Docker from Datasets → Run local fitting. Paste its
+					session token from the terminal to connect this browser directly to
+					http://127.0.0.1:60016. Imaging data stays on your computer.
 				</p>
+				<form
+					class="space-y-2"
+					onsubmit={(event) => {
+						event.preventDefault();
+						void connect();
+					}}
+				>
+					<label class="block font-medium" for="companion-token">Companion session token</label>
+					<input
+						id="companion-token"
+						class="input w-full"
+						type="password"
+						autocomplete="off"
+						spellcheck="false"
+						bind:value={client.token}
+					/>
+					<button
+						class="button button-outline"
+						type="submit"
+						disabled={client.busy || !client.token.trim()}
+						>{client.busy
+							? 'Connecting…'
+							: client.catalog
+								? 'Reconnect'
+								: 'Connect to local companion'}</button
+					>
+				</form>
 			{/if}
 		</div>
 	</details>

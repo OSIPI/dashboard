@@ -37,8 +37,8 @@ MAX_CACHED_DATASET_BYTES = 768 * 1024 * 1024
 class Companion(ThreadingHTTPServer):
     daemon_threads = True
 
-    def __init__(self, port, token, origins):
-        super().__init__(("127.0.0.1", port), Handler)
+    def __init__(self, port, token, origins, bind="127.0.0.1"):
+        super().__init__((bind, port), Handler)
         self.token = token
         self.origins = set(origins)
         self.temp = tempfile.TemporaryDirectory(prefix="osipy-companion-")
@@ -359,6 +359,7 @@ class Handler(BaseHTTPRequestHandler):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--port", type=int, default=60016)
+    parser.add_argument("--bind", choices=("127.0.0.1", "0.0.0.0"), default="127.0.0.1")
     parser.add_argument(
         "--origin",
         action="append",
@@ -374,7 +375,7 @@ if __name__ == "__main__":
     token = os.environ.get("OSIPY_DASHBOARD_TOKEN") or secrets.token_urlsafe(32)
     if len(token) < 16:
         parser.error("OSIPY_DASHBOARD_TOKEN must contain at least 16 characters")
-    server = Companion(args.port, token, args.origin)
+    server = Companion(args.port, token, args.origin, bind=args.bind)
 
     def stop(_signum, _frame):
         raise KeyboardInterrupt

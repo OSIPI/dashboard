@@ -70,7 +70,12 @@ export class AnalysisClient {
 			if (this.runs.some((r) => r.state === 'running')) this.poll();
 		} catch (e) {
 			this.catalog = undefined;
-			this.error = e instanceof Error ? e.message : 'Connection failed';
+			this.error =
+				e instanceof TypeError && !__LOCAL_COMPANION_PROXY__
+					? 'Cannot reach the local companion. Check Docker is running and allow local network access for this site in your browser.'
+					: e instanceof Error
+						? e.message
+						: 'Connection failed';
 			this.stage = 'Disconnected';
 		} finally {
 			this.busy = false;

@@ -94,7 +94,7 @@
 					? 'This dashboard was started without its companion. Stop the server using port 60010 and run make dev to list methods automatically.'
 					: __LOCAL_COMPANION_PROXY__
 						? 'Connecting to the local companion. If it stays disconnected, open Inspector → IVIM analysis to retry.'
-						: 'Run the local Docker workspace from Datasets → Run local fitting to list installed methods. The public site does not run fitting.'}
+						: 'Start the local Docker companion, then connect in Inspector → IVIM analysis to list available fitting methods.'}
 			</p>
 		{/if}
 	</div>
