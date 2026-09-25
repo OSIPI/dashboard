@@ -1,9 +1,25 @@
 import { expect, test } from 'bun:test';
+import { gzipSync, strToU8, zipSync } from 'fflate';
 import { decodeNifti, parseBValues, parseBVectors, readImageFile } from '../src/lib/imports/nifti';
+import {
+	DEMO_ZIP_LIMITS,
+	extractDemoMembers,
+	readBoundedResponse
+} from '../src/lib/imports/zenodo-demo';
 import { bidsIdentity, discoverFiles } from '../src/lib/imports/discovery';
 import { compareScans, mapPoint, validDate, type Scan } from '../src/lib/imports/scan';
 import { autoWindow } from '../src/lib/workspace';
 import { niftiFixture, dicomFixture } from './fixtures/local-scans';
+
+function demoArchive(level = 6) {
+	return zipSync({
+		'Data/brain.nii.gz': [gzipSync(new Uint8Array(niftiFixture())), { level }],
+		'Data/brain.bval': [strToU8('0 10 10'), { level }],
+		'Data/brain.bvec': [strToU8('0 1 0\n0 0 1\n0 0 0'), { level }],
+		'Data/brain_readme.txt': [strToU8('Public fixture'), { level }],
+		'Not extracted.txt': [strToU8('irrelevant'), { level }]
+	});
+}
 
 test('standalone NIfTI viewing opens all volumes without diffusion sidecars', async () => {
 	const { dataset, volumes, issues } = await decodeNifti(niftiFixture());
@@ -40,6 +56,42 @@ test('NIfTI imports preserve float/int samples, signed scaling, endian order and
 	expect(decoded.dataset.bVectors[2]).toEqual([0, 1, 0]);
 	const gzip = new File([Bun.gzipSync(new Uint8Array(niftiFixture()))], 'data.nii.gz');
 	expect(new Uint8Array(await readImageFile(gzip))).toEqual(new Uint8Array(niftiFixture()));
+});
+
+test('Zenodo demo ZIP extraction rejects corruption, truncation and unsafe bounds while preserving acquisition fidelity', async () => {
+	const archive = demoArchive(0);
+	const members = extractDemoMembers(archive.buffer);
+	const decoded = await decodeNifti(
+		await readImageFile(new File([members['Data/brain.nii.gz']], 'brain.nii.gz')),
+		new TextDecoder().decode(members['Data/brain.bval']),
+		new TextDecoder().decode(members['Data/brain.bvec'])
+	);
+	expect(decoded.dataset.dimensions).toEqual([3, 2, 2, 3]);
+	expect(decoded.dataset.slope).toBe(2);
+	expect(decoded.dataset.affine).toEqual((await decodeNifti(niftiFixture())).dataset.affine);
+	expect(decoded.dataset.bValues).toEqual([0, 10, 10]);
+	expect(decoded.dataset.bVectors).toEqual([
+		[0, 0, 0],
+		[1, 0, 0],
+		[0, 1, 0]
+	]);
+	expect(decoded.volumes[2][0]).toBe((await decodeNifti(niftiFixture())).volumes[2][0]);
+
+	const corrupt = new Uint8Array(archive);
+	const source = strToU8('0 10 10');
+	const payload = corrupt.findIndex((_, index) =>
+		source.every((byte, offset) => corrupt[index + offset] === byte)
+	);
+	expect(payload).toBeGreaterThan(-1);
+	corrupt[payload] ^= 1;
+	expect(() => extractDemoMembers(corrupt.buffer)).toThrow('corrupt');
+	expect(() => extractDemoMembers(archive.slice(0, -1).buffer)).toThrow('truncated');
+	expect(() =>
+		extractDemoMembers(archive.buffer, { ...DEMO_ZIP_LIMITS, maximumMemberBytes: 1 })
+	).toThrow('safe extraction limit');
+	await expect(readBoundedResponse(new Response(new Uint8Array([1, 2])), 3)).rejects.toThrow(
+		'truncated'
+	);
 });
 
 test('invalid dimensions, geometry, samples and diffusion metadata block import', async () => {

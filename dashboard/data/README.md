@@ -32,9 +32,9 @@ Alternatively use Python 3.11+ with `numpy==2.3.5` and `nibabel==5.3.3` installe
 - Prepared `signal.i16`: **119418880 bytes**, raw little-endian int16, x fastest, then y, z, volume; SHA256 `8283e28d967d41eec33f037498a7e39701b3f6b18b5f4893e9824dd2bc1f4380`. `manifest.json` supplies dimensions, b-values/vectors, exact scaling, spacing, affine, provenance and a metadata-sensitive dataset identity.
 - Default display window uses the source's 99th percentile, only for contrast. Signal inspection always uses unchanged scaled samples. All volumes are loaded together; allow memory for the 119 MB samples and download/checksum buffers, particularly on mobile.
 
-### Deployment
+### Local use and data hosting
 
-Downloads and extraction stay in gitignored `data/`; prepared assets stay in gitignored `static/datasets/`. Do not stage or commit them. Run preparation **before `bun run build`** in the deployment environment and publish the resulting build assets, with this attribution. A source-only build does not include data and visibly reports it unavailable. No external Zenodo runtime fetch or mock fallback is used. Production paths retain `/dashboard`; the data host must support a 119 MB static file.
+Downloads, extraction and local verification outputs stay in gitignored `data/`. Do not stage, commit, package or publish them. Preparation is for local verification only. OSIPI Pages, GitHub Release archives and future GHCR images are built without MRI samples; the public dashboard imports the dataset directly from Zenodo in the browser. Release and container builds fail if local prepared data could enter an artifact.
 
 ## DCE Challenge References (Not Used By The Viewer)
 

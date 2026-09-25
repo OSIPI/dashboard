@@ -19,7 +19,7 @@ URL = "https://zenodo.org/api/records/14605039/files/OSIPI_TF24_data_phantoms.zi
 MD5 = "e7b3fe1d811a7a45c5aaf6c604c82793"
 SIZE = 245080480
 SOURCE = ROOT / "data/ivim/Data"
-OUTPUT = ROOT / "static/datasets/ivim-brain"
+OUTPUT = ROOT / "data/prepared-ivim-brain"
 
 
 def prepare(verify=False):
@@ -87,7 +87,7 @@ def prepare(verify=False):
     if not verify:
         OUTPUT.mkdir(parents=True, exist_ok=True)
         (OUTPUT / "signal.i16").write_bytes(payload)
-        # Publish the manifest last so incomplete preparation fails validation.
+        # Write the manifest last so incomplete preparation fails validation.
         (OUTPUT / "manifest.json").write_text(json.dumps(metadata, indent=2) + "\n")
     actual = json.loads((OUTPUT / "manifest.json").read_text())
     if actual != metadata:

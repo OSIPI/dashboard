@@ -12,7 +12,7 @@
 	import { RoiSession } from '$lib/roi-session.svelte';
 	import { roiOverlay, type ViewerTool } from '$lib/roi';
 	import { SvelteMap } from 'svelte/reactivity';
-	import { base, resolve } from '$app/paths';
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { replaceState } from '$app/navigation';
 	import {
@@ -136,7 +136,7 @@
 	);
 	const scanViews = new SvelteMap<string, Workspace>();
 	const bookmarkKey = $derived(
-		dataset?.source === 'local' ? `${BOOKMARK_KEY}.${dataset.sha256}` : BOOKMARK_KEY
+		dataset?.source ? `${BOOKMARK_KEY}.${dataset.sha256}` : BOOKMARK_KEY
 	);
 	let dataError = $state('');
 	let active = $state(0);
@@ -337,7 +337,9 @@
 			if (activate) {
 				activateScan(scan);
 				if (validFit) analysis.selected = validFit.id;
-				replaceState(`${resolve('/viewer')}?scan=${encodeURIComponent(id)}`, page.state);
+				let destination = resolve('/viewer');
+				destination += `?scan=${encodeURIComponent(id)}`;
+				replaceState(destination, page.state);
 			}
 		} catch (e) {
 			if (alive && sequence === loadSequence) dataError = storageError(e);
@@ -410,7 +412,9 @@
 		flushWorkspace();
 		scans = [...scans, scan];
 		activateScan(scan);
-		replaceState(`${resolve('/viewer')}?scan=${encodeURIComponent(scan.id)}`, page.state);
+		let destination = resolve('/viewer');
+		destination += `?scan=${encodeURIComponent(scan.id)}`;
+		replaceState(destination, page.state);
 	}
 	async function updateMetadata(id: string, metadata: ScanMetadata) {
 		try {

@@ -26,7 +26,7 @@ export type Dataset = {
 	sha256: string;
 	signalRange: [number, number];
 	window: [number, number];
-	source?: 'local';
+	source?: 'local' | 'zenodo';
 	xformCode?: number;
 };
 

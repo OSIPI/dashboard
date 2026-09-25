@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { base, resolve } from '$app/paths';
+	import { resolve } from '$app/paths';
 	import Header from '$lib/components/ui/Header.svelte';
 	import ScanLibrary from '$lib/components/viewer/ScanLibrary.svelte';
 	import StoredDatasetCard from '$lib/components/StoredDatasetCard.svelte';
@@ -15,7 +15,8 @@
 		storageError,
 		type StoredScanSummary
 	} from '$lib/local-library';
-	import { loadDataset } from '$lib/ivim';
+	import { loadZenodoDemo } from '$lib/imports/load-zenodo-demo';
+	import { SESSION_LIMIT } from '$lib/imports/scan';
 	import type { Scan, ScanMetadata } from '$lib/imports/scan';
 	import UploadIcon from '~icons/lucide/upload';
 	import ShieldIcon from '~icons/lucide/shield-check';
@@ -25,7 +26,9 @@
 		filter = $state('all'),
 		loading = $state(true),
 		error = $state(''),
-		demoBusy = $state(false);
+		demoBusy = $state(false),
+		demoProgress = $state('');
+	let demoController: AbortController | undefined;
 	let removal = $state<StoredScanSummary>();
 	let dialog: HTMLDialogElement;
 	const filtered = $derived(
@@ -50,6 +53,7 @@
 	onMount(() => {
 		void refresh();
 	});
+	onDestroy(() => demoController?.abort());
 	async function add(scan: Scan) {
 		try {
 			await saveScan(scan);
@@ -61,7 +65,9 @@
 		}
 	}
 	function open(id: string) {
-		void goto(`${resolve('/viewer')}?scan=${encodeURIComponent(id)}`);
+		let destination = resolve('/viewer');
+		destination += `?scan=${encodeURIComponent(id)}`;
+		void goto(destination);
 	}
 	async function metadata(id: string, value: ScanMetadata) {
 		try {
@@ -77,10 +83,21 @@
 			open('osipi-demo');
 			return;
 		}
+		demoController?.abort();
+		const controller = new AbortController();
+		demoController = controller;
 		demoBusy = true;
+		demoProgress = 'Starting direct download from Zenodo…';
 		error = '';
 		try {
-			const loaded = await loadDataset(`${base}/datasets/ivim-brain`);
+			const loaded = await loadZenodoDemo(SESSION_LIMIT, controller.signal, (progress) => {
+				if (progress.phase === 'download') {
+					const percent = Math.floor(((progress.received ?? 0) / (progress.total ?? 1)) * 100);
+					demoProgress = `Downloading demo from Zenodo… ${percent}%`;
+				} else if (progress.phase === 'validate') demoProgress = 'Verifying Zenodo archive…';
+				else demoProgress = 'Extracting and validating brain acquisition…';
+			});
+			if (controller.signal.aborted) return;
 			await add({
 				...loaded,
 				id: 'osipi-demo',
@@ -92,19 +109,22 @@
 					technique: 'IVIM',
 					coordinateFrame: ''
 				},
-				issues: [
-					{
-						severity: 'info',
-						message: 'Public OSIPI dataset, saved locally. Original sample checksum verified.'
-					}
-				]
+				issues: loaded.issues
 			});
 			open('osipi-demo');
 		} catch (e) {
-			error = `Demo could not be saved. ${storageError(e)} You can still import your own local files.`;
+			if (!(e instanceof DOMException && e.name === 'AbortError'))
+				error = `Demo could not be saved. ${storageError(e)} You can still import your own local files.`;
 		} finally {
-			demoBusy = false;
+			if (demoController === controller) {
+				demoBusy = false;
+				demoProgress = '';
+				demoController = undefined;
+			}
 		}
+	}
+	function cancelDemo() {
+		demoController?.abort();
 	}
 	async function remove() {
 		if (!removal) return;
@@ -163,9 +183,16 @@
 					onmetadata={metadata}
 					onremove={(id) => (session = session.filter((s) => s.id !== id))}
 					triggerLabel="Import data"
-				/><button class="button button-ghost" disabled={demoBusy} onclick={demo}
-					>{demoBusy ? 'Saving demo…' : 'Try public demo'}</button
-				>
+				/>{#if demoBusy}<div class="flex items-center gap-2" role="status">
+						<div class="min-w-40 text-xs text-muted-foreground" aria-live="polite">
+							{demoProgress}
+						</div>
+						<button class="button button-outline h-8 px-2 text-xs" onclick={cancelDemo}
+							>Cancel demo</button
+						>
+					</div>{:else}<button class="button button-ghost" onclick={demo}
+						>Download demo from Zenodo · 245 MB</button
+					>{/if}
 			</div>
 		</div>
 	</section>
@@ -218,6 +245,10 @@
 						triggerLabel="Import your first dataset"
 					/>
 				</div>
+				<p class="mt-3 text-xs leading-5 text-muted-foreground">
+					The public demo downloads directly from Zenodo into this browser; OSIPY does not host MRI
+					bytes or proxy the download.
+				</p>
 			</div>
 		{:else}<div class="mx-auto grid max-w-7xl gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
 				{#each filtered as scan (scan.id)}<StoredDatasetCard
