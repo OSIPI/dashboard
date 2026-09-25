@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.0 - 2026-09-25
+
+### Features
+
+- companion: serve Pages from backend-only image (fbac987)
+
 ## 0.2.0 - 2026-09-25
 
 ### Features
