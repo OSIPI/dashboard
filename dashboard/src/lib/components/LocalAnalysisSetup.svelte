@@ -3,7 +3,7 @@
 	let dialog: HTMLDialogElement;
 	let message = $state('');
 	const command =
-		'git clone https://github.com/OSIPI/dashboard.git && cd dashboard && docker compose up';
+		'docker run --rm --pull=always -p 127.0.0.1:60016:60016 ghcr.io/osipi/dashboard:v0.3.0';
 	async function copy() {
 		try {
 			await navigator.clipboard.writeText(command);
