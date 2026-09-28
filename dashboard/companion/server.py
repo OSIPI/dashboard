@@ -159,6 +159,56 @@ def public_job(job):
     }
 
 
+def new_session_token():
+    # Eight random bytes encode as eleven URL-safe characters (64 bits).
+    return secrets.token_urlsafe(8)
+
+
+def session_banner(token, color=None):
+    if color is None:
+        color = "NO_COLOR" not in os.environ
+    pink = "\x1b[95m" if color else ""
+    coral = "\x1b[91m" if color else ""
+    bold = "\x1b[1m" if color else ""
+    reset = "\x1b[0m" if color else ""
+    # Braille-cell rendering of src/lib/assets/images/osipi-avatar.png.
+    logo_lines = (
+        "         ⣠⣴⣶⣶⣦⡀",
+        "        ⢰⣿⠋⠁⠈⢻⣿⡆",
+        "        ⢸⣿  ⢀⣸⣿⠇",
+        " ⢀⣴⣾⡿⠿⠿⠇⢸⣿⠸⠿⠿⠟⠃",
+        "⢠⣿⡟⠁    ⢸⣿",
+        "⢸⣿⡀     ⣼⣿",
+        "⠈⢿⣷⣄⣀⢀⣀⣴⣿⠃",
+        "  ⠙⠻⠿⠿⠿⠛⠁",
+    )
+    logo = "\n".join(
+        f"{pink if index < 4 else coral}{line}{reset}"
+        + (f"  {bold}OSIPY{reset}" if index == 3 else "")
+        for index, line in enumerate(logo_lines)
+    )
+    width = max(31, len(token))
+    border = "═" * (width + 4)
+
+    def row(text=""):
+        return f"║  {text:<{width}}  ║"
+
+    return (
+        f"\n{logo}\n"
+        "\n"
+        f"{pink}╔{border}╗{reset}\n"
+        f"{row('OSIPY LOCAL FITTING IS READY')}\n"
+        f"{row()}\n"
+        f"{row('SESSION TOKEN — COPY BELOW:')}\n"
+        f"{row(token)}\n"
+        f"{pink}╚{border}╝{reset}\n"
+        "\n"
+        "  Paste it into Inspector → IVIM analysis in the dashboard.\n"
+        "  Companion: http://127.0.0.1:60016\n"
+        "  Keep this token private; it grants access to this local session.\n"
+    )
+
+
 class Handler(BaseHTTPRequestHandler):
     server: Companion
 
@@ -372,9 +422,10 @@ if __name__ == "__main__":
         ],
     )
     args = parser.parse_args()
-    token = os.environ.get("OSIPY_DASHBOARD_TOKEN") or secrets.token_urlsafe(32)
-    if len(token) < 16:
+    configured_token = os.environ.get("OSIPY_DASHBOARD_TOKEN")
+    if configured_token and len(configured_token) < 16:
         parser.error("OSIPY_DASHBOARD_TOKEN must contain at least 16 characters")
+    token = configured_token or new_session_token()
     server = Companion(args.port, token, args.origin, bind=args.bind)
 
     def stop(_signum, _frame):
@@ -383,7 +434,7 @@ if __name__ == "__main__":
     signal.signal(signal.SIGTERM, stop)
     print(f"OSIPY companion: http://127.0.0.1:{server.server_address[1]}", flush=True)
     if not os.environ.get("OSIPY_DASHBOARD_TOKEN"):
-        print(f"Paste this session token into the dashboard: {token}", flush=True)
+        print(session_banner(token), flush=True)
     print(
         "Loopback only. Inputs/results are temporary and removed on exit. Ctrl+C to stop.",
         flush=True,

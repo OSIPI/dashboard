@@ -4,8 +4,9 @@
 	import ChevronRightIcon from '~icons/lucide/chevron-right';
 	import { onMount, onDestroy, tick } from 'svelte';
 	import { AnalysisClient } from '$lib/analysis-client.svelte';
+	import { retryUntilConnected } from '$lib/companion-retry';
+	import LocalAnalysisSetup from '$lib/components/LocalAnalysisSetup.svelte';
 	import AnalysisPanel from '$lib/components/viewer/AnalysisPanel.svelte';
-	import MethodsMenu from '$lib/components/viewer/MethodsMenu.svelte';
 	import FitDialog from '$lib/components/viewer/FitDialog.svelte';
 	import RoiPanel from '$lib/components/viewer/RoiPanel.svelte';
 	import ExportPanel from '$lib/components/viewer/ExportPanel.svelte';
@@ -252,6 +253,18 @@
 	onMount(() => {
 		alive = true;
 		if (__LOCAL_COMPANION_PROXY__) void analysis.connect();
+		const stopRetry =
+			!import.meta.env.DEV && !__LOCAL_COMPANION_PROXY__
+				? retryUntilConnected(
+						() => !!analysis.catalog,
+						() =>
+							!document.hidden &&
+							!!analysis.token.trim() &&
+							!analysis.busy &&
+							analysis.error !== 'Invalid companion token',
+						() => analysis.connect()
+					)
+				: undefined;
 		void listStoredScans()
 			.then((items) => {
 				if (!alive) return;
@@ -267,6 +280,7 @@
 				dataError = storageError(e);
 				restoring = false;
 			});
+		return stopRetry;
 	});
 	function flushWorkspace() {
 		if (dataset && currentId && !restoring) {
@@ -594,17 +608,7 @@
 				>{dataset.dimensions[2]} slices</span
 			>
 		</div>{/if}
-	<MethodsMenu
-		catalog={analysis.catalog}
-		canFit={!!dataset && !!volumes.length && technique === 'IVIM'}
-		selectedMethod={technique === 'IVIM' && analysis.catalog ? fitMethod : undefined}
-		onselect={configureFit}
-	/>
-	<span
-		class="badge ml-auto whitespace-nowrap text-muted-foreground"
-		title="Not for diagnosis. Local viewing and optional OSIPY fitting; no remote image uploads."
-		>Research only</span
-	>
+	<div class="ml-auto"><LocalAnalysisSetup client={analysis} /></div>
 </Header>
 <main
 	class="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-3 max-[899px]:gap-1 max-[899px]:p-1"
@@ -853,6 +857,7 @@
 						selectedMethod={fitMethod}
 						bind:openPanel={preferences.current.analysisOpen}
 						onopen={openAnalysis}
+						onselect={configureFit}
 					/>
 				</div>
 				<div

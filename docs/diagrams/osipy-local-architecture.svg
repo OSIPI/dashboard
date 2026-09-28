@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="460" viewBox="0 0 960 460">
+<rect width="960" height="460" fill="#f7f9fc"/>
+<rect x="10" y="10" width="940" height="440" rx="22" fill="#ffffff" stroke="#dce4ee" stroke-width="1.5"/>
+<text x="44" y="56" font-family="Arial, Helvetica, sans-serif" font-size="25" font-weight="700" fill="#14243d">OSIPY  /  public interface + local analysis</text>
+<text x="44" y="84" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="400" fill="#546781">The browser talks to OSIPY only through your computer’s loopback port.</text>
+<rect x="44" y="122" width="218" height="94" rx="16" fill="#eef3fb" stroke="#b4c5e0" stroke-width="2"/>
+<text x="62" y="158" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="700" fill="#223e66">OSIPI GitHub Pages</text>
+<text x="62" y="186" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="400" fill="#405a79">Dashboard interface</text>
+<rect x="44" y="255" width="218" height="94" rx="16" fill="#f1f6fc" stroke="#b4c5e0" stroke-width="2"/>
+<text x="62" y="291" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="700" fill="#223e66">Zenodo</text>
+<text x="62" y="318" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="400" fill="#405a79">Public demo · download only</text>
+<rect x="320" y="113" width="598" height="269" rx="20" fill="#f9fbff" stroke="#8faad2" stroke-width="2"/>
+<text x="344" y="142" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="700" fill="#315b9b">YOUR COMPUTER</text>
+<rect x="348" y="169" width="232" height="155" rx="14" fill="#ffffff" stroke="#7e9bc4" stroke-width="2"/>
+<text x="368" y="207" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="700" fill="#14243d">Browser</text>
+<text x="368" y="236" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="400" fill="#38516e">MRI data stored locally</text>
+<text x="368" y="261" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="400" fill="#38516e">Explore images + start fits</text>
+<rect x="659" y="169" width="229" height="155" rx="14" fill="#fff8f5" stroke="#e29e8b" stroke-width="2"/>
+<text x="677" y="206" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700" fill="#743c33">Docker · OSIPY API</text>
+<text x="677" y="237" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" fill="#8f4c3d">127.0.0.1:60016</text>
+<text x="677" y="267" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="400" fill="#674f4b">Fit on local CPU</text>
+<path d="M262 166.5 L348 203.5 L348 206.5 L262 169.5 Z" fill="#687c99"/><path d="M348 205 L336 204 L340 195 Z" fill="#687c99"/>
+<text x="277" y="151" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="400" fill="#526884">loads UI</text>
+<path d="M262 300.5 L348 280.5 L348 283.5 L262 303.5 Z" fill="#687c99"/><path d="M348 282 L338 290 L336 278 Z" fill="#687c99"/>
+<text x="274" y="324" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="400" fill="#526884">downloads</text>
+<rect x="580" y="212.5" width="79" height="3" fill="#dd775d"/><path d="M659 214 L648 220 L648 208 Z" fill="#dd775d"/>
+<text x="586" y="197" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="400" fill="#935443">analysis data</text>
+<rect x="580" y="278.5" width="79" height="3" fill="#dd775d"/><path d="M580 280 L591 274 L591 286 Z" fill="#dd775d"/>
+<text x="586" y="305" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="400" fill="#935443">fit results</text>
+<text x="345" y="360" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700" fill="#315b9b">MRI data stays on this computer · No upload to OSIPI</text>
+</svg>

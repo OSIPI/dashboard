@@ -1,7 +1,10 @@
-.PHONY: dev stop release release-dry-run
+.PHONY: dev dev-prod stop release release-dry-run
 
 dev:
 	$(MAKE) -C dashboard dev
+
+dev-prod:
+	$(MAKE) -C dashboard dev-prod
 
 stop:
 	$(MAKE) -C dashboard stop

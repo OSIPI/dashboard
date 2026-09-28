@@ -14,21 +14,23 @@ make dev
 The dashboard is available at <http://localhost:60010>.
 Run `make stop` from the repository root to stop the frontend and companion started by `make dev` (also available in `dashboard/`). This does not stop Docker Compose or unrelated servers. Stopping the companion removes its temporary datasets and run history.
 
+To preview the production Pages build locally, run `make dev-prod` and open <http://127.0.0.1:60014/dashboard/>. It starts only the static frontend. Run the Docker companion separately using the site's **Run local fitting** command; stop each process in its own terminal.
+
 To run the local OSIPY fitting companion for the public dashboard:
 
 ```sh
 docker compose up
 ```
 
-Keep using <https://osipi.github.io/dashboard/>. Compose builds a Python-only image, publishes its authenticated REST companion on `127.0.0.1:60016`, and prints a session token in the terminal. After importing a scan, paste that token into Inspector → IVIM analysis on the public dashboard. Rebuild after source changes with `docker compose up --build`. Stop `make dev` first; both commands use companion port 60016.
+Keep using <https://osipi.github.io/dashboard/>. Compose builds a Python-only image, publishes its authenticated REST companion on `127.0.0.1:60016`, and prints a session token in the terminal. After importing a scan, paste that token into **Local fitting** beside Methods on the dashboard. Rebuild after source changes with `docker compose up --build`. Stop `make dev` first; both commands use companion port 60016.
 
-The current public `v0.2.0` GHCR image still contains the self-hosted dashboard. Once a backend-only image is published, users will be able to skip cloning and run:
+The public `:latest` image contains the backend-only companion. To use it without cloning, run:
 
 ```sh
 docker run --rm --pull=always -p 127.0.0.1:60016:60016 ghcr.io/osipi/dashboard:latest
 ```
 
-This will download the companion image; continue using the public Pages dashboard and paste the token printed in the container logs. Use a new versioned tag instead of `:latest` to pin the backend-only release. Only local port 60016 is exposed; do not publish it to a LAN or the internet. Until that release, use the clone-and-Compose route above.
+This downloads the companion image; keep using the public Pages dashboard (or `make dev-prod`) and paste the token printed in the container logs. Use a versioned tag instead of `:latest` for a reproducible image. Only local port 60016 is exposed; do not publish it to a LAN or the internet.
 
 See the [architecture diagram](dashboard/README.excalidraw.png) and its [editable Excalidraw source](dashboard/README.excalidraw).
 

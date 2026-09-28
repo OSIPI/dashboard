@@ -10,7 +10,34 @@ from unittest import mock
 
 import numpy as np
 from core import model_catalog
-from server import Companion
+from server import Companion, new_session_token, session_banner
+
+
+class BannerTests(unittest.TestCase):
+    def test_generated_token_is_eleven_characters_with_64_bits_of_randomness(self):
+        tokens = {new_session_token() for _ in range(20)}
+        self.assertEqual(len(tokens), 20)
+        self.assertTrue(all(len(token) == 11 for token in tokens))
+
+    def test_generated_token_is_prominent_and_copyable(self):
+        token = "sample-generated-session-token-1234567890"
+        banner = session_banner(token)
+        self.assertEqual(banner.count(token), 1)
+        token_line = next(line for line in banner.splitlines() if token in line)
+        self.assertEqual(token_line.strip(" ║"), token)
+        self.assertIn("SESSION TOKEN", banner)
+        self.assertIn("Inspector", banner)
+        self.assertIn("http://127.0.0.1:60016", banner)
+
+    def test_banner_has_colored_logo_art_with_plain_text_fallback(self):
+        plain = session_banner("test-token", color=False)
+        colored = session_banner("test-token", color=True)
+        self.assertIn("⣠⣴⣶⣶⣦⡀", plain)
+        self.assertIn("⠙⠻⠿⠿⠿⠛⠁", plain)
+        self.assertIn("OSIPY", plain)
+        self.assertNotIn("\x1b[", plain)
+        self.assertIn("\x1b[", colored)
+        self.assertEqual(colored.count("test-token"), 1)
 
 
 class ServerTests(unittest.TestCase):

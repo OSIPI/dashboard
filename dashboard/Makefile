@@ -1,4 +1,4 @@
-.PHONY: dev stop
+.PHONY: dev dev-prod stop
 
 FRONTEND_PORT ?= 60010
 COMPANION_PYTHON ?= ../../osipy/.venv/bin/python
@@ -22,6 +22,9 @@ dev:
 		OSIPY_DASHBOARD_TOKEN=$$token $(abspath node_modules/.bin/vite) dev --host 127.0.0.1 --port $(FRONTEND_PORT) --strictPort & frontend=$$!; \
 		umask 077; printf '%s\n%s\n%s\n%s\n' "$$companion" "$$frontend" "$$(ps -p $$companion -o lstart=)" "$$(ps -p $$frontend -o lstart=)" > .dev-pids; \
 		wait $$frontend; status=$$?; [ $$status -eq 143 ] && exit 0; exit $$status
+
+dev-prod:
+	@env -u OSIPY_DASHBOARD_TOKEN -u OSIPY_LOCAL_COMPANION_PROXY sh -c 'bun install --frozen-lockfile && bun scripts/assert_sample_free.ts static && bun run build && bun scripts/assert_sample_free.ts build && bun run preview -- --host 127.0.0.1 --port 60014 --strictPort'
 
 stop:
 	@if [ ! -f .dev-pids ]; then echo "No tracked dashboard dev server to stop."; exit 0; fi; \

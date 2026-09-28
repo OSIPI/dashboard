@@ -373,6 +373,24 @@ test('repository root owns release entry points and documents all release effect
 		expect(agents).toContain(requirement);
 });
 
+test('dev-prod previews the Pages build without an embedded companion proxy', () => {
+	const rootMakefile = readFileSync(new URL('Makefile', repositoryRoot), 'utf8');
+	const dashboardMakefile = readFileSync(new URL('dashboard/Makefile', repositoryRoot), 'utf8');
+	expect(rootMakefile).toContain('dev-prod:\n\t$(MAKE) -C dashboard dev-prod');
+	expect(dashboardMakefile).toContain('dev-prod:');
+	expect(dashboardMakefile).toContain(
+		'env -u OSIPY_DASHBOARD_TOKEN -u OSIPY_LOCAL_COMPANION_PROXY'
+	);
+	expect(dashboardMakefile).toContain('bun scripts/assert_sample_free.ts static');
+	expect(dashboardMakefile).toContain('bun run build');
+	expect(dashboardMakefile).toContain('bun scripts/assert_sample_free.ts build');
+	expect(dashboardMakefile).toContain(
+		'bun run preview -- --host 127.0.0.1 --port 60014 --strictPort'
+	);
+	expect(dashboardMakefile).not.toContain('sh scripts/dev-prod.sh');
+	expect(dashboardMakefile).not.toContain('docker run');
+});
+
 test('Pages builds and deploys the exact pushed main commit with least privilege', () => {
 	expect(pages.on).toEqual({ push: { branches: ['main'] }, workflow_dispatch: null });
 	expect(pages.permissions).toEqual({ contents: 'read' });

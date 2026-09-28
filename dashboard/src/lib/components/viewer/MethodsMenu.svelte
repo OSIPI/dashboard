@@ -5,11 +5,13 @@
 	let {
 		catalog,
 		canFit = false,
+		compact = false,
 		selectedMethod,
 		onselect
 	}: {
 		catalog?: Catalog;
 		canFit?: boolean;
+		compact?: boolean;
 		selectedMethod?: string;
 		onselect: (id: string) => void;
 	} = $props();
@@ -35,15 +37,22 @@
 	}
 </script>
 
-<details bind:open={expanded} class="group relative shrink-0 text-xs max-[899px]:static">
+<details
+	bind:open={expanded}
+	class="group text-xs {compact ? 'w-full' : 'relative shrink-0 max-[899px]:static'}"
+>
 	<summary
-		class="button button-primary min-h-9 cursor-pointer list-none px-3 max-[899px]:min-h-11 [&::-webkit-details-marker]:hidden"
+		class="button min-h-9 cursor-pointer list-none px-3 max-[899px]:min-h-11 [&::-webkit-details-marker]:hidden {compact
+			? 'button-outline w-full justify-between'
+			: 'button-primary'}"
 	>
 		{selectedMethod ? label(selectedMethod) : 'Methods'}
 		<ChevronDownIcon aria-hidden="true" class="size-4" />
 	</summary>
 	<div
-		class="absolute left-0 z-30 mt-1 max-h-[min(65dvh,32rem)] w-[min(22rem,calc(100vw-1rem))] overflow-y-auto rounded-md border bg-card p-3 shadow-lg max-[899px]:right-2 max-[899px]:left-2 max-[899px]:max-h-[calc(100dvh-14rem)] max-[899px]:w-auto"
+		class="mt-1 overflow-y-auto rounded-md border bg-card p-3 {compact
+			? 'max-h-64 w-full'
+			: 'absolute left-0 z-30 max-h-[min(65dvh,32rem)] w-[min(22rem,calc(100vw-1rem))] shadow-lg max-[899px]:right-2 max-[899px]:left-2 max-[899px]:max-h-[calc(100dvh-14rem)] max-[899px]:w-auto'}"
 	>
 		<h2 class="text-sm font-semibold">OSIPY methods</h2>
 		{#if catalog?.library?.length}
@@ -93,8 +102,8 @@
 				{import.meta.env.DEV && !__LOCAL_COMPANION_PROXY__
 					? 'This dashboard was started without its companion. Stop the server using port 60010 and run make dev to list methods automatically.'
 					: __LOCAL_COMPANION_PROXY__
-						? 'Connecting to the local companion. If it stays disconnected, open Inspector → IVIM analysis to retry.'
-						: 'Start the local Docker companion, then connect in Inspector → IVIM analysis to list available fitting methods.'}
+						? 'Connecting to the local companion. If it stays disconnected, open Local companion at the top right to retry.'
+						: 'Open Local companion at the top right to start Docker and connect before listing fitting methods.'}
 			</p>
 		{/if}
 	</div>

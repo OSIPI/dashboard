@@ -2,7 +2,6 @@
 	import FlaskIcon from '~icons/lucide/flask-conical';
 	import ChevronDownIcon from '~icons/lucide/chevron-down';
 	import ChevronRightIcon from '~icons/lucide/chevron-right';
-	import InfoIcon from '~icons/lucide/info';
 	import type { Dataset } from '$lib/ivim';
 	import type { AnalysisClient } from '$lib/analysis-client.svelte';
 	import type { FitResult } from '$lib/analysis';
@@ -25,9 +24,6 @@
 	} = $props();
 	const running = $derived(client.runs.find((r) => r.state === 'running'));
 	const ready = $derived(dataset.bValues.includes(0) && new Set(dataset.bValues).size >= 4);
-	async function connect() {
-		await client.connect();
-	}
 </script>
 
 <section class="card space-y-3 p-3 {openPanel ? '' : '[&>*:not(:first-child)]:hidden'}">
@@ -40,72 +36,29 @@
 			onclick={() => (openPanel = !openPanel)}
 		>
 			<FlaskIcon class="size-4 shrink-0" aria-hidden="true" />IVIM analysis
-			<span class="ml-auto text-xs font-normal text-muted-foreground {openPanel ? '' : 'hidden'}"
-				>{client.stage}</span
+			<span
+				class="ml-auto items-center gap-2 text-xs font-normal text-muted-foreground {openPanel
+					? 'flex'
+					: 'hidden'}"
 			>
+				{#if client.catalog}
+					<span class="relative flex size-2 shrink-0" aria-hidden="true">
+						<span
+							class="absolute inline-flex size-full animate-ping rounded-full bg-green-500 opacity-60 motion-reduce:animate-none"
+						></span>
+						<span class="relative inline-flex size-2 rounded-full bg-green-500"></span>
+					</span>
+				{/if}
+				{client.stage}
+			</span>
 			{#if openPanel}<ChevronDownIcon class="size-4" />{:else}<ChevronRightIcon
 					class="size-4"
 				/>{/if}
 		</button>
 	</h2>
-	<details class="text-xs">
-		<summary
-			class="flex min-h-8 cursor-pointer list-none items-center gap-2 rounded-md font-medium focus-visible:outline-2 focus-visible:outline-ring max-[899px]:min-h-11 [&::-webkit-details-marker]:hidden"
-		>
-			Local companion <InfoIcon class="size-4 text-muted-foreground" aria-hidden="true" />
-		</summary>
-		<div class="mt-2 space-y-3 text-xs">
-			{#if import.meta.env.DEV && !__LOCAL_COMPANION_PROXY__}
-				<p class="text-muted-foreground">
-					This dashboard was started without its local companion. Stop the server using port 60010,
-					then run make dev from the dashboard repository. It connects automatically—no token
-					needed.
-				</p>
-			{:else if __LOCAL_COMPANION_PROXY__}
-				<p class="text-muted-foreground">
-					The local companion connects automatically. Imaging data stays on this computer.
-				</p>
-				{#if !client.catalog}<button
-						class="button button-outline"
-						disabled={client.busy}
-						onclick={connect}>{client.busy ? 'Connecting…' : 'Retry connection'}</button
-					>{/if}
-			{:else}
-				<p class="text-muted-foreground">
-					Run the local OSIPY companion with Docker from Datasets → Run local fitting. Paste its
-					session token from the terminal to connect this browser directly to
-					http://127.0.0.1:60016. Imaging data stays on your computer.
-				</p>
-				<form
-					class="space-y-2"
-					onsubmit={(event) => {
-						event.preventDefault();
-						void connect();
-					}}
-				>
-					<label class="block font-medium" for="companion-token">Companion session token</label>
-					<input
-						id="companion-token"
-						class="input w-full"
-						type="password"
-						autocomplete="off"
-						spellcheck="false"
-						bind:value={client.token}
-					/>
-					<button
-						class="button button-outline"
-						type="submit"
-						disabled={client.busy || !client.token.trim()}
-						>{client.busy
-							? 'Connecting…'
-							: client.catalog
-								? 'Reconnect'
-								: 'Connect to local companion'}</button
-					>
-				</form>
-			{/if}
-		</div>
-	</details>
+	{#if !client.catalog}<p class="text-xs text-muted-foreground">
+			Open Local fitting beside Methods to connect the companion.
+		</p>{/if}
 	{#if client.catalog}<div class="flex items-center justify-between gap-2 text-xs">
 			<p class="min-w-0 text-muted-foreground">
 				{client.catalog.models.find((m) => m.id === selectedMethod)?.label ??
