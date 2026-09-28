@@ -25,7 +25,7 @@
 			<span class="relative size-2 rounded-full bg-green-500"></span>
 		</span>
 	{:else}<ServerIcon class="mr-1 size-4" aria-hidden="true" />{/if}
-	{client ? 'Local fitting' : 'Run local fitting'}
+	{client ? (client.catalog ? 'Companion · Ready' : 'Local companion') : 'Run local fitting'}
 </button>
 <dialog
 	bind:this={dialog}
@@ -93,8 +93,8 @@
 		</form>
 	{:else}
 		<p class="mt-4 text-xs leading-5 text-muted-foreground">
-			Copy the session token printed by Docker, then paste it in Local fitting beside Methods in the
-			viewer. Only verified IVIM biexponential fitting is runnable today.
+			Copy the session token printed by Docker, then paste it in Local companion at the top right of
+			the viewer. Only verified IVIM biexponential fitting is runnable today.
 		</p>
 	{/if}
 	<div class="mt-5 flex justify-end">

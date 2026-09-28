@@ -2,6 +2,7 @@
 	import FlaskIcon from '~icons/lucide/flask-conical';
 	import ChevronDownIcon from '~icons/lucide/chevron-down';
 	import ChevronRightIcon from '~icons/lucide/chevron-right';
+	import MethodsMenu from '$lib/components/viewer/MethodsMenu.svelte';
 	import type { Dataset } from '$lib/ivim';
 	import type { AnalysisClient } from '$lib/analysis-client.svelte';
 	import type { FitResult } from '$lib/analysis';
@@ -13,7 +14,8 @@
 		result,
 		selectedMethod,
 		openPanel = $bindable(true),
-		onopen
+		onopen,
+		onselect
 	}: {
 		client: AnalysisClient;
 		dataset: Dataset;
@@ -21,6 +23,7 @@
 		selectedMethod?: string;
 		openPanel: boolean;
 		onopen: () => void;
+		onselect: (id: string) => void;
 	} = $props();
 	const running = $derived(client.runs.find((r) => r.state === 'running'));
 	const ready = $derived(dataset.bValues.includes(0) && new Set(dataset.bValues).size >= 4);
@@ -49,7 +52,7 @@
 						<span class="relative inline-flex size-2 rounded-full bg-green-500"></span>
 					</span>
 				{/if}
-				{client.stage}
+				{client.stage === 'Connected · local CPU' ? 'Ready' : client.stage}
 			</span>
 			{#if openPanel}<ChevronDownIcon class="size-4" />{:else}<ChevronRightIcon
 					class="size-4"
@@ -57,14 +60,20 @@
 		</button>
 	</h2>
 	{#if !client.catalog}<p class="text-xs text-muted-foreground">
-			Open Local fitting beside Methods to connect the companion.
+			Open Local companion at the top right to connect before fitting.
 		</p>{/if}
-	{#if client.catalog}<div class="flex items-center justify-between gap-2 text-xs">
-			<p class="min-w-0 text-muted-foreground">
-				{client.catalog.models.find((m) => m.id === selectedMethod)?.label ??
-					client.catalog.models[0].label}
-			</p>
-			<button class="button button-outline shrink-0" onclick={onopen}>Open analysis</button>
+	<div class="space-y-2 border-t pt-3 text-xs">
+		<h3 class="font-semibold">Fitting method</h3>
+		<MethodsMenu
+			catalog={client.catalog}
+			canFit={!!client.catalog && ready}
+			selectedMethod={client.catalog ? selectedMethod : undefined}
+			{onselect}
+			compact
+		/>
+	</div>
+	{#if client.catalog}<div class="flex justify-end text-xs">
+			<button class="button button-outline" onclick={onopen}>Open analysis</button>
 		</div>{/if}
 	{#if !ready}<p class="text-xs text-muted-foreground">
 			Fitting needs b=0 and at least four distinct b-values.

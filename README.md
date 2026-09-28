@@ -22,7 +22,7 @@ To run the local OSIPY fitting companion for the public dashboard:
 docker compose up
 ```
 
-Keep using <https://osipi.github.io/dashboard/>. Compose builds a Python-only image, publishes its authenticated REST companion on `127.0.0.1:60016`, and prints a session token in the terminal. After importing a scan, paste that token into **Local fitting** beside Methods on the dashboard. Rebuild after source changes with `docker compose up --build`. Stop `make dev` first; both commands use companion port 60016.
+Keep using <https://osipi.github.io/dashboard/>. Compose builds a Python-only image, publishes its authenticated REST companion on `127.0.0.1:60016`, and prints a session token in the terminal. After importing a scan, paste that token into **Local companion** at the top right of the dashboard. Rebuild after source changes with `docker compose up --build`. Stop `make dev` first; both commands use companion port 60016.
 
 The public `:latest` image contains the backend-only companion. To use it without cloning, run:
 

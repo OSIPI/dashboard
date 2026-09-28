@@ -32,7 +32,7 @@ To run the local fitting companion without a host Python or Bun environment, run
 docker compose up
 ```
 
-Continue using <https://osipi.github.io/dashboard/>. Compose builds a Python-only image with OSIPY 0.1.4 and the authenticated REST companion; no frontend or MRI sample files are included. It prints a random session token in the terminal. Paste the token into **Local fitting** beside Methods after importing a scan. If the browser requests local network access, allow it for this site. Only port 60016 is published, on your computer's loopback interface. Use `docker compose up --build` after changing the source; stop with Ctrl+C. Stop `make dev` before starting Compose (and vice versa), since both use companion port 60016.
+Continue using <https://osipi.github.io/dashboard/>. Compose builds a Python-only image with OSIPY 0.1.4 and the authenticated REST companion; no frontend or MRI sample files are included. It prints a random session token in the terminal. Paste the token into **Local companion** at the top right after importing a scan. If the browser requests local network access, allow it for this site. Only port 60016 is published, on your computer's loopback interface. Use `docker compose up --build` after changing the source; stop with Ctrl+C. Stop `make dev` before starting Compose (and vice versa), since both use companion port 60016.
 
 The public `:latest` image contains only the backend companion. To use it without building locally, run `docker run --rm --pull=always -p 127.0.0.1:60016:60016 ghcr.io/osipi/dashboard:latest`.
 

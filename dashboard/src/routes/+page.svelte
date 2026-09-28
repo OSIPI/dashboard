@@ -169,6 +169,7 @@
 						after the app is cached. Optional fitting runs through your local OSIPY companion.</span
 					>
 				</div>
+				<p class="mt-2 text-xs text-muted-foreground">Research use only. Not for diagnosis.</p>
 			</div>
 			<div class="flex flex-wrap items-center gap-2">
 				<a class="button button-outline h-8 px-2 text-xs" href={resolve('/nifti')}
