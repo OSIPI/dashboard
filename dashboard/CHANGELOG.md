@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.1 - 2026-09-29
+
+### Fixes
+
+- container: restore local API startup banner (6049446)
+
 ## 0.4.0 - 2026-09-29
 
 ### Features
