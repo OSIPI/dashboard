@@ -74,7 +74,6 @@
 			selectedMethod={client.catalog ? selectedMethod : undefined}
 			selectedStrategy={client.catalog ? selectedStrategy : undefined}
 			{onselect}
-			compact
 		/>
 	</div>
 	{#if client.catalog}<div class="flex justify-end text-xs">

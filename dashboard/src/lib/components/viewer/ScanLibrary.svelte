@@ -12,6 +12,8 @@
 	} from '$lib/imports/scan';
 	import ScanMetadataForm from './ScanMetadataForm.svelte';
 	import ScanValidation from './ScanValidation.svelte';
+	import FilesIcon from '~icons/lucide/files';
+	import FolderOpenIcon from '~icons/lucide/folder-open';
 	let {
 		scans,
 		activeId,
@@ -121,38 +123,73 @@
 		<h2 id={titleId} class="font-semibold">Import local data</h2>
 		<button class="button button-outline" onclick={close}>Close library</button>
 	</div>
-	<div class="space-y-5 p-4">
-		<p class="text-sm text-muted-foreground">
-			Open NIfTI (.nii/.nii.gz) with b-values; discover BIDS folders or DICOM series. Files stay in
-			this browser on this device after a successful import. Running analysis sends samples only to
-			your loopback REST API, never a remote analysis service.
-		</p>
+	<div class="space-y-6 p-4 sm:p-5">
+		<div class="space-y-1">
+			<h3 class="text-sm font-semibold">1. Select data from this device</h3>
+			<p class="text-sm text-muted-foreground">
+				Choose a NIfTI image (.nii/.nii.gz) and its sidecars, or browse a BIDS or DICOM folder.
+			</p>
+		</div>
 		<div class="grid gap-3 sm:grid-cols-2">
-			<label class="rounded-lg border p-3 text-sm"
-				>Choose image and sidecars<input
-					class="mt-2 block w-full text-xs"
+			<label
+				class="relative flex min-h-32 flex-col items-start justify-between gap-3 rounded-lg border bg-background p-4 transition-colors focus-within:ring-2 focus-within:ring-ring hover:border-foreground/40 hover:bg-accent/40 has-[:disabled]:opacity-50"
+			>
+				<span class="flex items-start gap-3">
+					<FilesIcon class="mt-0.5 size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+					<span class="flex flex-col gap-1"
+						><span class="text-sm font-semibold">Image and sidecars</span><span
+							class="text-xs text-muted-foreground"
+							>Select one or more NIfTI, b-value or metadata files</span
+						></span
+					>
+				</span>
+				<span class="button button-outline border">Browse files</span>
+				<input
+					class="absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
 					type="file"
+					aria-label="Browse image and sidecar files"
 					multiple
 					accept=".nii,.gz,.bval,.bvec,.json,.dcm,.ima,.tsv"
 					disabled={!!busy}
 					onchange={discover}
-				/></label
-			><label class="rounded-lg border p-3 text-sm"
-				>Discover a local folder<input
-					class="mt-2 block w-full text-xs"
+				/>
+			</label>
+			<label
+				class="relative flex min-h-32 flex-col items-start justify-between gap-3 rounded-lg border bg-background p-4 transition-colors focus-within:ring-2 focus-within:ring-ring hover:border-foreground/40 hover:bg-accent/40 has-[:disabled]:opacity-50"
+			>
+				<span class="flex items-start gap-3">
+					<FolderOpenIcon class="mt-0.5 size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+					<span class="flex flex-col gap-1"
+						><span class="text-sm font-semibold">Local folder</span><span
+							class="text-xs text-muted-foreground"
+							>Discover acquisitions in a BIDS or DICOM folder</span
+						></span
+					>
+				</span>
+				<span class="button button-outline border">Browse folder</span>
+				<input
+					class="absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
 					type="file"
+					aria-label="Browse local folder"
 					multiple
 					webkitdirectory
 					disabled={!!busy}
 					onchange={discover}
-				/></label
-			>
+				/>
+			</label>
 		</div>
-		<p class="text-xs text-muted-foreground">
-			{Math.round(usedBytes / 1024 / 1024)} / 768 MiB session image memory · 512 MiB maximum decoded
-			image. Assign a shared frame only when registration or acquisition geometry establishes it; matching
-			subject names alone is insufficient.
-		</p>
+		<div
+			class="rounded-lg border bg-secondary/30 px-4 py-3 text-xs leading-relaxed text-muted-foreground"
+		>
+			<p>
+				Files stay in this browser on this device after import. Analysis sends samples only to your
+				loopback REST API, never a remote analysis service.
+			</p>
+			<p class="mt-1">
+				{Math.round(usedBytes / 1024 / 1024)} / 768 MiB session image memory · 512 MiB maximum decoded
+				image
+			</p>
+		</div>
 		{#if busy}<div class="flex items-center gap-2" role="status">
 				<span class="text-sm">{busy}</span><button
 					class="button button-outline"
@@ -160,23 +197,35 @@
 				>
 			</div>{/if}
 		<ScanValidation {issues} />
-		{#if candidates.length}<h3 class="text-sm font-semibold">Discovered acquisitions</h3>{/if}
+		{#if candidates.length}<h3 class="border-t pt-5 text-sm font-semibold">
+				2. Review discovered acquisitions
+			</h3>{/if}
 		{#each candidates as candidate (candidate.id)}
-			<section class="space-y-3 rounded-lg border p-3">
+			<section class="space-y-5 rounded-xl border bg-background p-4 sm:p-5">
 				<div class="flex flex-wrap items-center justify-between gap-2">
 					<h4 class="text-sm font-semibold">{candidate.name}</h4>
 					<span class="badge">{candidate.kind.toUpperCase()} · {candidate.fileCount} files</span>
 				</div>
-				<p class="text-xs break-all text-muted-foreground">{candidate.path}</p>
-				<ScanMetadataForm
-					value={candidate.metadata}
-					onchange={(value) => (candidate.metadata = value)}
-				/>
+				<p class="-mt-3 text-xs break-all text-muted-foreground">{candidate.path}</p>
+				<div class="space-y-1">
+					<h5 class="text-xs font-semibold text-muted-foreground">Acquisition details</h5>
+					<ScanMetadataForm
+						value={candidate.metadata}
+						onchange={(value) => (candidate.metadata = value)}
+					/>
+				</div>
+				<p class="text-xs text-muted-foreground">
+					Set a shared frame only when registration or acquisition geometry confirms it; matching
+					subject names are not enough.
+				</p>
 				{#if !validDate(candidate.metadata.date)}<p class="text-xs text-destructive">
 						Use a valid ISO date or timestamp, or leave the date unknown.
 					</p>{/if}
 				<details class="text-xs">
-					<summary class="cursor-pointer">Source metadata</summary>
+					<summary
+						class="w-fit cursor-pointer rounded focus-visible:outline-2 focus-visible:outline-ring"
+						>Source metadata</summary
+					>
 					<dl class="mt-2 grid gap-1 sm:grid-cols-2">
 						{#each Object.entries(candidate.details) as [key, value] (key)}<div>
 								<dt class="font-medium">{key}</dt>
@@ -185,31 +234,52 @@
 					</dl>
 				</details>
 				{#if candidate.kind === 'nifti'}
-					<div class="grid gap-2 text-xs sm:grid-cols-2">
+					<div class="grid gap-3 border-t pt-4 sm:grid-cols-2">
 						<label
-							>b-values: {candidate.bval?.name ?? 'Required'}<input
-								class="mt-1 block w-full"
+							class="relative flex min-w-0 flex-col items-start gap-2 rounded-lg border p-3 focus-within:ring-2 focus-within:ring-ring has-[:disabled]:opacity-50"
+						>
+							<span class="text-sm font-medium"
+								>b-values <span class="text-muted-foreground">· Required</span></span
+							>
+							<span class="button button-outline border">Choose b-values file</span>
+							<span class="max-w-full truncate text-xs text-muted-foreground"
+								>{candidate.bval?.name ?? 'No file selected'}</span
+							>
+							<input
+								class="absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
 								type="file"
+								aria-label="Choose b-values file for {candidate.name}"
 								accept=".bval,.txt"
 								disabled={!!busy}
 								onchange={(e) => (candidate.bval = e.currentTarget.files?.[0])}
-							/></label
-						><label
-							>b-vectors (optional): {candidate.bvec?.name ?? 'Not supplied'}<input
-								class="mt-1 block w-full"
+							/>
+						</label>
+						<label
+							class="relative flex min-w-0 flex-col items-start gap-2 rounded-lg border p-3 focus-within:ring-2 focus-within:ring-ring has-[:disabled]:opacity-50"
+						>
+							<span class="text-sm font-medium"
+								>b-vectors <span class="text-muted-foreground">· Optional</span></span
+							>
+							<span class="button button-outline border">Choose b-vectors file</span>
+							<span class="max-w-full truncate text-xs text-muted-foreground"
+								>{candidate.bvec?.name ?? 'No file selected'}</span
+							>
+							<input
+								class="absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
 								type="file"
+								aria-label="Choose b-vectors file for {candidate.name}"
 								accept=".bvec,.txt"
 								disabled={!!busy}
 								onchange={(e) => (candidate.bvec = e.currentTarget.files?.[0])}
-							/></label
-						>
+							/>
+						</label>
 					</div>
 					{#if candidate.metadata.technique !== 'IVIM'}<p class="text-xs text-muted-foreground">
 							Catalogued as {candidate.metadata.technique}. The implemented image workflow is IVIM
 							with diffusion b-values.
 						</p>{/if}
 					<button
-						class="button button-primary"
+						class="button button-primary disabled:opacity-50"
 						disabled={!!busy ||
 							!candidate.bval ||
 							!validDate(candidate.metadata.date) ||

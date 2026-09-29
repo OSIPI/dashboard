@@ -97,6 +97,7 @@
 			(scope === 'roi' && !roiIndices.length)
 		)
 			return;
+		const previousJobId = client.selected;
 		await client.start(
 			dataset,
 			volumes,
@@ -105,11 +106,13 @@
 			scope === 'voxel' ? [voxelIndex(x, y, slice, dataset.dimensions)] : roiIndices
 		);
 		const job = client.runs.find(
-			(item) =>
-				item.id === client.selected && ['pending', 'running', 'cancelling'].includes(item.state)
+			(item) => item.id === client.selected && item.id !== previousJobId
 		);
-		if (job) awaitingResultId = job.id;
-		onrun();
+		if (job) {
+			awaitingResultId = job.id;
+			onrun();
+			close();
+		}
 	}
 </script>
 
@@ -260,7 +263,7 @@
 						</p>{/if}
 				</fieldset>
 				<div class="flex flex-wrap justify-end gap-2 border-t pt-4">
-					<button class="button button-outline" type="button" onclick={close}>Cancel</button>
+					<button class="button button-outline" type="button" onclick={close}>Close</button>
 					<button
 						class="button button-primary"
 						type="submit"

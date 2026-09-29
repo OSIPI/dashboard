@@ -1,125 +1,54 @@
 <script lang="ts">
-	import ChevronDownIcon from '~icons/lucide/chevron-down';
 	import type { Catalog } from '$lib/analysis';
 
 	let {
 		catalog,
 		canFit = false,
-		compact = false,
 		selectedMethod,
 		selectedStrategy,
 		onselect
 	}: {
 		catalog?: Catalog;
 		canFit?: boolean;
-		compact?: boolean;
 		selectedMethod?: string;
 		selectedStrategy?: string;
 		onselect: (id: string, strategy: string) => void;
 	} = $props();
-	let expanded = $state(false);
+
 	const names: Record<string, string> = {
 		segmented: 'Segmented IVIM',
 		full: 'Full IVIM',
 		bayesian: 'Bayesian IVIM',
 		biexponential: 'Biexponential',
-		simplified: 'Simplified IVIM',
-		tofts: 'Tofts',
-		extended_tofts: 'Extended Tofts',
-		patlak: 'Patlak',
-		'2cxm': 'Two-compartment exchange (2CXM)',
-		'2cum': 'Two-compartment uptake (2CUM)',
-		vfa: 'Variable flip angle (VFA)',
-		spgr: 'Spoiled gradient echo (SPGR)',
-		bsw: 'Boxerman–Schmainda–Weisskoff (BSW)',
-		pcasl_single_pld: 'pCASL single PLD',
-		casl_single_pld: 'CASL single PLD',
-		pasl_single_pld: 'PASL single PLD',
-		buxton_multi_pld: 'Buxton multi-PLD'
+		simplified: 'Simplified IVIM'
 	};
 	function label(id: string) {
 		return names[id] ?? id.replaceAll('_', ' ').replace(/^./, (c) => c.toUpperCase());
 	}
 </script>
 
-<details
-	bind:open={expanded}
-	class="group text-xs {compact ? 'w-full' : 'relative shrink-0 max-[899px]:static'}"
+<select
+	class="input min-h-11 w-full px-3 text-sm disabled:opacity-50"
+	aria-label="Signal model and fitting strategy"
+	disabled={!canFit || !catalog?.models.length}
+	value={catalog && selectedMethod && selectedStrategy
+		? `${selectedMethod}:${selectedStrategy}`
+		: ''}
+	onchange={(event) => {
+		const [method, strategy] = event.currentTarget.value.split(':');
+		if (method && strategy) onselect(method, strategy);
+	}}
 >
-	<summary
-		class="button min-h-9 cursor-pointer list-none px-3 max-[899px]:min-h-11 [&::-webkit-details-marker]:hidden {compact
-			? 'button-outline w-full justify-between'
-			: 'button-primary'}"
-	>
-		{selectedMethod ? label(selectedMethod) : 'Models'}
-		<ChevronDownIcon aria-hidden="true" class="size-4" />
-	</summary>
-	<div
-		class="mt-1 overflow-y-auto rounded-md border bg-card p-3 {compact
-			? 'max-h-[min(60dvh,28rem)] w-full'
-			: 'absolute left-0 z-30 max-h-[min(65dvh,32rem)] w-[min(22rem,calc(100vw-1rem))] shadow-lg max-[899px]:right-2 max-[899px]:left-2 max-[899px]:max-h-[calc(100dvh-14rem)] max-[899px]:w-auto'}"
-	>
-		<h2 class="text-sm font-semibold">OSIPY IVIM models</h2>
-		{#if catalog?.library?.length}
-			<p class="mt-1 text-muted-foreground">
-				OSIPY {catalog.osipyVersion}. Choose a model and fitting strategy to configure.
-			</p>
-			{#each catalog.library as section (section.technique)}
-				<section class="mt-3 border-t pt-2" aria-label={section.technique}>
-					<h3 class="font-semibold text-selection">{section.technique}</h3>
-					{#each section.groups as group (group.label)}
-						<div class="mt-2">
-							<h4 class="text-muted-foreground">{group.label}</h4>
-							<ul class="mt-1 space-y-1">
-								{#each group.methods as method (method)}
-									<li>
-										{#if section.technique === 'IVIM' && catalog.models.some((model) => model.id === method)}
-											{@const model = catalog.models.find((item) => item.id === method)!}
-											<div class="px-2 pt-2 font-medium">{label(method)}</div>
-											<ul class="ml-2 border-l pl-2">
-												{#each model.fitterStrategies as strategy (strategy)}
-													<li>
-														<button
-															type="button"
-															class="flex min-h-9 w-full items-center justify-between gap-2 rounded-md px-2 text-left hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-50"
-															aria-current={selectedMethod === method &&
-															selectedStrategy === strategy
-																? 'true'
-																: undefined}
-															disabled={!canFit}
-															onclick={() => {
-																expanded = false;
-																onselect(method, strategy);
-															}}
-															><span>{label(strategy)}</span><span class="shrink-0 text-selection"
-																>Configure →</span
-															></button
-														>
-													</li>
-												{/each}
-											</ul>
-										{:else}<div
-												class="flex items-baseline justify-between gap-2 px-2 py-1 text-muted-foreground"
-											>
-												<span title={method}>{label(method)}</span><span class="shrink-0"
-													>Library only</span
-												>
-											</div>{/if}
-									</li>
-								{/each}
-							</ul>
-						</div>
-					{/each}
-				</section>
+	{#if !catalog?.models.length}<option value="">Connect local analysis to choose a model</option
+		>{/if}
+	{#each catalog?.models ?? [] as model (model.id)}
+		<optgroup label={label(model.id)}>
+			{#each model.fitterStrategies as strategy (strategy)}
+				<option value={`${model.id}:${strategy}`}>{label(model.id)} · {label(strategy)}</option>
 			{/each}
-		{:else}
-			<p class="mt-2 text-muted-foreground">
-				{import.meta.env.DEV && !__LOCAL_API_PROXY__
-					? 'Connect the local OSIPY REST API to list and run fitting methods.'
-					: __LOCAL_API_PROXY__
-						? 'Connecting to the local REST API. If it stays disconnected, open Local analysis at the top right to retry.'
-						: 'Open Local analysis at the top right to start and connect the REST API before listing fitting methods.'}
-			</p>
-		{/if}
-	</div>
-</details>
+		</optgroup>
+	{/each}
+</select>
+{#if catalog?.models.length}<p class="mt-2 text-xs text-muted-foreground">
+		Choose a strategy to configure it in analysis.
+	</p>{/if}
