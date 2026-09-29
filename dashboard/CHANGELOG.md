@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.4.0 - 2026-09-29
+
+### Features
+
+- dashboard: use local OSIPY REST API (4b43809)
+- viewer: streamline local companion controls (5ba534d)
+- viewer: streamline local companion setup (8cf3d4b)
+
+### Fixes
+
+- ui: show published companion command (1c5593c)
+
 ## 0.3.0 - 2026-09-25
 
 ### Features
