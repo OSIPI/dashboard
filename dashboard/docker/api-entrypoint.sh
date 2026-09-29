@@ -2,7 +2,7 @@
 set -eu
 
 if [ -z "${OSIPY_API_SESSION_TOKEN:-}" ]; then
-	OSIPY_API_SESSION_TOKEN="$(python -c 'import secrets; print(secrets.token_urlsafe(32))')"
+	OSIPY_API_SESSION_TOKEN="$(python -c 'import secrets; print(secrets.token_urlsafe(8))')"
 	export OSIPY_API_SESSION_TOKEN
 fi
 export OSIPY_API_PORT=60016
@@ -14,11 +14,15 @@ python - <<'PY'
 import os
 
 token = os.environ["OSIPY_API_SESSION_TOKEN"]
+pink = "\033[95m" if "NO_COLOR" not in os.environ else ""
+coral = "\033[91m" if "NO_COLOR" not in os.environ else ""
+bold = "\033[1m" if "NO_COLOR" not in os.environ else ""
+reset = "\033[0m" if "NO_COLOR" not in os.environ else ""
 logo = (
     "         ⣠⣴⣶⣶⣦⡀",
     "        ⢰⣿⠋⠁⠈⢻⣿⡆",
     "        ⢸⣿  ⢀⣸⣿⠇",
-    " ⢀⣴⣾⡿⠿⠿⠇⢸⣿⠸⠿⠿⠟⠃  OSIPY",
+    " ⢀⣴⣾⡿⠿⠿⠇⢸⣿⠸⠿⠿⠟⠃",
     "⢠⣿⡟⠁    ⢸⣿",
     "⢸⣿⡀     ⣼⣿",
     "⠈⢿⣷⣄⣀⢀⣀⣴⣿⠃",
@@ -31,13 +35,14 @@ def row(text=""):
     return f"║  {text:<{width}}  ║"
 
 print("OSIPY REST API: http://127.0.0.1:60016", flush=True)
-print("\n".join(logo))
-print(f"\n╔{border}╗")
+for index, line in enumerate(logo):
+    print(f"{pink if index < 4 else coral}{line}{reset}" + (f"  {bold}OSIPY{reset}" if index == 3 else ""))
+print(f"\n{pink}╔{border}╗{reset}")
 print(row("OSIPY LOCAL FITTING — STARTING"))
 print(row())
 print(row("SESSION TOKEN — COPY BELOW:"))
 print(row(token))
-print(f"╚{border}╝\n")
+print(f"{pink}╚{border}╝{reset}\n")
 print("Paste the token into Local analysis at https://osipi.github.io/dashboard/")
 print("Keep the token private. Publish Docker port 60016 on 127.0.0.1 only.")
 print("Input/results are in memory and discarded when this container stops.")

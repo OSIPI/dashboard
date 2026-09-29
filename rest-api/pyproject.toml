@@ -8,7 +8,7 @@ license = { text = "Apache-2.0" }
 authors = [{ name = "The OSIPI contributors" }]
 dependencies = [
     "fastapi>=0.115",
-    "uvicorn[standard]>=0.32",
+    "uvicorn>=0.32",
     "python-multipart>=0.0.12",
     "pydantic>=2.9",
     "pydantic-settings>=2.6",

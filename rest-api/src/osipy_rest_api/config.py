@@ -38,8 +38,8 @@ class Settings(BaseSettings):
     @field_validator("session_token")
     @classmethod
     def _token_is_safe(cls, value: str) -> str:
-        if len(value) < 16:
-            raise ValueError("session_token must contain at least 16 characters")
+        if len(value) < 11:
+            raise ValueError("session_token must contain at least 11 characters")
         return value
 
     @field_validator("cors_origins")
