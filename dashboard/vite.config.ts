@@ -34,18 +34,23 @@ const getBaseVersion = (): string => {
 const buildSha = getSha();
 const appVersion = process.env.APP_VERSION ?? `${getBaseVersion()}-dev+${buildSha}`;
 
-function localCompanionProxy(token: string): Plugin {
+function localApiProxy(token: string, port: number): Plugin {
 	return {
-		name: 'local-companion-proxy',
+		name: 'local-osipy-api-proxy',
 		configureServer(server) {
-			server.middlewares.use('/local-companion', (req, res) => {
+			server.middlewares.use('/local-api', (req, res) => {
 				const host = req.headers.host;
 				const origin = req.headers.origin;
 				const path = req.url ?? '';
 				const allowed =
-					(req.method === 'GET' && /^\/(models|runs(?:\/[a-f0-9-]+(?:\/result)?)?)$/.test(path)) ||
-					(req.method === 'POST' && (path === '/runs' || path === '/datasets')) ||
-					(req.method === 'DELETE' && /^\/runs\/[a-f0-9-]+$/.test(path));
+					(req.method === 'GET' &&
+						(/^\/(health|models|catalog)$/.test(path) ||
+							/^\/fits\/[a-f0-9-]+(?:\/maps(?:\/(?:d|d_star|f|s0|valid|status|r_squared))?|\/voxel\?x=\d+&y=\d+&z=\d+)?$/.test(
+								path
+							))) ||
+					(req.method === 'POST' &&
+						(path === '/datasets' || /^\/datasets\/[a-f0-9-]+\/fits$/.test(path))) ||
+					(req.method === 'DELETE' && /^\/(?:fits|datasets)\/[a-f0-9-]+$/.test(path));
 				if (
 					!['localhost:60010', '127.0.0.1:60010'].includes(host ?? '') ||
 					(origin && origin !== `http://${host}`) ||
@@ -58,7 +63,7 @@ function localCompanionProxy(token: string): Plugin {
 				const upstream = request(
 					{
 						hostname: '127.0.0.1',
-						port: 60016,
+						port,
 						path,
 						method: req.method,
 						headers: {
@@ -91,9 +96,12 @@ function localCompanionProxy(token: string): Plugin {
 }
 
 export default defineConfig(({ command }) => {
-	const localToken = command === 'serve' ? process.env.OSIPY_DASHBOARD_TOKEN : undefined;
+	const localToken = command === 'serve' ? process.env.OSIPY_API_SESSION_TOKEN : undefined;
+	const apiPort = Number(process.env.OSIPY_API_PORT ?? 60016);
+	if (!Number.isSafeInteger(apiPort) || apiPort < 1 || apiPort > 65535)
+		throw new Error('OSIPY_API_PORT must be a valid loopback port.');
 	const localProxy =
-		!!localToken || (command === 'build' && process.env.OSIPY_LOCAL_COMPANION_PROXY === '1');
+		!!localToken || (command === 'build' && process.env.OSIPY_LOCAL_API_PROXY === '1');
 	return {
 		// Discover worker dependencies at startup, rather than reloading a session after its first export.
 		optimizeDeps: { include: ['nifti-reader-js', 'dicom-parser', 'fflate'] },
@@ -108,13 +116,13 @@ export default defineConfig(({ command }) => {
 			strictPort: true
 		},
 		define: {
-			__LOCAL_COMPANION_PROXY__: JSON.stringify(localProxy),
+			__LOCAL_API_PROXY__: JSON.stringify(localProxy),
 			__APP_VERSION__: JSON.stringify(appVersion),
 			__BUILD_SHA__: JSON.stringify(buildSha),
 			__BUILD_DATE__: JSON.stringify(new Date().toISOString())
 		},
 		plugins: [
-			...(localToken ? [localCompanionProxy(localToken)] : []),
+			...(localToken ? [localApiProxy(localToken, apiPort)] : []),
 			tailwindcss(),
 			sveltekit(),
 			devtoolsJson(),

@@ -12,21 +12,26 @@ import numpy as np
 class JobStatus(str, Enum):  # noqa: UP042 - explicit (str, Enum) for pydantic/JSON compatibility
     PENDING = "pending"
     RUNNING = "running"
+    CANCELLING = "cancelling"
+    CANCELLED = "cancelled"
     SUCCEEDED = "succeeded"
     FAILED = "failed"
 
 
 @dataclass
-class MaskSpec:
-    type: str = "auto"
-    percentile: float = 5.0
+class SelectionSpec:
+    """An explicit native-grid selection; no implicit tissue mask is applied."""
+
+    scope: str = "dataset"
+    voxels: tuple[tuple[int, int, int], ...] = ()
 
 
 @dataclass
 class FitConfig:
+    model: str = "biexponential"
     method: str = "segmented"
     b_threshold: float = 200.0
-    mask: MaskSpec = field(default_factory=MaskSpec)
+    selection: SelectionSpec = field(default_factory=SelectionSpec)
 
 
 @dataclass
@@ -51,6 +56,11 @@ class FitResult:
     maps: dict[str, object]  # osipy ParameterMap instances
     r_squared: np.ndarray | None
     summary: dict
+    quality_mask: np.ndarray = field(default_factory=lambda: np.empty(0, dtype=bool))
+    selection_mask: np.ndarray = field(default_factory=lambda: np.empty(0, dtype=bool))
+    status_map: np.ndarray = field(default_factory=lambda: np.empty(0, dtype=np.uint8))
+    model_cutoff: float | None = None
+    provenance: dict = field(default_factory=dict)
 
     @property
     def nbytes(self) -> int:
@@ -60,7 +70,11 @@ class FitResult:
             for name in ("values", "affine", "quality_mask", "uncertainty", "failure_reasons")
             if isinstance(array := getattr(parameter_map, name, None), np.ndarray)
         )
-        return map_bytes + (0 if self.r_squared is None else int(self.r_squared.nbytes))
+        return map_bytes + sum(
+            int(array.nbytes)
+            for array in (self.r_squared, self.quality_mask, self.selection_mask, self.status_map)
+            if array is not None
+        )
 
 
 @dataclass

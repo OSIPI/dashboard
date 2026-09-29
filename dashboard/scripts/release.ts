@@ -352,7 +352,7 @@ export function release(dry: boolean) {
 			);
 		}
 		console.log(
-			'Plan (only if release-worthy commits or pending receipt): verify clean/current main and remote tags; update package.json, CITATION.cff, codemeta.json, CHANGELOG.md; reject MRI samples; run bun run check, bun test and Python companion tests; build and verify sample-free output; freeze and inspect tar archive + SHA-256 + version manifest; checkpoint; create release commit and annotated checksum-bound tag; atomic push main + tag; create/update draft GitHub Release; reconcile/upload exact archive and checksum without clobber; publish. The main push independently triggers Pages to build and deploy that exact commit. Retries reuse frozen archive and reconcile remote effects.'
+			'Plan (only if release-worthy commits or pending receipt): verify clean/current main and remote tags; update package.json, CITATION.cff, codemeta.json, CHANGELOG.md; reject MRI samples; run bun run check, bun test and Python REST API tests; build and verify sample-free output; freeze and inspect tar archive + SHA-256 + version manifest; checkpoint; create release commit and annotated checksum-bound tag; atomic push main + tag; create/update draft GitHub Release; reconcile/upload exact archive and checksum without clobber; publish. The main push independently triggers Pages to build and deploy that exact commit. Retries reuse frozen archive and reconcile remote effects.'
 		);
 		console.log(
 			`Checkpoint: ${state ? JSON.stringify({ version: state.version, archive: state.archive?.sha256, commit: state.commit, pushed: state.pushed, releaseId: state.releaseId, complete: state.complete }) : 'none'}`
@@ -441,11 +441,11 @@ export function release(dry: boolean) {
 	for (const file of files) writeFileSync(file, after[file]);
 	if (!state.archive) {
 		if (state.pushed || state.releaseId) throw new Error('Missing frozen archive checkpoint');
-		const python = process.env.RELEASE_PYTHON ?? '../../osipy/.venv/bin/python';
+		const python = process.env.RELEASE_PYTHON ?? '../rest-api/.venv/bin/python';
 		assertSampleFreeDirectory('static');
 		run('bun', ['run', 'check']);
 		run('bun', ['test']);
-		run(python, ['-m', 'unittest', 'discover', '-s', 'companion']);
+		run(python, ['-m', 'pytest', '../rest-api/tests']);
 		run('bun', ['run', 'build'], { ...process.env, APP_VERSION: tag, APP_SHA: base });
 		assertSampleFreeDirectory('build');
 		writeFileSync(

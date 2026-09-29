@@ -168,6 +168,26 @@ async def test_job_capacity_is_bounded():
         await storage.put_job(Job(id="two", dataset_id="d", config=FitConfig()))
 
 
+async def test_completed_job_can_be_deleted_to_recover_retained_job_capacity():
+    storage = InMemoryStorage(
+        max_datasets=10, max_total_bytes=10**9, ttl_seconds=3600, max_jobs=5
+    )
+    await storage.put_dataset(_dataset())
+    runner = InProcessJobRunner(
+        storage, fit_fn=lambda *args: FitResult(maps={}, r_squared=None, summary={}), max_jobs=5
+    )
+
+    for _ in range(5):
+        job_id = await runner.submit("d", FitConfig())
+        await runner.wait(job_id)
+
+    with pytest.raises(CapacityError):
+        await runner.submit("d", FitConfig())
+    assert await storage.delete_job(job_id)
+    replacement = await runner.submit("d", FitConfig())
+    await runner.wait(replacement)
+
+
 async def test_result_capacity_counts_fit_maps():
     dataset = _dataset()
     storage = InMemoryStorage(

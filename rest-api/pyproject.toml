@@ -17,6 +17,9 @@ dependencies = [
     "osipy>=0.1.4",
 ]
 
+[project.scripts]
+osipy-rest-api = "osipy_rest_api.main:main"
+
 [project.optional-dependencies]
 dev = [
     "pytest>=8.3",

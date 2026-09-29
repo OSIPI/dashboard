@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from osipy_rest_api.core.domain import Dataset, FitConfig, Job, JobStatus
 from osipy_rest_api.models.schemas import (
@@ -13,15 +14,23 @@ def test_fit_request_defaults_and_to_domain():
     cfg = req.to_domain()
     assert isinstance(cfg, FitConfig)
     assert cfg.method == "segmented"
-    assert cfg.mask.percentile == 5.0
+    assert cfg.model == "biexponential"
+    assert cfg.selection.scope == "dataset"
 
 
-def test_fit_request_rejects_bad_percentile():
-    import pytest
+def test_fit_request_rejects_prototype_auto_mask():
     from pydantic import ValidationError
 
     with pytest.raises(ValidationError):
-        FitRequest(mask={"type": "auto", "percentile": 150})
+        FitRequest(mask={"type": "auto"})
+
+
+@pytest.mark.parametrize("field", ["max_iterations", "tolerance"])
+def test_fit_request_rejects_non_effective_optimizer_controls(field):
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError):
+        FitRequest(**{field: 10})
 
 
 def test_dataset_meta_from_domain():

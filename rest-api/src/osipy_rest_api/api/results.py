@@ -11,12 +11,15 @@ from osipy_rest_api.core.errors import JobStateError, NotFoundError
 from osipy_rest_api.core.ivim import voxel_detail
 from osipy_rest_api.core.nifti_io import (
     MAP_FILENAMES,
+    QUALITY_MAP_FILENAMES,
+    array_to_nifti_bytes,
     maps_to_zip_bytes,
     parameter_map_to_nifti_bytes,
 )
 from osipy_rest_api.core.storage import Storage
 from osipy_rest_api.deps import get_storage
 from osipy_rest_api.models.schemas import VoxelView
+from osipy_rest_api.security import require_session_token
 
 
 async def _succeeded_job(job_id: str, storage: Storage):
@@ -30,7 +33,7 @@ async def _succeeded_job(job_id: str, storage: Storage):
     return job
 
 
-router = APIRouter(tags=["results"])
+router = APIRouter(tags=["results"], dependencies=[Depends(require_session_token)])
 
 
 @router.get("/fits/{job_id}/maps/{name}")
@@ -40,15 +43,30 @@ async def download_map(
     storage: Annotated[Storage, Depends(get_storage)],
 ) -> Response:
     job = await _succeeded_job(job_id, storage)
-    if name not in MAP_FILENAMES:
+    filenames = {**MAP_FILENAMES, **QUALITY_MAP_FILENAMES}
+    quality_names = set(QUALITY_MAP_FILENAMES)
+    if (
+        name not in filenames
+        or (name not in job.result.maps and name not in quality_names)
+        or (name == "r_squared" and job.result.r_squared is None)
+    ):
         raise NotFoundError(
-            f"unknown map {name!r}; choose one of {sorted(MAP_FILENAMES)}"
+            f"unknown map {name!r}; choose one of {sorted(filenames)}"
         )
-    body = parameter_map_to_nifti_bytes(job.result.maps[name])
+    if name in job.result.maps:
+        body = parameter_map_to_nifti_bytes(job.result.maps[name])
+    else:
+        affine = job.result.maps[next(iter(job.result.maps))].affine
+        values = {
+            "valid": job.result.quality_mask.astype("uint8"),
+            "status": job.result.status_map,
+            "r_squared": job.result.r_squared,
+        }[name]
+        body = array_to_nifti_bytes(values, affine)
     return Response(
         content=body,
         media_type="application/gzip",
-        headers={"Content-Disposition": f'attachment; filename="{MAP_FILENAMES[name]}"'},
+        headers={"Content-Disposition": f'attachment; filename="{filenames[name]}"'},
     )
 
 

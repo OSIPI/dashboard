@@ -342,6 +342,7 @@ type Workflow = {
 			permissions?: Record<string, string>;
 			steps: {
 				name?: string;
+				'working-directory'?: string;
 				run?: string;
 				uses?: string;
 				env?: Record<string, string>;
@@ -353,6 +354,9 @@ type Workflow = {
 const repositoryRoot = new URL('../../', import.meta.url);
 const workflowPath = new URL('.github/workflows/', repositoryRoot);
 const pages = Bun.YAML.parse(readFileSync(new URL('pages.yml', workflowPath), 'utf8')) as Workflow;
+const checks = Bun.YAML.parse(
+	readFileSync(new URL('checks.yml', workflowPath), 'utf8')
+) as Workflow;
 const container = Bun.YAML.parse(
 	readFileSync(new URL('container.yml', workflowPath), 'utf8')
 ) as Workflow;
@@ -373,14 +377,12 @@ test('repository root owns release entry points and documents all release effect
 		expect(agents).toContain(requirement);
 });
 
-test('dev-prod previews the Pages build without an embedded companion proxy', () => {
+test('dev-prod previews the Pages build without an embedded analysis API proxy', () => {
 	const rootMakefile = readFileSync(new URL('Makefile', repositoryRoot), 'utf8');
 	const dashboardMakefile = readFileSync(new URL('dashboard/Makefile', repositoryRoot), 'utf8');
 	expect(rootMakefile).toContain('dev-prod:\n\t$(MAKE) -C dashboard dev-prod');
 	expect(dashboardMakefile).toContain('dev-prod:');
-	expect(dashboardMakefile).toContain(
-		'env -u OSIPY_DASHBOARD_TOKEN -u OSIPY_LOCAL_COMPANION_PROXY'
-	);
+	expect(dashboardMakefile).toContain('env -u OSIPY_API_SESSION_TOKEN -u OSIPY_LOCAL_API_PROXY');
 	expect(dashboardMakefile).toContain('bun scripts/assert_sample_free.ts static');
 	expect(dashboardMakefile).toContain('bun run build');
 	expect(dashboardMakefile).toContain('bun scripts/assert_sample_free.ts build');
@@ -415,20 +417,26 @@ test('Pages builds and deploys the exact pushed main commit with least privilege
 	expect(workflow).not.toMatch(/gh release|release create|release upload|tags/);
 });
 
-test('container builds only the authenticated companion, never the frontend or datasets', () => {
+test('container builds only the authenticated REST API, never the frontend or datasets', () => {
 	const workflow = JSON.stringify(container);
 	expect(workflow).not.toContain('prepare_ivim.py');
 	expect(workflow).not.toContain('zenodo.org');
 	expect(workflow).toContain('releases/latest');
 	expect(workflow).toContain('refusing stale latest promotion');
 	expect(container.concurrency['cancel-in-progress']).toBe(false);
-	const dockerignore = readFileSync(new URL('dashboard/.dockerignore', repositoryRoot), 'utf8');
-	expect(dockerignore).toContain('/data\n');
-	expect(dockerignore).toContain('/static/datasets\n');
+	const dockerignore = readFileSync(new URL('.dockerignore', repositoryRoot), 'utf8');
+	expect(dockerignore).toContain('**/data\n');
+	expect(dockerignore).toContain('**/static/datasets\n');
 	const dockerfile = readFileSync(new URL('dashboard/Dockerfile', repositoryRoot), 'utf8');
-	expect(dockerfile).toContain('COPY companion /app/companion');
-	expect(dockerfile).toContain('CMD ["python", "companion/server.py", "--bind", "0.0.0.0"]');
+	expect(dockerfile).toContain('COPY rest-api/src /app/rest-api/src');
+	expect(dockerfile).toContain('CMD ["sh", "/app/api-entrypoint.sh"]');
 	expect(dockerfile).not.toMatch(/COPY\s+(?:\.|(?:static|build|data|docker)(?:\s|\/))/);
+	expect(container.jobs.publish.steps.at(-1)?.with.context).toBe('.');
+	const ciImage = checks.jobs.container.steps.find((step) =>
+		step.name?.includes('Build local dashboard image')
+	);
+	expect(ciImage?.['working-directory']).toBe('.');
+	expect(ciImage?.run).toBe('docker build -f dashboard/Dockerfile .');
 	const compose = readFileSync(new URL('docker-compose.yml', repositoryRoot), 'utf8');
 	expect(compose).toContain('127.0.0.1:60016:60016');
 });
@@ -439,7 +447,7 @@ test('release structure preserves local gates, freezes before commit and atomica
 		"assertSampleFreeDirectory('static')",
 		"['run', 'check']",
 		"['test']",
-		"['-m', 'unittest', 'discover', '-s', 'companion']",
+		"['-m', 'pytest', '../rest-api/tests']",
 		"['run', 'build']",
 		"assertSampleFreeDirectory('build')",
 		'assertSampleFreeArchive(`${path}.tmp`)'

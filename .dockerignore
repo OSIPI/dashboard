@@ -1,0 +1,12 @@
+**/.git
+**/.venv
+**/node_modules
+**/.svelte-kit
+**/build
+**/.env*
+**/data
+**/static/datasets
+**/artifacts
+**/__pycache__
+**/.pytest_cache
+**/.ruff_cache

@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { retryUntilConnected } from '../src/lib/companion-retry';
+import { retryUntilConnected } from '../src/lib/api-retry';
 
 test('retries at the interval and stops after connecting', async () => {
 	let attempts = 0;

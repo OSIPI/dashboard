@@ -40,7 +40,9 @@
 	let config = $state<FitConfig>();
 	let scope = $state<'voxel' | 'roi' | 'dataset'>('voxel');
 	let awaitingResultId = $state('');
-	const runningJob = $derived(client.runs.find((job) => job.state === 'running'));
+	const runningJob = $derived(
+		client.runs.find((job) => ['pending', 'running', 'cancelling'].includes(job.state))
+	);
 	const ready = $derived(dataset.bValues.includes(0) && new Set(dataset.bValues).size >= 4);
 	const model = $derived(client.catalog?.models.find((item) => item.id === method));
 	$effect(() => {
@@ -96,7 +98,10 @@
 			scope,
 			scope === 'voxel' ? [voxelIndex(x, y, slice, dataset.dimensions)] : roiIndices
 		);
-		const job = client.runs.find((item) => item.id === client.selected && item.state === 'running');
+		const job = client.runs.find(
+			(item) =>
+				item.id === client.selected && ['pending', 'running', 'cancelling'].includes(item.state)
+		);
 		if (job) awaitingResultId = job.id;
 		onrun();
 	}
@@ -163,16 +168,22 @@
 		{#if model && config && client.catalog}
 			<form class="space-y-5 p-5" onsubmit={run}>
 				<p class="text-sm text-muted-foreground">
-					OSIPY {client.catalog.osipyVersion} · {model.initialization}
+					OSIPY {client.catalog.osipyVersion} · {model.reference}
 				</p>
 				{#if runningJob}<div class="space-y-2 text-sm" role="status">
 						<progress class="w-full accent-selection" max="1" value={runningJob.progress}
 						></progress>
 						<div class="flex justify-between gap-2">
-							<span>Fitting · {Math.round(runningJob.progress * 100)}%</span><button
+							<span
+								>{runningJob.state === 'cancelling' ? 'Cancelling' : 'Fitting'} · {Math.round(
+									runningJob.progress * 100
+								)}%</span
+							><button
 								type="button"
 								class="underline"
-								onclick={() => client.cancel(runningJob)}>Cancel run</button
+								disabled={runningJob.state === 'cancelling'}
+								onclick={() => client.cancel(runningJob)}
+								>{runningJob.state === 'cancelling' ? 'Stopping…' : 'Cancel run'}</button
 							>
 						</div>
 					</div>{/if}
@@ -180,115 +191,27 @@
 				<fieldset class="grid gap-4 sm:grid-cols-2" disabled={client.busy || !!runningJob}>
 					<legend class="mb-3 font-semibold">Fitting settings</legend>
 					<label class="block text-sm"
-						>Iterations<input
-							class="input mt-1 w-full"
-							type="number"
-							min="2"
-							max="2000"
-							step="1"
-							bind:value={config.iterations}
-						/></label
+						>Fitter strategy<select class="input mt-1 w-full" bind:value={config.method}>
+							{#each model.fitterStrategies as strategy (strategy)}<option value={strategy}
+									>{strategy.replace(/^./, (letter) => letter.toUpperCase())}</option
+								>{/each}
+						</select></label
 					>
-					<label class="block text-sm"
-						>Tolerance<input
-							class="input mt-1 w-full"
-							type="number"
-							min="0.000000000001"
-							max="0.1"
-							step="any"
-							bind:value={config.tolerance}
-						/></label
-					>
-					<label class="block text-sm"
-						>Initial-guess b threshold<input
-							class="input mt-1 w-full"
-							type="number"
-							min="0"
-							step="any"
-							bind:value={config.threshold}
-						/></label
-					>
-					<label class="block text-sm"
-						>Minimum baseline (a.u.)<input
-							class="input mt-1 w-full"
-							type="number"
-							min="0"
-							step="any"
-							bind:value={config.minimumBaseline}
-						/></label
-					>
-					<label class="block text-sm"
-						>Minimum R²<input
-							class="input mt-1 w-full"
-							type="number"
-							min="-100"
-							max="1"
-							step="any"
-							bind:value={config.minimumR2}
-						/></label
-					>
-					<label class="block text-sm"
-						>Maximum RMSE (optional)<input
-							class="input mt-1 w-full"
-							type="number"
-							min="0"
-							step="any"
-							value={config.maximumRmse ?? ''}
-							onchange={(event) =>
-								(config!.maximumRmse =
-									event.currentTarget.value === '' ? null : event.currentTarget.valueAsNumber)}
-						/></label
-					>
-				</fieldset>
-				<details class="rounded-md border p-3 text-sm">
-					<summary class="cursor-pointer font-medium">Bounds and initialization</summary>
-					<p class="my-3 text-muted-foreground">
-						Blank initial values use data-dependent estimates. Blank bounds use OSIPY defaults; S₀
-						has no default upper bound.
+					{#if config.method !== 'full'}<label class="block text-sm"
+							>b-value threshold (s/mm²)<input
+								class="input mt-1 w-full"
+								type="number"
+								min="0"
+								max={Math.max(...dataset.bValues)}
+								step="any"
+								bind:value={config.bThreshold}
+							/></label
+						>{/if}
+					<p class="text-xs text-muted-foreground sm:col-span-2">
+						Optimizer settings use the installed OSIPY defaults; the report records their effective
+						values.
 					</p>
-					{#each model.parameters as parameter (parameter.name)}
-						<fieldset class="mb-3 rounded-md border p-3" disabled={client.busy || !!runningJob}>
-							<legend class="px-1 font-medium">{parameter.name} · {parameter.unit}</legend>
-							<div class="grid grid-cols-3 gap-2">
-								{#each [0, 1] as edge (edge)}
-									<label class="min-w-0"
-										>{edge === 0 ? 'Lower' : 'Upper'}<input
-											class="input mt-1 w-full"
-											type="number"
-											step="any"
-											placeholder={parameter.bounds[edge] === null
-												? 'Unbounded'
-												: String(parameter.bounds[edge])}
-											value={config.bounds[parameter.name]?.[edge] ?? ''}
-											onchange={(event) => {
-												const bounds = config!.bounds[parameter.name] ?? [null, null];
-												bounds[edge] =
-													event.currentTarget.value === ''
-														? null
-														: event.currentTarget.valueAsNumber;
-												config!.bounds[parameter.name] = bounds;
-											}}
-										/></label
-									>
-								{/each}
-								<label class="min-w-0"
-									>Initial<input
-										class="input mt-1 w-full"
-										type="number"
-										step="any"
-										placeholder="Auto"
-										value={config.initial[parameter.name] ?? ''}
-										onchange={(event) =>
-											(config!.initial[parameter.name] =
-												event.currentTarget.value === ''
-													? null
-													: event.currentTarget.valueAsNumber)}
-									/></label
-								>
-							</div>
-						</fieldset>
-					{/each}
-				</details>
+				</fieldset>
 				<div class="border-t pt-4">
 					<label class="block text-sm font-medium"
 						>Fit scope<select class="input mt-1 w-full" bind:value={scope}
@@ -327,7 +250,7 @@
 				{client.catalog?.models.find((item) => item.id === result.report.model)?.label ??
 					result.report.model} · {result.report.fitter}
 			</p>
-			<AnalysisResults {result} {dataset} {x} {y} {slice} />
+			<AnalysisResults {client} {result} {dataset} {x} {y} {slice} />
 		{/if}
 	</div>
 </dialog>

@@ -284,7 +284,7 @@
 					nearest-neighbor samples.
 				</p>
 				<p class="text-xs leading-5 text-muted-foreground">
-					Viewing only. No data is saved or sent to the analysis companion. Reloading clears the
+					Viewing only. No data is saved or sent to the local analysis API. Reloading clears the
 					image.
 				</p>
 			</aside>

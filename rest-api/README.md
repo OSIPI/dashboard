@@ -4,11 +4,9 @@ A REST API backend that wraps the [osipy](https://osipi.github.io/osipy/) perfus
 analysis toolkit and exposes it to a web frontend (the
 [OSIPI dashboard](https://github.com/OSIPI/dashboard)).
 
-**Status:** implemented prototype, awaiting human review. The full API described
-below is built and covered by tests (`uv run pytest -v`); the running server has
-been verified end to end. The scientific-judgment choices (auto-mask percentile,
-`b_threshold` validation, fit tolerances, the biexponential voxel model) still
-need a maintainer's review before results are relied upon.
+**Status:** local dashboard backend, awaiting scientific review. Results are not
+a clinical assessment. The API deliberately exposes unavailable estimates as
+`NaN` with validity/status maps rather than fabricating values.
 Full design: [`docs/superpowers/specs/2026-09-09-osipy-ivim-rest-api-design.md`](docs/superpowers/specs/2026-09-09-osipy-ivim-rest-api-design.md).
 Design specs live in [`docs/superpowers/specs/`](docs/superpowers/specs/) and the
 task-by-task implementation plans in [`docs/superpowers/plans/`](docs/superpowers/plans/).
@@ -17,8 +15,9 @@ task-by-task implementation plans in [`docs/superpowers/plans/`](docs/superpower
 
 - **IVIM only.** Intravoxel incoherent motion diffusion analysis. DCE, DSC and ASL
   are deliberately left out for now, but the structure does not preclude them.
-- **Local-first.** Runs as a single process on the user's own machine. One user,
-  no authentication.
+- **Local-first.** Runs only on a loopback address and requires a bearer session
+  token on every API route. Host, Origin and CORS checks limit browser access to
+  explicitly configured dashboard origins.
 - **No persistence.** DWI data is sensitive; uploaded volumes and results live in
   memory only and are cleared on exit or after a TTL. Optional disk persistence and
   batch processing are planned but not built.
@@ -84,19 +83,45 @@ Swappable later without changing the HTTP contract:
 
 | Method | Path | Purpose |
 |---|---|---|
-| `POST` | `/datasets/{id}/fits` | Start a fit as a background job. Returns a `job_id` immediately. |
+| `POST` | `/datasets/{id}/fits` | Start an explicit dataset/ROI/voxel fit as a background job. |
 | `GET` | `/fits/{job_id}` | Poll job status, progress, and (when done) a summary. |
+| `DELETE` | `/fits/{job_id}` | Cancel a pending/running fit. A running OSIPY fit stops at its next progress boundary. Delete a terminal fit to reclaim its retained job record (`204 No Content`). |
+| `GET` | `/catalog` (or `/models`) | Discover verified IVIM models and fitter strategies. |
 
 **Fit configuration** (what the UI can tune)
 ```jsonc
 {
-  "method": "segmented",     // segmented | full | bayesian
-  "b_threshold": 200.0,      // b-value split for the segmented method
-  "mask": { "type": "auto", "percentile": 5 }   // tissue mask from the b=0 image
+  "model": "biexponential", // biexponential | simplified
+  "method": "segmented",    // segmented | full | bayesian
+  "b_threshold": 200.0,     // used by segmented/bayesian; simplified cutoff except full
+  "scope": "roi",           // dataset | voxel | roi
+  "voxels": [[64, 64, 20]]   // required for voxel/roi; native [x, y, z]
 }
 ```
-Everything else (parameter bounds, iterations, tolerance) uses osipy defaults for
-the prototype. These become configurable later if the partners want them.
+There is **no automatic intensity mask**. Dataset scope fits every native-grid
+voxel; voxel/ROI scope fits exactly the supplied unique coordinates. The
+simplified model does not expose a `d_star` estimate.
+
+`max_iterations` and `tolerance` are deliberately **not accepted**. In OSIPY
+0.1.4, the public IVIM path ignores those `IVIMFitParams` values, so accepting
+them would misrepresent the computation. `GET /catalog` reports the effective
+optimizer defaults: vectorized LM uses 100 iterations and tolerance `1e-6`;
+Bayesian uses that LM stage plus a 100-iteration, `1e-6` MAP stage,
+baseline-derived noise, prior scale `1.5`, and uncertainty computation.
+
+OSIPY's batch output does not expose per-voxel convergence diagnostics, and its
+batch fit mask means only that a voxel was submitted to fitting. It is not a
+convergence certificate. The API therefore labels convergence `unavailable` in
+the completed-job summary and provenance. Status value `1` means the selected
+voxel has a finite physical-domain estimate and passes the API's explicit
+R² `> 0.5` post-fit gate (the same threshold used by OSIPY's single-fit
+`FittingResult.is_valid` convention); it does **not** mean converged. The
+status policy in provenance records this distinction.
+
+For the `full` strategy OSIPY forces the fit threshold to `0`; any requested
+`b_threshold` is retained only as request metadata. For simplified `full`, the
+model cutoff is therefore `0`. Provenance reports both the effective threshold
+and `model_cutoff`, and voxel curves use that recorded cutoff.
 
 **Job status while running**
 ```jsonc
@@ -110,7 +135,8 @@ the prototype. These become configurable later if the partners want them.
   "config": { … },
   "summary": {
     "fit_success_rate": 0.98,
-    "n_voxels_fitted": 12345,
+    "n_voxels_selected": 12345,
+    "n_voxels_valid": 12098,
     "maps": {
       "d":      { "mean": 0.0012, "median": 0.0012, "std": 2.7e-5,
                   "valid_fraction": 0.98, "units": "mm^2/s" },
@@ -124,8 +150,8 @@ the prototype. These become configurable later if the partners want them.
 
 | Method | Path | Purpose |
 |---|---|---|
-| `GET` | `/fits/{job_id}/maps/{name}` | Download one parameter map as `.nii.gz`. `name` ∈ `d`, `d_star`, `f`, `s0`. |
-| `GET` | `/fits/{job_id}/maps` | Download all four maps as a single `.zip`. |
+| `GET` | `/fits/{job_id}/maps/{name}` | Download a map as `.nii.gz`. Parameter names depend on the model; `valid`, `status`, and `r_squared` are available for overlays/quality. |
+| `GET` | `/fits/{job_id}/maps` | Download the model's parameter maps as a `.zip`. |
 | `GET` | `/fits/{job_id}/voxel?x=&y=&z=` | Per-voxel detail for the "click a voxel" view. |
 
 The **parameter maps** are the fitted quantities, one 3D volume each:
@@ -147,11 +173,17 @@ server-side image rendering.
   "voxel": [64, 64, 20],
   "b_values":     [0, 10, 20, 50, 100, 200, 400, 800],
   "signal":       [ … ],   // measured signal at this voxel
+  "available":    true,
+  "reason":       null,
   "params":       { "d": 0.0012, "d_star": 0.021, "f": 0.15, "s0": 100.2 },
   "fitted_curve": [ … ],   // biexponential model at the b-values
   "r_squared":    0.991
 }
 ```
+For an unselected voxel or a selected voxel with no valid physical estimate,
+the endpoint returns `200` with `available: false`, reason `not_selected` or
+`invalid_estimate`, and `params`, `fitted_curve`, and `r_squared` all `null`.
+It never serializes `NaN` or invents a curve.
 
 ### Meta
 
@@ -174,7 +206,7 @@ server-side image rendering.
 
 ## Resource limits
 
-Environment variables use the `OSIPY_API_` prefix (see `.env.example`):
+Environment variables use the `OSIPY_API_` prefix:
 
 - `MAX_UPLOAD_BYTES` (512 MiB): caps each NIfTI upload, decompressed payload,
   and decoded float64 array. Decoding is also limited by remaining storage capacity.
@@ -186,11 +218,33 @@ Environment variables use the `OSIPY_API_` prefix (see `.env.example`):
   including quality/uncertainty arrays. A result exceeding capacity marks its job
   failed without retaining the result.
 
-Delete a dataset (and its fits), or wait for TTL eviction, to reclaim retained
-capacity. Completed worker tasks are released immediately. These limits bound
+Delete a dataset (and its fits), delete a completed/cancelled/failed fit with
+`DELETE /fits/{job_id}/retained`, or wait for TTL eviction to reclaim retained capacity.
+`DELETE /fits/{job_id}` requests cancellation; if the fit has already finished,
+it returns that terminal state without deleting the result.
+Completed worker tasks are released immediately. These limits bound
 application buffers, not total process RSS: multipart parsing, decompression,
 fitting and export still need working memory. Keep the service local; deployments
 need request/concurrency limits and an OS/container memory limit as well.
+
+## Safe local startup
+
+Set a private session token (at least 16 characters) and list only the dashboard
+origins that may call this API. The supported entry point validates that the bind
+host is loopback-only; do not start this package with a public `uvicorn --host`
+override.
+
+```bash
+export OSIPY_API_SESSION_TOKEN="$(openssl rand -base64 32)"
+export OSIPY_API_CORS_ORIGINS='["http://localhost:60010","http://127.0.0.1:60010","https://osipi.github.io"]'
+uv sync
+uv run osipy-rest-api
+```
+
+It binds to `127.0.0.1:8000` by default. Send the token only in
+`Authorization: Bearer <token>`; do not put it in a URL, persistent browser
+storage, exports, or logs. If no token is configured, a random token is generated
+and printed once at startup for an interactive local session.
 
 ## Design choices up for review
 
@@ -198,15 +252,15 @@ These are the decisions worth confirming with the project partners:
 
 | Choice | What we picked | Alternative if wrong |
 |---|---|---|
-| **Fit configuration surface** | method + `b_threshold` + auto-mask only | expose full osipy `IVIMFitParams` (bounds, initial guess, iterations) |
+| **Fit configuration surface** | verified model + strategy, effective threshold semantics and explicit scope | expose controls only when OSIPY's public API applies them |
 | **Result transport** | `.nii.gz` per map; frontend parses in JS | raw binary blobs, or server-rendered PNG slices |
 | **Voxel inspection** | dedicated `/voxel` endpoint returning signal + fitted curve | frontend holds the source volume and computes curves itself |
 | **Execution model** | async job + polling, one fit at a time, in-process | synchronous requests; or a real job queue from the start |
 | **Persistence** | none — in-memory, TTL-evicted | opt-in local directory; or always persist |
-| **Masking** | auto percentile threshold on b=0 | user-uploaded mask NIfTI (planned, not built) |
+| **Masking** | explicit dataset/ROI/voxel selection only | user-uploaded mask NIfTI (planned, not built) |
 | **Modalities** | IVIM only | add DCE / DSC / ASL behind the same `/datasets` + `/fits` shape |
 
-The `Storage` and `JobRunner` layers and the `mask` request object are shaped so
+The `Storage` and `JobRunner` layers and explicit selection request object are shaped so
 that **disk persistence, batch processing, mask upload, and extra modalities** can
 be added later without breaking the endpoints above.
 
@@ -214,7 +268,8 @@ be added later without breaking the endpoints above.
 
 ```bash
 uv sync
-uv run uvicorn osipy_rest_api.main:app --reload
+export OSIPY_API_SESSION_TOKEN="$(openssl rand -base64 32)"
+uv run osipy-rest-api
 # API on http://127.0.0.1:8000, docs at /docs
 ```
 

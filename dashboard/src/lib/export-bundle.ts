@@ -136,10 +136,15 @@ export async function buildBundle(
 	const values = volumes.map((v) => v[index] * dataset.slope + dataset.intercept);
 	let csv = voxelCsv(dataset, values, ...point);
 	if (fit) {
-		const p = Object.fromEntries(
-			['S0', 'D', 'D*', 'f'].map((name) => [name, fit.maps[name][index]])
-		);
-		const finite = Object.values(p).every(Number.isFinite);
+		const parameters =
+			fit.report.model === 'simplified' ? ['S0', 'D', 'f'] : ['S0', 'D', 'D*', 'f'];
+		const p = Object.fromEntries([
+			...parameters.map((name) => [name, fit.maps[name]?.[index]] as const),
+			['bThreshold', Number(fit.report.provenance?.model_cutoff)]
+		]);
+		const finite =
+			parameters.every((name) => Number.isFinite(p[name])) &&
+			(fit.report.model !== 'simplified' || Number.isFinite(p.bThreshold));
 		csv = csv
 			.split('\r\n')
 			.map((row, i) =>

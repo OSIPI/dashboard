@@ -1,6 +1,8 @@
 services:
-  companion:
-    build: ./dashboard
+  api:
+    build:
+      context: .
+      dockerfile: dashboard/Dockerfile
     ports:
       - '127.0.0.1:60016:60016'
     init: true

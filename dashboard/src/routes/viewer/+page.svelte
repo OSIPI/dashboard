@@ -4,7 +4,7 @@
 	import ChevronRightIcon from '~icons/lucide/chevron-right';
 	import { onMount, onDestroy, tick } from 'svelte';
 	import { AnalysisClient } from '$lib/analysis-client.svelte';
-	import { retryUntilConnected } from '$lib/companion-retry';
+	import { retryUntilConnected } from '$lib/api-retry';
 	import LocalAnalysisSetup from '$lib/components/LocalAnalysisSetup.svelte';
 	import AnalysisPanel from '$lib/components/viewer/AnalysisPanel.svelte';
 	import FitDialog from '$lib/components/viewer/FitDialog.svelte';
@@ -252,16 +252,13 @@
 
 	onMount(() => {
 		alive = true;
-		if (__LOCAL_COMPANION_PROXY__) void analysis.connect();
+		if (__LOCAL_API_PROXY__) void analysis.connect();
 		const stopRetry =
-			!import.meta.env.DEV && !__LOCAL_COMPANION_PROXY__
+			!import.meta.env.DEV && !__LOCAL_API_PROXY__
 				? retryUntilConnected(
 						() => !!analysis.catalog,
 						() =>
-							!document.hidden &&
-							!!analysis.token.trim() &&
-							!analysis.busy &&
-							analysis.error !== 'Invalid companion token',
+							!document.hidden && !!analysis.token.trim() && !analysis.busy && !analysis.catalog,
 						() => analysis.connect()
 					)
 				: undefined;
@@ -785,7 +782,7 @@
 			>
 				<SignalPanel
 					{roiMean}
-					fit={fitResult}
+					fit={fitResult?.maps['D*'] ? fitResult : undefined}
 					{dataset}
 					{volumes}
 					{active}

@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
 from osipy_rest_api import __version__
 from osipy_rest_api.models.schemas import Health, Root
+from osipy_rest_api.security import require_session_token
 
-router = APIRouter(tags=["meta"])
+router = APIRouter(tags=["meta"], dependencies=[Depends(require_session_token)])
 
 
 @router.get("/", response_model=Root)

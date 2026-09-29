@@ -3,13 +3,19 @@ import pytest
 from pydantic import ValidationError
 
 from osipy_rest_api.config import Settings, get_settings
-from osipy_rest_api.core.domain import Dataset, FitConfig, Job, JobStatus, MaskSpec
+from osipy_rest_api.core.domain import Dataset, FitConfig, Job, JobStatus, SelectionSpec
 from osipy_rest_api.core.errors import CapacityError, NotFoundError
 
 
 def test_settings_defaults():
     s = Settings()
-    assert s.cors_origins == ["http://localhost:60010"]
+    assert s.cors_origins == [
+        "http://localhost:60010",
+        "http://127.0.0.1:60010",
+        "http://localhost:60014",
+        "http://127.0.0.1:60014",
+        "https://osipi.github.io",
+    ]
     assert s.max_datasets == 5
     assert s.data_ttl_seconds == 3600
 
@@ -17,6 +23,11 @@ def test_settings_defaults():
 def test_settings_env_override(monkeypatch):
     monkeypatch.setenv("OSIPY_API_MAX_DATASETS", "9")
     assert Settings().max_datasets == 9
+
+
+def test_settings_reject_public_bind_address():
+    with pytest.raises(ValidationError):
+        Settings(host="0.0.0.0")
 
 
 @pytest.mark.parametrize(
@@ -35,7 +46,7 @@ def test_fit_config_defaults():
     c = FitConfig()
     assert c.method == "segmented"
     assert c.b_threshold == 200.0
-    assert c.mask == MaskSpec(type="auto", percentile=5.0)
+    assert c.selection == SelectionSpec(scope="dataset", voxels=())
 
 
 def test_dataset_shape_and_nbytes():

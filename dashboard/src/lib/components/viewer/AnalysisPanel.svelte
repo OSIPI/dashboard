@@ -25,7 +25,9 @@
 		onopen: () => void;
 		onselect: (id: string) => void;
 	} = $props();
-	const running = $derived(client.runs.find((r) => r.state === 'running'));
+	const running = $derived(
+		client.runs.find((r) => ['pending', 'running', 'cancelling'].includes(r.state))
+	);
 	const ready = $derived(dataset.bValues.includes(0) && new Set(dataset.bValues).size >= 4);
 </script>
 
@@ -52,7 +54,7 @@
 						<span class="relative inline-flex size-2 rounded-full bg-green-500"></span>
 					</span>
 				{/if}
-				{client.stage === 'Connected · local CPU' ? 'Ready' : client.stage}
+				{client.stage === 'Connected · local REST API' ? 'Ready' : client.stage}
 			</span>
 			{#if openPanel}<ChevronDownIcon class="size-4" />{:else}<ChevronRightIcon
 					class="size-4"
@@ -60,10 +62,10 @@
 		</button>
 	</h2>
 	{#if !client.catalog}<p class="text-xs text-muted-foreground">
-			Open Local companion at the top right to connect before fitting.
+			Open Local analysis at the top right to connect before fitting.
 		</p>{/if}
 	<div class="space-y-2 border-t pt-3 text-xs">
-		<h3 class="font-semibold">Fitting method</h3>
+		<h3 class="font-semibold">Signal model</h3>
 		<MethodsMenu
 			catalog={client.catalog}
 			canFit={!!client.catalog && ready}
@@ -84,9 +86,15 @@
 	{#if running}<div class="space-y-2 text-xs" role="status">
 			<progress class="w-full accent-selection" max="1" value={running.progress}></progress>
 			<div class="flex justify-between gap-2">
-				<span>{Math.round(running.progress * 100)}% · {running.scope}</span><button
+				<span
+					>{running.state === 'cancelling'
+						? 'Cancelling'
+						: `${Math.round(running.progress * 100)}%`} · {running.scope}</span
+				><button
 					class="underline"
-					onclick={() => client.cancel(running)}>Cancel run</button
+					disabled={running.state === 'cancelling'}
+					onclick={() => client.cancel(running)}
+					>{running.state === 'cancelling' ? 'Stopping…' : 'Cancel run'}</button
 				>
 			</div>
 		</div>{/if}
@@ -145,8 +153,8 @@
 					class="h-2 rounded bg-[linear-gradient(to_right,#440154,#3b528b,#21918c,#5ec962,#fde725)]"
 				></div>
 				<label class="flex items-center gap-2"
-					><input type="checkbox" bind:checked={client.showInvalid} />Show finite estimates rejected
-					by quality checks</label
+					><input type="checkbox" bind:checked={client.showInvalid} />Show voxels without valid
+					model parameter estimates</label
 				>
 				<button
 					class="button button-outline"
@@ -177,15 +185,21 @@
 					<p class="font-medium">{job.state} · {job.scope}</p>
 					<p class="text-muted-foreground">{job.startedAt}</p>
 					{#if job.summary}<p>
-							{job.summary.validVoxels}/{job.summary.selectedVoxels} valid · {job.summary.durationSeconds.toFixed(
-								1
-							)} s
+							{job.summary.validVoxels}/{job.summary.selectedVoxels} passed post-fit checks
+							{#if job.summary.durationSeconds !== undefined}
+								· {job.summary.durationSeconds.toFixed(1)} s{/if}
 						</p>{/if}{#if job.error}<p class="text-destructive">
 							{job.error}
 						</p>{/if}{#if job.state === 'completed'}<button
 							class="mt-1 underline"
 							disabled={job.sourceHash !== dataset.sha256}
-							onclick={() => client.loadResult(job)}>Inspect result</button
+							onclick={() => client.loadResult(job, dataset)}>Inspect result</button
+						>{/if}{#if ['completed', 'failed', 'cancelled'].includes(job.state)}<button
+							class="mt-1 ml-3 underline"
+							disabled={job.state === 'completed' &&
+								!client.results.some((item) => item.id === job.id)}
+							title="Free an API run slot. Already downloaded maps stay in your browser; API voxel detail for this run becomes unavailable."
+							onclick={() => client.release(job)}>Free API slot</button
 						>{/if}
 				</div>{/each}
 		</div>

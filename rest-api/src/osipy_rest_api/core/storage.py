@@ -23,6 +23,7 @@ class Storage(Protocol):
     async def total_bytes(self) -> int: ...
     async def put_job(self, job: Job) -> None: ...
     async def get_job(self, job_id: str) -> Job | None: ...
+    async def delete_job(self, job_id: str) -> bool: ...
     async def update_job(self, job_id: str, **fields: object) -> None: ...
     async def list_jobs(self) -> list[Job]: ...
     async def clear(self) -> None: ...
@@ -86,12 +87,24 @@ class InMemoryStorage:
             if len(self._jobs) >= self._max_jobs:
                 raise CapacityError(
                     f"job limit reached ({self._max_jobs}); "
-                    "delete an existing dataset and its fits, or wait for TTL eviction"
+                    "delete a completed fit with DELETE /fits/{job_id}/retained, "
+                    "or wait for TTL eviction"
                 )
             self._jobs[job.id] = job
 
     async def get_job(self, job_id: str) -> Job | None:
         return self._jobs.get(job_id)
+
+    async def delete_job(self, job_id: str) -> bool:
+        """Remove only a terminal job; active jobs must be cancelled instead."""
+        async with self._lock:
+            job = self._jobs.get(job_id)
+            if job is None:
+                return False
+            if job.status not in {JobStatus.SUCCEEDED, JobStatus.FAILED, JobStatus.CANCELLED}:
+                raise CapacityError("active fits cannot be deleted; cancel the fit first")
+            self._jobs.pop(job_id)
+            return True
 
     async def update_job(self, job_id: str, **fields: object) -> None:
         async with self._lock:
@@ -101,6 +114,7 @@ class InMemoryStorage:
             if set(fields) == {"progress"} and job.status in (
                 JobStatus.SUCCEEDED,
                 JobStatus.FAILED,
+                JobStatus.CANCELLED,
             ):
                 return  # A queued progress callback must not overwrite terminal state.
             result = fields.get("result")

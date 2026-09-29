@@ -166,7 +166,7 @@
 				<div class="mt-3 flex items-start gap-2 text-xs leading-5 text-muted-foreground">
 					<ShieldIcon class="mt-0.5 size-4 shrink-0 text-selection" /><span
 						>Import, storage and visualization happen in your browser. Offline access is available
-						after the app is cached. Optional fitting runs through your local OSIPY companion.</span
+						after the app is cached. Optional fitting runs through your local OSIPY REST API.</span
 					>
 				</div>
 				<p class="mt-2 text-xs text-muted-foreground">Research use only. Not for diagnosis.</p>
@@ -175,7 +175,7 @@
 				<a class="button button-outline h-8 px-2 text-xs" href={resolve('/nifti')}
 					>Standalone NIfTI viewer</a
 				>
-				{#if !__LOCAL_COMPANION_PROXY__}<LocalAnalysisSetup />{/if}
+				{#if !__LOCAL_API_PROXY__}<LocalAnalysisSetup />{/if}
 				<ScanLibrary
 					scans={session}
 					activeId=""

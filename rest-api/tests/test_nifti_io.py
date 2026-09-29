@@ -1,5 +1,6 @@
 import gzip
 import io
+import struct
 import zipfile
 from dataclasses import dataclass
 
@@ -48,6 +49,41 @@ def test_parse_nifti_bytes_rejects_3d():
 def test_parse_nifti_bytes_rejects_garbage():
     with pytest.raises(InvalidInputError):
         parse_nifti_bytes(b"not a nifti file", "x.nii")
+
+
+def test_parse_nifti_bytes_rejects_nonfinite_samples():
+    data = np.ones((2, 2, 1, 4), dtype=np.float32)
+    data[0, 0, 0, 0] = np.nan
+    raw = nib.Nifti1Image(data, np.eye(4)).to_bytes()
+    with pytest.raises(InvalidInputError, match="non-finite"):
+        parse_nifti_bytes(raw, "nonfinite.nii")
+
+
+def test_parse_nifti_bytes_rejects_nonfinite_scaling():
+    img = nib.Nifti1Image(np.ones((2, 2, 1, 4), dtype=np.float32), np.eye(4))
+    img.header["scl_slope"] = 2.0
+    img.header["scl_inter"] = np.nan
+    with pytest.raises(InvalidInputError, match="could not read"):
+        parse_nifti_bytes(img.to_bytes(), "bad-scaling.nii")
+
+
+@pytest.mark.parametrize(
+    "affine",
+    [
+        np.array([[np.nan, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]),
+        np.diag([0.0, 1.0, 1.0, 1.0]),
+    ],
+)
+def test_parse_nifti_bytes_rejects_invalid_affine(affine):
+    # Write invalid sform bytes after nibabel has produced a structurally valid
+    # image: nibabel itself refuses to construct these invalid affines.
+    raw = bytearray(nib.Nifti1Image(np.ones((2, 2, 1, 4), dtype=np.float32), np.eye(4)).to_bytes())
+    struct.pack_into("<h", raw, 252, 0)  # qform_code
+    struct.pack_into("<h", raw, 254, 1)  # sform_code
+    for row, offset in enumerate((280, 296, 312)):
+        struct.pack_into("<4f", raw, offset, *affine[row])
+    with pytest.raises(InvalidInputError, match="affine"):
+        parse_nifti_bytes(bytes(raw), "bad-affine.nii")
 
 
 def test_parse_nifti_bytes_rejects_malformed_gzip_as_invalid_input():

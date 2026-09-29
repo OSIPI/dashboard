@@ -64,7 +64,8 @@ jobs:
           persist-credentials: false
 
       - name: Build local dashboard image without publishing
-        run: docker build -f Dockerfile .
+        working-directory: .
+        run: docker build -f dashboard/Dockerfile .
 
   rest-api:
     runs-on: ubuntu-latest

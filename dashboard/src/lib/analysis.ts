@@ -1,15 +1,12 @@
+import { gunzipSync } from 'fflate';
+import { isNIFTI, readHeader } from 'nifti-reader-js';
 import type { Dataset, VoxelVolume } from './ivim';
+import { niftiBytes } from './nifti-export';
 
 export type FitConfig = {
 	model: string;
-	iterations: number;
-	tolerance: number;
-	threshold: number;
-	minimumBaseline: number;
-	minimumR2: number;
-	maximumRmse: number | null;
-	bounds: Record<string, [number | null, number | null]>;
-	initial: Record<string, number | null>;
+	method: 'segmented' | 'full' | 'bayesian' | string;
+	bThreshold: number;
 };
 export type Catalog = {
 	osipyVersion: string;
@@ -21,7 +18,8 @@ export type Catalog = {
 		id: string;
 		label: string;
 		parameters: { name: string; unit: string; bounds: [number | null, number | null] }[];
-		initialization: string;
+		fitterStrategies: string[];
+		reference: string;
 	}[];
 	defaults: FitConfig;
 	statusCodes: Record<string, string>;
@@ -30,21 +28,47 @@ export type FitJob = {
 	id: string;
 	datasetId: string;
 	sourceHash: string;
-	state: 'running' | 'completed' | 'cancelled' | 'failed';
+	state: 'pending' | 'running' | 'cancelling' | 'completed' | 'cancelled' | 'failed';
 	progress: number;
 	scope: string;
 	config: FitConfig;
 	startedAt: string;
 	finishedAt?: string;
 	error?: string;
-	summary?: { validVoxels: number; selectedVoxels: number; durationSeconds: number };
+	summary?: { validVoxels: number; selectedVoxels: number; durationSeconds?: number };
+	apiSummary?: Record<string, unknown>;
+	provenance?: Record<string, unknown>;
+};
+export function fitJobState(status: string): FitJob['state'] {
+	const states: Record<string, FitJob['state']> = {
+		pending: 'pending',
+		queued: 'pending',
+		running: 'running',
+		cancelling: 'cancelling',
+		succeeded: 'completed',
+		completed: 'completed',
+		cancelled: 'cancelled',
+		canceled: 'cancelled',
+		failed: 'failed'
+	};
+	return states[status] ?? 'failed';
+}
+export type VoxelFit = {
+	voxel: number[];
+	b_values: number[];
+	signal: number[];
+	available: boolean;
+	reason: 'not_selected' | 'invalid_estimate' | null;
+	params: Record<string, number> | null;
+	fitted_curve: number[] | null;
+	r_squared: number | null;
 };
 export type FitReport = {
 	schema: 1;
 	dataset: Pick<
 		Dataset,
 		'dimensions' | 'affine' | 'bValues' | 'sha256' | 'slope' | 'intercept' | 'name'
-	> & { payloadSha256: string };
+	>;
 	model: string;
 	fitter: string;
 	osipyVersion: string;
@@ -54,12 +78,13 @@ export type FitReport = {
 	validVoxels: number;
 	statusCodes: Record<string, string>;
 	statusCounts: Record<string, number>;
-	durationSeconds: number;
+	durationSeconds: number | null;
 	completedAt: string;
 	maps: { name: string; unit: string; min: number; max: number }[];
 	errors: string[];
 	samplePolicy: string;
 	qualityPolicy: string;
+	provenance?: Record<string, unknown>;
 };
 export type FitResult = { id: string; report: FitReport; maps: Record<string, Float32Array> };
 export type ImageOverlay = {
@@ -71,7 +96,7 @@ export type ImageOverlay = {
 	showInvalid: boolean;
 };
 
-export function companionUrl(raw: string): string {
+export function localApiUrl(raw: string): string {
 	const url = new URL(raw);
 	if (
 		url.protocol !== 'http:' ||
@@ -82,8 +107,89 @@ export function companionUrl(raw: string): string {
 		url.hash ||
 		url.pathname !== '/'
 	)
-		throw new Error('Use an HTTP loopback companion URL, such as http://127.0.0.1:60016.');
+		throw new Error('Use an HTTP loopback API URL, such as http://127.0.0.1:60016.');
 	return url.origin;
+}
+export function datasetForm(dataset: Dataset, volumes: VoxelVolume[]): FormData {
+	const form = new FormData();
+	form.append('nifti', new Blob([niftiBytes(dataset, volumes)]), `${dataset.name || 'dwi'}.nii`);
+	form.append('b_values', JSON.stringify(dataset.bValues));
+	return form;
+}
+
+export function voxelCoordinates(
+	indices: number[],
+	dimensions: Dataset['dimensions']
+): [number, number, number][] {
+	const [nx, ny] = dimensions;
+	return indices.map((index) => [
+		index % nx,
+		Math.floor(index / nx) % ny,
+		Math.floor(index / (nx * ny))
+	]);
+}
+
+export function fitRequest(
+	config: FitConfig,
+	scope: 'voxel' | 'roi' | 'dataset',
+	indices: number[],
+	dimensions: Dataset['dimensions']
+) {
+	return {
+		model: config.model,
+		method: config.method,
+		b_threshold: config.bThreshold,
+		scope,
+		voxels: scope === 'dataset' ? [] : voxelCoordinates(indices, dimensions)
+	};
+}
+
+export function parseNiftiMap(raw: ArrayBuffer, dataset: Dataset): Float32Array {
+	let bytes = new Uint8Array(raw);
+	if (bytes[0] === 31 && bytes[1] === 139) bytes = gunzipSync(bytes);
+	const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+	if (!isNIFTI(buffer)) throw new Error('API returned an invalid NIfTI map.');
+	const header = readHeader(buffer);
+	const dimensions = header.dims.slice(1, 4);
+	if (header.dims[0] !== 3 || dimensions.some((n, i) => n !== dataset.dimensions[i]))
+		throw new Error('Result map geometry does not match the source dataset.');
+	if (header.sform_code <= 0)
+		throw new Error('Result map does not declare its native orientation.');
+	const source = new DataView(buffer);
+	const affine = [0, 1, 2].map((r) =>
+		[0, 1, 2, 3].map((c) => source.getFloat32(280 + (r * 4 + c) * 4, header.littleEndian))
+	);
+	if (
+		affine.some((row, r) =>
+			row.some(
+				(value, c) =>
+					Math.abs(value - dataset.affine[r][c]) >
+					Math.max(1, Math.abs(dataset.affine[r][c])) * 1e-5
+			)
+		)
+	)
+		throw new Error('Result map orientation does not match the source dataset.');
+	const formats = {
+		2: [1, (v: DataView, p: number) => v.getUint8(p)],
+		256: [1, (v: DataView, p: number) => v.getInt8(p)],
+		4: [2, (v: DataView, p: number, le: boolean) => v.getInt16(p, le)],
+		512: [2, (v: DataView, p: number, le: boolean) => v.getUint16(p, le)],
+		8: [4, (v: DataView, p: number, le: boolean) => v.getInt32(p, le)],
+		768: [4, (v: DataView, p: number, le: boolean) => v.getUint32(p, le)],
+		16: [4, (v: DataView, p: number, le: boolean) => v.getFloat32(p, le)],
+		64: [8, (v: DataView, p: number, le: boolean) => v.getFloat64(p, le)]
+	} as const;
+	const format = formats[header.datatypeCode as keyof typeof formats];
+	const count = dimensions.reduce((a, b) => a * b, 1);
+	if (!format || header.vox_offset + count * format[0] > buffer.byteLength)
+		throw new Error('API returned an unsupported or truncated NIfTI map.');
+	const result = new Float32Array(count);
+	const slope = header.scl_slope || 1,
+		intercept = header.scl_slope ? header.scl_inter : 0;
+	for (let i = 0; i < count; i++)
+		result[i] =
+			format[1](source, header.vox_offset + i * format[0], header.littleEndian) * slope + intercept;
+	return result;
 }
 export function datasetEnvelope(dataset: Dataset, volumes: VoxelVolume[]): Blob {
 	if (new Uint8Array(new Uint16Array([1]).buffer)[0] !== 1)
@@ -125,46 +231,15 @@ export function datasetEnvelope(dataset: Dataset, volumes: VoxelVolume[]): Blob 
 		{ type: 'application/octet-stream' }
 	);
 }
-export function parseFitResult(id: string, buffer: ArrayBuffer, expectedHash: string): FitResult {
-	if (buffer.byteLength < 4) throw new Error('Missing result header.');
-	const size = new DataView(buffer).getUint32(0, true);
-	if (size > 1024 * 1024 || 4 + size > buffer.byteLength)
-		throw new Error('Invalid result header size.');
-	const report = JSON.parse(new TextDecoder().decode(buffer.slice(4, 4 + size))) as FitReport;
-	if (
-		report.schema !== 1 ||
-		report.dataset.sha256 !== expectedHash ||
-		!Array.isArray(report.dataset.dimensions) ||
-		report.dataset.dimensions.length !== 4 ||
-		!report.dataset.dimensions.every((v) => Number.isSafeInteger(v) && v > 0)
-	)
-		throw new Error('Result dataset identity/geometry mismatch.');
-	const count = report.dataset.dimensions.slice(0, 3).reduce((a, b) => a * b, 1);
-	const allowed = ['S0', 'D', 'D*', 'f', 'RMSE', 'R2', 'AdjustedR2', 'Valid', 'Status'];
-	if (
-		!Array.isArray(report.maps) ||
-		report.maps.length !== allowed.length ||
-		new Set(report.maps.map((m) => m.name)).size !== allowed.length ||
-		report.maps.some(
-			(m) =>
-				!allowed.includes(m.name) ||
-				!Number.isFinite(m.min) ||
-				!Number.isFinite(m.max) ||
-				m.max <= m.min
-		) ||
-		4 + size + count * 4 * report.maps.length !== buffer.byteLength
-	)
-		throw new Error('Invalid result map payload.');
-	const maps = Object.fromEntries(
-		report.maps.map((m, i) => [
-			m.name,
-			new Float32Array(buffer.slice(4 + size + i * count * 4, 4 + size + (i + 1) * count * 4))
-		])
-	);
-	return { id, report, maps };
-}
 export function predictIvim(b: number, p: Record<string, number>): number {
-	return p.S0 * ((1 - p.f) * Math.exp(-b * p.D) + p.f * Math.exp(-b * p['D*']));
+	if (Number.isFinite(p['D*']))
+		return p.S0 * ((1 - p.f) * Math.exp(-b * p.D) + p.f * Math.exp(-b * p['D*']));
+	const threshold = p.bThreshold;
+	if (!Number.isFinite(threshold))
+		throw new Error('Simplified IVIM curve requires the fitted b threshold.');
+	return b > threshold
+		? p.S0 * (1 - p.f) * Math.exp(-b * p.D)
+		: p.S0 * ((1 - p.f) * Math.exp(-b * p.D) + p.f);
 }
 export function overlayColor(
 	value: number,

@@ -149,14 +149,22 @@
 		...(roiMean ? [roiMean] : [])
 	]);
 	const fitIndex = $derived(voxelIndex(x, y, slice, dataset.dimensions));
+	const fitParameters = $derived(
+		fit?.report.model === 'simplified' ? ['S0', 'D', 'f'] : ['S0', 'D', 'D*', 'f']
+	);
 	const fitted = $derived(
-		fit && ['S0', 'D', 'D*', 'f'].every((p) => Number.isFinite(fit.maps[p][fitIndex]))
+		fit &&
+			(fit.report.model !== 'simplified' ||
+				(typeof fit.report.provenance?.model_cutoff === 'number' &&
+					Number.isFinite(fit.report.provenance.model_cutoff))) &&
+			fitParameters.every((p) => Number.isFinite(fit.maps[p]?.[fitIndex]))
 			? {
-					parameters: Object.fromEntries(
-						['S0', 'D', 'D*', 'f'].map((p) => [p, fit.maps[p][fitIndex]])
-					),
+					parameters: Object.fromEntries([
+						...fitParameters.map((p) => [p, fit.maps[p][fitIndex]] as const),
+						['bThreshold', Number(fit.report.provenance?.model_cutoff)]
+					]),
 					valid: fit.maps.Valid[fitIndex] === 1,
-					model: 'OSIPY biexponential'
+					model: `OSIPY ${fit.report.model}`
 				}
 			: undefined
 	);

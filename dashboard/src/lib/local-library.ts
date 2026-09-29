@@ -44,12 +44,23 @@ export function validateSavedRois(value: SavedRois, dataset: Dataset): SavedRois
 }
 export function validSavedResult(result: FitResult, dataset: Dataset): boolean {
 	const count = dataset.dimensions.slice(0, 3).reduce((a, b) => a * b, 1);
+	const names = result?.report?.maps?.map((map) => map.name);
+	const required =
+		result?.report?.model === 'simplified' ? ['S0', 'D', 'f'] : ['S0', 'D', 'D*', 'f'];
 	return (
 		!!result &&
 		typeof result.id === 'string' &&
 		result.report?.dataset?.sha256 === dataset.sha256 &&
+		Array.isArray(result.report.dataset.dimensions) &&
+		result.report.dataset.dimensions.length === dataset.dimensions.length &&
 		result.report.dataset.dimensions.every((n, i) => n === dataset.dimensions[i]) &&
-		['S0', 'D', 'D*', 'f', 'RMSE', 'R2', 'AdjustedR2', 'Valid', 'Status'].every(
+		Array.isArray(names) &&
+		names.length >= required.length &&
+		new Set(names).size === names.length &&
+		[...required, 'Valid', 'Status'].every(
+			(name) => result.maps?.[name] instanceof Float32Array && result.maps[name].length === count
+		) &&
+		names.every(
 			(name) => result.maps?.[name] instanceof Float32Array && result.maps[name].length === count
 		)
 	);
@@ -271,4 +282,11 @@ export const saveWorkspace = (id: string, value: Workspace) => write('views', id
 export const readSavedRois = (id: string) => read<SavedRois>('rois', id);
 export const saveRois = (id: string, value: SavedRois) => write('rois', id, value);
 export const readSavedResult = (id: string) => read<FitResult>('results', id);
-export const saveResult = (id: string, value: FitResult) => write('results', id, value);
+export const saveResult = (id: string, value: FitResult) =>
+	write('results', id, {
+		id: value.id,
+		report: JSON.parse(JSON.stringify(value.report)),
+		maps: Object.fromEntries(
+			Object.entries(value.maps).map(([name, data]) => [name, new Float32Array(data)])
+		)
+	} satisfies FitResult);

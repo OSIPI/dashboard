@@ -1,16 +1,13 @@
 import gzip
-import io
 import json
 
 import nibabel as nib
 import numpy as np
 import pytest
-from fastapi import UploadFile
+import starlette.formparsers
 from httpx import ASGITransport, AsyncClient
 
-from osipy_rest_api.api.datasets import _read_upload
 from osipy_rest_api.config import Settings
-from osipy_rest_api.core.errors import PayloadTooLargeError
 from osipy_rest_api.main import build_app
 from tests.fixtures.synthetic import bval_bytes, make_ivim_volume, nifti_bytes
 
@@ -44,6 +41,13 @@ async def test_upload_with_bvalues_form_field(client):
     data, bvals = _files()
     resp = await _upload(client, data, bvals, use_form=True)
     assert resp.status_code == 201
+
+
+def test_dataset_openapi_keeps_multipart_upload_contract(app):
+    request_body = app.openapi()["paths"]["/datasets"]["post"]["requestBody"]
+    schema = request_body["content"]["multipart/form-data"]["schema"]
+    assert schema["required"] == ["nifti"]
+    assert set(schema["properties"]) == {"nifti", "bval", "b_values"}
 
 
 async def test_upload_dimension_mismatch(client):
@@ -95,7 +99,8 @@ async def test_upload_too_large_is_413():
     # (a few KB) is guaranteed to exceed it. FIX B makes the injected
     # Settings reach the datasets handler.
     app = build_app(Settings(
-        cors_origins=["http://testserver"],
+        cors_origins=["http://localhost:60010"],
+        session_token="test-local-session-token",
         max_datasets=3,
         max_total_bytes=50_000_000,
         data_ttl_seconds=3600,
@@ -104,7 +109,11 @@ async def test_upload_too_large_is_413():
     data, bvals = make_ivim_volume(shape=(4, 4, 2))
     transport = ASGITransport(app=app)
     async with (
-        AsyncClient(transport=transport, base_url="http://testserver") as c,
+        AsyncClient(
+            transport=transport,
+            base_url="http://127.0.0.1:8000",
+            headers={"Authorization": "Bearer test-local-session-token"},
+        ) as c,
         app.router.lifespan_context(app),
     ):
         resp = await c.post(
@@ -119,7 +128,8 @@ async def test_upload_too_large_is_413():
 
 async def test_upload_compressed_bomb_is_413():
     app = build_app(Settings(
-        cors_origins=["http://testserver"],
+        cors_origins=["http://localhost:60010"],
+        session_token="test-local-session-token",
         max_datasets=3,
         max_total_bytes=50_000_000,
         data_ttl_seconds=3600,
@@ -127,7 +137,11 @@ async def test_upload_compressed_bomb_is_413():
     ))
     transport = ASGITransport(app=app)
     async with (
-        AsyncClient(transport=transport, base_url="http://testserver") as c,
+        AsyncClient(
+            transport=transport,
+            base_url="http://127.0.0.1:8000",
+            headers={"Authorization": "Bearer test-local-session-token"},
+        ) as c,
         app.router.lifespan_context(app),
     ):
         resp = await c.post(
@@ -147,11 +161,81 @@ async def test_upload_rejects_nonfinite_b_values(client):
     assert (await _upload(client, data, bvals)).status_code == 422
 
 
-async def test_upload_without_size_is_read_with_a_limit():
-    upload = UploadFile(file=io.BytesIO(b"x" * 100))
-    with pytest.raises(PayloadTooLargeError):
-        await _read_upload(upload, 16)
-    assert upload.file.tell() == 17
+async def test_upload_rejects_negative_b_values(client):
+    data, bvals = _files()
+    bvals = bvals.copy()
+    bvals[-1] = -1
+    assert (await _upload(client, data, bvals)).status_code == 422
+
+
+async def test_upload_rejects_nonfinite_samples(client):
+    data, bvals = _files()
+    data[0, 0, 0, 0] = np.inf
+    assert (await _upload(client, data, bvals)).status_code == 422
+
+
+async def test_unauthenticated_large_multipart_is_rejected_before_form_parsing(
+    tmp_path, monkeypatch
+):
+    """Auth must run before Starlette can spool an upload to disk."""
+    app = build_app(Settings(
+        cors_origins=["http://localhost:60010"],
+        session_token="test-local-session-token",
+        max_datasets=3,
+        max_total_bytes=50_000_000,
+        data_ttl_seconds=3600,
+    ))
+
+    def no_spool(*args, **kwargs):
+        pytest.fail("multipart form parsing ran before authentication")
+
+    monkeypatch.setattr(starlette.formparsers, "SpooledTemporaryFile", no_spool)
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://127.0.0.1:8000") as c:
+        response = await c.post(
+            "/datasets",
+            files={
+                "nifti": ("large.nii.gz", b"x" * (1024 * 1024 + 1), "application/gzip"),
+                "bval": ("dwi.bval", b"0 100 200 800", "text/plain"),
+            },
+        )
+
+    assert response.status_code == 401
+    assert list(tmp_path.iterdir()) == []
+
+
+async def test_oversized_multipart_is_rejected_without_spooling(monkeypatch):
+    app = build_app(Settings(
+        cors_origins=["http://localhost:60010"],
+        session_token="test-local-session-token",
+        max_datasets=3,
+        max_total_bytes=50_000_000,
+        data_ttl_seconds=3600,
+        max_upload_bytes=100,
+    ))
+
+    def no_spool(*args, **kwargs):
+        pytest.fail("upload parser must retain multipart parts only in bounded memory")
+
+    monkeypatch.setattr(starlette.formparsers, "SpooledTemporaryFile", no_spool)
+    transport = ASGITransport(app=app)
+    async with (
+        AsyncClient(
+            transport=transport,
+            base_url="http://127.0.0.1:8000",
+            headers={"Authorization": "Bearer test-local-session-token"},
+        ) as c,
+        app.router.lifespan_context(app),
+    ):
+        response = await c.post(
+            "/datasets",
+            files={
+                "nifti": ("large.nii.gz", b"x" * 101, "application/gzip"),
+                "bval": ("dwi.bval", b"0 100 200 800", "text/plain"),
+            },
+        )
+
+    assert response.status_code == 413
 
 
 async def test_remaining_storage_checked_before_decode(client, settings, monkeypatch):

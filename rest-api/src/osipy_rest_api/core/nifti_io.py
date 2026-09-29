@@ -23,6 +23,11 @@ MAP_FILENAMES = {
     "f": "f.nii.gz",
     "s0": "S0.nii.gz",
 }
+QUALITY_MAP_FILENAMES = {
+    "valid": "Valid.nii.gz",
+    "status": "Status.nii.gz",
+    "r_squared": "R_squared.nii.gz",
+}
 
 _GZIP_MAGIC = b"\x1f\x8b"
 _GZIP_CHUNK_BYTES = 64 * 1024
@@ -75,7 +80,21 @@ def parse_nifti_bytes(
         data = np.asarray(img.get_fdata(), dtype=np.float64)
     except (OSError, ValueError, TypeError) as exc:
         raise InvalidInputError(f"could not read voxel data from {filename}: {exc}") from exc
-    return data, np.asarray(img.affine, dtype=np.float64)
+    if not np.isfinite(data).all():
+        raise InvalidInputError(f"{filename} contains non-finite scaled samples")
+    affine = np.asarray(img.affine, dtype=np.float64)
+    if (
+        affine.shape != (4, 4)
+        or not np.isfinite(affine).all()
+        or not np.allclose(affine[3], [0.0, 0.0, 0.0, 1.0])
+        or abs(np.linalg.det(affine[:3, :3])) < 1e-10
+    ):
+        raise InvalidInputError(f"{filename} has an invalid affine")
+    slope = float(getattr(img.dataobj, "slope", 1.0))
+    intercept = float(getattr(img.dataobj, "inter", 0.0))
+    if not np.isfinite(slope) or not np.isfinite(intercept):
+        raise InvalidInputError(f"{filename} has non-finite scaling")
+    return data, affine
 
 
 def parse_bval_bytes(raw: bytes) -> np.ndarray:
@@ -92,8 +111,13 @@ def parse_bval_bytes(raw: bytes) -> np.ndarray:
 
 
 def parameter_map_to_nifti_bytes(param_map: object) -> bytes:
-    values = np.asarray(param_map.values, dtype=np.float32)  # type: ignore[attr-defined]
-    affine = np.asarray(param_map.affine, dtype=np.float64)  # type: ignore[attr-defined]
+    return array_to_nifti_bytes(
+        np.asarray(param_map.values, dtype=np.float32),  # type: ignore[attr-defined]
+        np.asarray(param_map.affine, dtype=np.float64),  # type: ignore[attr-defined]
+    )
+
+
+def array_to_nifti_bytes(values: np.ndarray, affine: np.ndarray) -> bytes:
     img = nib.Nifti1Image(values, affine)
     buf = io.BytesIO()
     with gzip.GzipFile(fileobj=buf, mode="wb") as gz:

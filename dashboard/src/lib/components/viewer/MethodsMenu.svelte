@@ -17,6 +17,9 @@
 	} = $props();
 	let expanded = $state(false);
 	const names: Record<string, string> = {
+		segmented: 'Segmented IVIM',
+		full: 'Full IVIM',
+		bayesian: 'Bayesian IVIM',
 		biexponential: 'Biexponential',
 		simplified: 'Simplified IVIM',
 		tofts: 'Tofts',
@@ -46,7 +49,7 @@
 			? 'button-outline w-full justify-between'
 			: 'button-primary'}"
 	>
-		{selectedMethod ? label(selectedMethod) : 'Methods'}
+		{selectedMethod ? label(selectedMethod) : 'Models'}
 		<ChevronDownIcon aria-hidden="true" class="size-4" />
 	</summary>
 	<div
@@ -54,11 +57,10 @@
 			? 'max-h-64 w-full'
 			: 'absolute left-0 z-30 max-h-[min(65dvh,32rem)] w-[min(22rem,calc(100vw-1rem))] shadow-lg max-[899px]:right-2 max-[899px]:left-2 max-[899px]:max-h-[calc(100dvh-14rem)] max-[899px]:w-auto'}"
 	>
-		<h2 class="text-sm font-semibold">OSIPY methods</h2>
+		<h2 class="text-sm font-semibold">OSIPY IVIM models</h2>
 		{#if catalog?.library?.length}
 			<p class="mt-1 text-muted-foreground">
-				Installed OSIPY {catalog.osipyVersion}. Only methods marked Runnable are integrated with
-				this dashboard.
+				OSIPY {catalog.osipyVersion}. Choose a signal model, then configure its fitter strategy.
 			</p>
 			{#each catalog.library as section (section.technique)}
 				<section class="mt-3 border-t pt-2" aria-label={section.technique}>
@@ -99,11 +101,11 @@
 			{/each}
 		{:else}
 			<p class="mt-2 text-muted-foreground">
-				{import.meta.env.DEV && !__LOCAL_COMPANION_PROXY__
-					? 'This dashboard was started without its companion. Stop the server using port 60010 and run make dev to list methods automatically.'
-					: __LOCAL_COMPANION_PROXY__
-						? 'Connecting to the local companion. If it stays disconnected, open Local companion at the top right to retry.'
-						: 'Open Local companion at the top right to start Docker and connect before listing fitting methods.'}
+				{import.meta.env.DEV && !__LOCAL_API_PROXY__
+					? 'Connect the local OSIPY REST API to list and run fitting methods.'
+					: __LOCAL_API_PROXY__
+						? 'Connecting to the local REST API. If it stays disconnected, open Local analysis at the top right to retry.'
+						: 'Open Local analysis at the top right to start and connect the REST API before listing fitting methods.'}
 			</p>
 		{/if}
 	</div>

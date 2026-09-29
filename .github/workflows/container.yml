@@ -1,4 +1,4 @@
-name: Publish local OSIPY companion container
+name: Publish local OSIPY REST API container
 
 on:
   release:
@@ -59,7 +59,7 @@ jobs:
       - name: Publish exact release image
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
-          context: ./dashboard
+          context: .
           file: ./dashboard/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true

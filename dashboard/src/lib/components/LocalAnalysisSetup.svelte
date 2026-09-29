@@ -25,7 +25,7 @@
 			<span class="relative size-2 rounded-full bg-green-500"></span>
 		</span>
 	{:else}<ServerIcon class="mr-1 size-4" aria-hidden="true" />{/if}
-	{client ? (client.catalog ? 'Companion · Ready' : 'Local companion') : 'Run local fitting'}
+	{client ? (client.catalog ? 'REST API · Ready' : 'Local analysis') : 'Run local fitting'}
 </button>
 <dialog
 	bind:this={dialog}
@@ -34,9 +34,9 @@
 >
 	<h2 id="local-fitting-title" class="text-lg font-semibold">Local OSIPY fitting</h2>
 	{#if client}<p class="mt-1 text-sm text-muted-foreground" role="status">{client.stage}</p>{/if}
-	{#if client && __LOCAL_COMPANION_PROXY__}
+	{#if client && __LOCAL_API_PROXY__}
 		<p class="mt-2 text-sm text-muted-foreground">
-			The local development companion starts with make dev.
+			The local development proxy connects to the OSIPY REST API started by the repository tooling.
 		</p>
 		{#if !client.catalog}<button
 				class="button button-outline mt-3"
@@ -45,8 +45,8 @@
 			>{/if}
 	{:else}
 		<p class="mt-2 text-sm leading-6 text-muted-foreground">
-			Install Docker and run this command in a terminal. It starts only the local Python/OSIPY
-			companion; continue using this browser tab.
+			Run the local REST API and OSIPY together with Docker. The command pulls the latest published
+			image; keep the terminal open and copy its session token into the connection form.
 		</p>
 		<pre class="mt-4 overflow-x-auto rounded-md border bg-background p-3 text-xs leading-5"><code
 				>{command}</code
@@ -56,7 +56,7 @@
 		</div>
 		{#if message}<p class="mt-2 text-xs text-muted-foreground" role="status">{message}</p>{/if}
 	{/if}
-	{#if client && !__LOCAL_COMPANION_PROXY__}
+	{#if client && !__LOCAL_API_PROXY__}
 		<form
 			class="mt-5 space-y-2 border-t pt-4"
 			onsubmit={(event) => {
@@ -64,17 +64,23 @@
 				void client?.connect();
 			}}
 		>
-			<label class="block text-sm font-medium" for="companion-token"
-				>Session token from Docker</label
-			>
+			<label class="block text-sm font-medium" for="analysis-url">Loopback API URL</label>
+			<input
+				id="analysis-url"
+				class="input w-full"
+				type="url"
+				bind:value={client.url}
+				placeholder="http://127.0.0.1:60016"
+			/>
+			<label class="block text-sm font-medium" for="api-token">Required session token</label>
 			<div class="flex gap-2">
 				<input
-					id="companion-token"
+					id="api-token"
 					class="input min-w-0 flex-1"
 					type="password"
 					autocomplete="off"
 					spellcheck="false"
-					placeholder="Paste token"
+					placeholder="Paste token printed by the local API"
 					bind:value={client.token}
 					oninput={() => (client.error = '')}
 				/>
@@ -86,15 +92,15 @@
 				>
 			</div>
 			<p class="text-xs text-muted-foreground">
-				Checks every second after you paste. If prompted, allow this site to access your local
-				network.
+				The URL must use HTTP on localhost or 127.0.0.1. The required token remains in memory only.
+				If prompted, allow this site to access your local network.
 			</p>
 			{#if client.error}<p class="text-xs text-destructive" role="alert">{client.error}</p>{/if}
 		</form>
 	{:else}
 		<p class="mt-4 text-xs leading-5 text-muted-foreground">
-			Copy the session token printed by Docker, then paste it in Local companion at the top right of
-			the viewer. Only verified IVIM biexponential fitting is runnable today.
+			Start the local REST API, then connect from Local analysis at the top right of the viewer.
+			IVIM segmented, full and Bayesian methods are exposed by the current API.
 		</p>
 	{/if}
 	<div class="mt-5 flex justify-end">
