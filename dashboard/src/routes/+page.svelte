@@ -20,6 +20,8 @@
 	import type { Scan, ScanMetadata } from '$lib/imports/scan';
 	import UploadIcon from '~icons/lucide/upload';
 	import ShieldIcon from '~icons/lucide/shield-check';
+	import ArrowUpRightIcon from '~icons/lucide/arrow-up-right';
+	import ScanIcon from '~icons/lucide/scan-line';
 	let saved = $state.raw<StoredScanSummary[]>([]),
 		session = $state.raw<Scan[]>([]);
 	let search = $state(''),
@@ -152,122 +154,168 @@
 		><OfflineStatus /></span
 	></Header
 >
-<main class="flex min-h-0 flex-1 flex-col overflow-hidden">
-	<section class="shrink-0 border-b px-4 py-5 sm:px-6 sm:py-7">
-		<div class="mx-auto flex max-w-7xl flex-wrap items-start justify-between gap-5">
-			<div class="max-w-2xl">
-				<h1 class="text-2xl font-semibold tracking-tight sm:text-3xl">
-					Pick up where you left off
-				</h1>
-				<p class="mt-2 text-sm leading-6 text-muted-foreground">
-					Open a saved dataset or bring in a new scan. Your data stays on this device—nothing is
-					uploaded to remote servers.
-				</p>
-				<div class="mt-3 flex items-start gap-2 text-xs leading-5 text-muted-foreground">
-					<ShieldIcon class="mt-0.5 size-4 shrink-0 text-selection" /><span
-						>Import, storage and visualization happen in your browser. Offline access is available
-						after the app is cached. Optional fitting runs through your local OSIPY REST API.</span
-					>
-				</div>
-				<p class="mt-2 text-xs text-muted-foreground">Research use only. Not for diagnosis.</p>
-			</div>
-			<div class="flex flex-wrap items-center gap-2">
-				<a class="button button-outline h-8 px-2 text-xs" href={resolve('/nifti')}
-					>Standalone NIfTI viewer</a
-				>
-				{#if !__LOCAL_API_PROXY__}<LocalAnalysisSetup />{/if}
-				<ScanLibrary
-					scans={session}
-					activeId=""
-					onadd={add}
-					onselect={open}
-					onmetadata={metadata}
-					onremove={(id) => (session = session.filter((s) => s.id !== id))}
-					triggerLabel="Import data"
-				/>{#if demoBusy}<div class="flex items-center gap-2" role="status">
-						<div class="min-w-40 text-xs text-muted-foreground" aria-live="polite">
-							{demoProgress}
-						</div>
-						<button class="button button-outline h-8 px-2 text-xs" onclick={cancelDemo}
-							>Cancel demo</button
-						>
-					</div>{:else}<button class="button button-ghost" onclick={demo}
-						>Download demo from Zenodo · 245 MB</button
-					>{/if}
-			</div>
-		</div>
-	</section>
-	<div
-		class="mx-auto flex w-full max-w-7xl shrink-0 flex-wrap items-center gap-3 px-4 py-3 sm:px-6"
-	>
-		<h2 class="mr-auto text-sm font-semibold">
-			Saved dashboards <span class="font-normal text-muted-foreground">({saved.length})</span>
-		</h2>
-		<label class="sr-only" for="library-search">Search saved datasets</label><input
-			id="library-search"
-			class="input h-9 min-w-0 flex-1 px-3 text-sm sm:max-w-xs"
-			type="search"
-			placeholder="Search datasets, subjects or studies"
-			bind:value={search}
-		/><select class="input h-9 text-xs" aria-label="Filter by technique" bind:value={filter}
-			><option value="all">All techniques</option
-			>{#each ['IVIM', 'DCE', 'DSC', 'ASL', 'Unassigned'] as technique (technique)}<option
-					>{technique}</option
-				>{/each}</select
-		>
-	</div>
+<main class="min-h-0 flex-1 overflow-auto overscroll-contain">
 	{#if error}<p
-			class="mx-4 shrink-0 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive sm:mx-6"
+			class="mx-auto mt-5 max-w-6xl rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive"
 			role="alert"
 		>
 			{error}
 		</p>{/if}
-	<div class="min-h-0 flex-1 overflow-auto overscroll-contain px-4 pb-6 sm:px-6">
+	<div class="px-4 pb-8 sm:px-6">
 		{#if loading}<p class="py-12 text-center text-sm text-muted-foreground" role="status">
 				Opening local storage…
 			</p>
-		{:else if !saved.length}<div
-				class="mx-auto mt-6 max-w-2xl rounded-2xl border border-dashed bg-card px-6 py-10 text-center"
-			>
-				<UploadIcon class="mx-auto size-9 text-muted-foreground" />
-				<h2 class="mt-4 text-lg font-semibold">Your first dataset starts here</h2>
-				<p class="mx-auto mt-2 max-w-lg text-sm leading-6 text-muted-foreground">
-					Import NIfTI scans with b-values, or discover a BIDS/DICOM folder. Saved image datasets
-					will appear here whenever you return to this browser.
-				</p>
-				<div class="mt-5 flex justify-center">
-					<ScanLibrary
-						scans={session}
-						activeId=""
-						onadd={add}
-						onselect={open}
-						onmetadata={metadata}
-						onremove={(id) => (session = session.filter((s) => s.id !== id))}
-						triggerLabel="Import your first dataset"
-					/>
+		{:else if !saved.length}
+			<div class="mx-auto max-w-6xl pt-10 sm:pt-16 lg:pt-24">
+				<div
+					class="mb-7 flex items-center gap-3 text-xs font-semibold tracking-[0.18em] text-muted-foreground uppercase"
+				>
+					<span class="h-px w-8 bg-selection"></span> Local data
 				</div>
-				<p class="mt-3 text-xs leading-5 text-muted-foreground">
-					The public demo downloads directly from Zenodo into this browser; OSIPY does not host MRI
-					bytes or proxy the download.
+				<div
+					class="grid overflow-hidden rounded-2xl border bg-card shadow-sm lg:grid-cols-[1.45fr_1fr]"
+				>
+					<div
+						class="relative flex min-h-[360px] flex-col justify-between overflow-hidden p-7 sm:p-11 lg:p-14"
+					>
+						<div class="relative">
+							<div
+								class="mb-8 flex size-11 items-center justify-center rounded-xl border border-selection/25 bg-selection-surface text-selection"
+							>
+								<ScanIcon class="size-5" aria-hidden="true" />
+							</div>
+							<h1
+								class="max-w-xl text-[clamp(2.2rem,4vw,3.5rem)] leading-[1.1] font-semibold tracking-[-0.045em]"
+							>
+								Import an MRI dataset
+							</h1>
+							<p class="mt-5 max-w-md text-sm leading-6 text-muted-foreground">
+								Load NIfTI images with b-values for IVIM viewing. Discover acquisitions in BIDS or
+								DICOM folders; DICOM pixel data is not decoded.
+							</p>
+						</div>
+						<div class="relative mt-9 flex flex-wrap items-center gap-4">
+							<ScanLibrary
+								scans={session}
+								activeId=""
+								onadd={add}
+								onselect={open}
+								onmetadata={metadata}
+								onremove={(id) => (session = session.filter((s) => s.id !== id))}
+								triggerLabel="Import dataset"
+								triggerClass="button h-11 rounded-lg bg-foreground px-5 text-background hover:bg-foreground/85"
+							/>
+							<span class="text-xs text-muted-foreground"
+								>NIfTI + b-values · BIDS / DICOM discovery</span
+							>
+						</div>
+					</div>
+					<div class="flex flex-col border-t bg-secondary/20 lg:border-t-0 lg:border-l">
+						<div class="flex flex-1 flex-col justify-between gap-8 p-7 sm:p-9">
+							<div
+								class="flex size-10 items-center justify-center rounded-lg border bg-card text-selection"
+							>
+								<UploadIcon class="size-5" aria-hidden="true" />
+							</div>
+							<div>
+								<p class="text-xs font-semibold tracking-widest text-muted-foreground uppercase">
+									Reference dataset
+								</p>
+								<h2 class="mt-2 text-xl font-semibold tracking-tight">OSIPI TF2.4 in-vivo brain</h2>
+								<p class="mt-2 text-sm text-muted-foreground">
+									IVIM acquisition · Zenodo download · 245 MB
+								</p>
+								{#if demoBusy}<div class="mt-5 flex flex-wrap items-center gap-3" role="status">
+										<span class="text-xs text-muted-foreground" aria-live="polite"
+											>{demoProgress}</span
+										><button class="button button-outline h-9" onclick={cancelDemo}>Cancel</button>
+									</div>{:else}<button
+										class="mt-5 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-foreground hover:text-selection"
+										onclick={demo}
+										>Download reference dataset <ArrowUpRightIcon
+											class="size-4"
+											aria-hidden="true"
+										/></button
+									>{/if}
+							</div>
+						</div>
+						<a
+							href={resolve('/nifti')}
+							class="flex min-h-18 items-center justify-between gap-4 border-t px-7 py-4 text-sm font-medium transition-colors hover:bg-accent/40 sm:px-9"
+							>Open standalone NIfTI viewer <ArrowUpRightIcon
+								class="size-4 text-muted-foreground"
+								aria-hidden="true"
+							/></a
+						>
+					</div>
+				</div>
+				<div class="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3 text-xs text-muted-foreground">
+					<span class="inline-flex items-center gap-2"
+						><ShieldIcon class="size-4 text-selection" aria-hidden="true" /> Images remain in this browser;
+						no remote upload. Clearing site data removes saved datasets.</span
+					>
+					{#if !__LOCAL_API_PROXY__}<LocalAnalysisSetup />{/if}
+					<span>Research use only. Not for diagnosis.</span>
+				</div>
+			</div>
+		{:else}
+			<div class="mx-auto max-w-7xl pt-8 sm:pt-12">
+				<div class="mb-7 flex flex-wrap items-end justify-between gap-4">
+					<div>
+						<p class="text-xs font-semibold tracking-widest text-muted-foreground uppercase">
+							Local library
+						</p>
+						<h1 class="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">
+							Saved datasets <span class="font-normal text-muted-foreground">{saved.length}</span>
+						</h1>
+					</div>
+					<div class="flex flex-wrap items-center gap-2">
+						<ScanLibrary
+							scans={session}
+							activeId=""
+							onadd={add}
+							onselect={open}
+							onmetadata={metadata}
+							onremove={(id) => (session = session.filter((s) => s.id !== id))}
+							triggerLabel="Import dataset"
+						/><a class="button button-outline h-8 px-2 text-xs" href={resolve('/nifti')}
+							>NIfTI viewer</a
+						>{#if !__LOCAL_API_PROXY__}<LocalAnalysisSetup />{/if}
+					</div>
+				</div>
+				<div class="mb-5 flex flex-wrap gap-2">
+					<label class="sr-only" for="library-search">Search saved datasets</label><input
+						id="library-search"
+						class="input h-9 min-w-0 flex-1 px-3 text-sm sm:max-w-xs"
+						type="search"
+						placeholder="Search datasets, subjects or studies"
+						bind:value={search}
+					/><select class="input h-9 text-xs" aria-label="Filter by technique" bind:value={filter}
+						><option value="all">All techniques</option
+						>{#each ['IVIM', 'DCE', 'DSC', 'ASL', 'Unassigned'] as technique (technique)}<option
+								>{technique}</option
+							>{/each}</select
+					>
+				</div>
+				<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+					{#each filtered as scan (scan.id)}<StoredDatasetCard
+							{scan}
+							ondelete={(s) => {
+								removal = s;
+								dialog.showModal();
+							}}
+						/>{/each}{#if !filtered.length}<p
+							class="col-span-full py-10 text-center text-sm text-muted-foreground"
+						>
+							No datasets match these filters.
+						</p>{/if}
+				</div>
+				<p class="mt-6 text-xs leading-5 text-muted-foreground">
+					Saved in this browser. Clearing site data removes local datasets; keep exported backups of
+					important work. Research use only.
 				</p>
 			</div>
-		{:else}<div class="mx-auto grid max-w-7xl gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-				{#each filtered as scan (scan.id)}<StoredDatasetCard
-						{scan}
-						ondelete={(s) => {
-							removal = s;
-							dialog.showModal();
-						}}
-					/>{/each}{#if !filtered.length}<p
-						class="col-span-full py-10 text-center text-sm text-muted-foreground"
-					>
-						No datasets match these filters.
-					</p>{/if}
-			</div>{/if}
-		<p class="mx-auto mt-6 max-w-7xl text-xs leading-5 text-muted-foreground">
-			Saved in this browser on this device, for this app address. Clearing site data removes local
-			datasets. Keep exported backups of important work.
-		</p>
+		{/if}
 	</div>
 </main>
 <dialog

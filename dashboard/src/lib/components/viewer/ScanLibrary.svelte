@@ -21,7 +21,8 @@
 		onselect,
 		onmetadata,
 		onremove,
-		triggerLabel = 'Scans / Import'
+		triggerLabel = 'Scans / Import',
+		triggerClass = 'button button-outline h-8 px-2 text-xs'
 	}: {
 		scans: Scan[];
 		activeId: string;
@@ -30,6 +31,7 @@
 		onmetadata: (id: string, metadata: ScanMetadata) => void;
 		onremove: (id: string) => void;
 		triggerLabel?: string;
+		triggerClass?: string;
 	} = $props();
 	let dialog: HTMLDialogElement;
 	const titleId = $props.id();
@@ -105,10 +107,7 @@
 	}
 </script>
 
-<button
-	class="button button-outline h-8 px-2 text-xs"
-	aria-label={triggerLabel}
-	onclick={() => dialog.showModal()}
+<button class={triggerClass} aria-label={triggerLabel} onclick={() => dialog.showModal()}
 	><span class="max-[899px]:hidden">{triggerLabel}</span><span class="min-[900px]:hidden"
 		>{triggerLabel === 'Scans / Import' ? 'Scans' : triggerLabel}</span
 	></button
