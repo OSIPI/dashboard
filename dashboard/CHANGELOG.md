@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.2 - 2026-09-29
+
+### Fixes
+
+- container: restore colored compact startup (ce3f0aa)
+
 ## 0.4.1 - 2026-09-29
 
 ### Fixes
