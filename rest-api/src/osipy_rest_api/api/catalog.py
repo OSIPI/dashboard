@@ -5,16 +5,15 @@ from __future__ import annotations
 import math
 
 import osipy
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 from osipy.ivim import get_ivim_model
 from osipy.ivim.models.registry import IVIM_MODEL_REGISTRY
 
 from osipy_rest_api import __version__
 from osipy_rest_api.core.ivim import effective_fitter_defaults, supported_fitter_strategies
 from osipy_rest_api.models.schemas import Catalog, CatalogModel, CatalogParameter, FitRequest
-from osipy_rest_api.security import require_session_token
 
-router = APIRouter(tags=["catalog"], dependencies=[Depends(require_session_token)])
+router = APIRouter(tags=["catalog"])
 
 _STATUS_CODES = {
     "0": "not_selected",

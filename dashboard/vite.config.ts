@@ -34,7 +34,7 @@ const getBaseVersion = (): string => {
 const buildSha = getSha();
 const appVersion = process.env.APP_VERSION ?? `${getBaseVersion()}-dev+${buildSha}`;
 
-function localApiProxy(token: string, port: number): Plugin {
+function localApiProxy(port: number): Plugin {
 	return {
 		name: 'local-osipy-api-proxy',
 		configureServer(server) {
@@ -67,7 +67,6 @@ function localApiProxy(token: string, port: number): Plugin {
 						path,
 						method: req.method,
 						headers: {
-							Authorization: `Bearer ${token}`,
 							...(req.headers['content-type']
 								? { 'Content-Type': req.headers['content-type'] }
 								: {}),
@@ -96,17 +95,15 @@ function localApiProxy(token: string, port: number): Plugin {
 }
 
 export default defineConfig(({ command }) => {
-	const localToken = command === 'serve' ? process.env.OSIPY_API_SESSION_TOKEN : undefined;
+	const localProxy = command === 'serve' && process.env.OSIPY_LOCAL_API_PROXY === '1';
 	const apiPort = Number(process.env.OSIPY_API_PORT ?? 60016);
 	if (!Number.isSafeInteger(apiPort) || apiPort < 1 || apiPort > 65535)
 		throw new Error('OSIPY_API_PORT must be a valid loopback port.');
-	const localProxy =
-		!!localToken || (command === 'build' && process.env.OSIPY_LOCAL_API_PROXY === '1');
 	return {
 		// Discover worker dependencies at startup, rather than reloading a session after its first export.
 		optimizeDeps: { include: ['nifti-reader-js', 'dicom-parser', 'fflate'] },
 		server: {
-			host: localToken ? '127.0.0.1' : '0.0.0.0',
+			host: localProxy ? '127.0.0.1' : '0.0.0.0',
 			port: 60010,
 			strictPort: true
 		},
@@ -122,7 +119,7 @@ export default defineConfig(({ command }) => {
 			__BUILD_DATE__: JSON.stringify(new Date().toISOString())
 		},
 		plugins: [
-			...(localToken ? [localApiProxy(localToken, apiPort)] : []),
+			...(localProxy ? [localApiProxy(apiPort)] : []),
 			tailwindcss(),
 			sveltekit(),
 			devtoolsJson(),

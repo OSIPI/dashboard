@@ -1,16 +1,12 @@
-"""Local-session HTTP protections for the dashboard-facing API."""
+"""Loopback HTTP protections for the dashboard-facing API."""
 
 from __future__ import annotations
 
-import hmac
-from typing import Annotated
-
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse, Response
 
 from osipy_rest_api.config import Settings
-from osipy_rest_api.deps import get_settings_dep
 
 
 def _allowed_hosts(settings: Settings) -> set[str]:
@@ -44,16 +40,3 @@ class LocalOnlyMiddleware(BaseHTTPMiddleware):
             # access this loopback service through Private Network Access.
             response.headers["Access-Control-Allow-Private-Network"] = "true"
         return response
-
-
-def require_session_token(
-    request: Request, settings: Annotated[Settings, Depends(get_settings_dep)]
-) -> None:
-    expected = f"Bearer {settings.session_token}"
-    supplied = request.headers.get("authorization", "")
-    if not hmac.compare_digest(supplied, expected):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid local session token",
-            headers={"WWW-Authenticate": "Bearer"},
-        )

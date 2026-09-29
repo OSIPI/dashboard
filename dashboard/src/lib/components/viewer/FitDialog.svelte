@@ -15,6 +15,7 @@
 		slice,
 		roiIndices = [],
 		method,
+		strategy,
 		result,
 		open = $bindable(false),
 		activeTab = $bindable<'configure' | 'results'>('configure'),
@@ -28,6 +29,7 @@
 		slice: number;
 		roiIndices?: number[];
 		method: string;
+		strategy: string;
 		result?: FitResult;
 		open: boolean;
 		activeTab: 'configure' | 'results';
@@ -38,6 +40,7 @@
 	let resultsTab: HTMLButtonElement;
 	const titleId = $props.id();
 	let config = $state<FitConfig>();
+	let configuredSelection = '';
 	let scope = $state<'voxel' | 'roi' | 'dataset'>('voxel');
 	let awaitingResultId = $state('');
 	const runningJob = $derived(
@@ -46,8 +49,11 @@
 	const ready = $derived(dataset.bValues.includes(0) && new Set(dataset.bValues).size >= 4);
 	const model = $derived(client.catalog?.models.find((item) => item.id === method));
 	$effect(() => {
-		if (client.catalog && model && (!config || config.model !== method))
-			config = { ...$state.snapshot(client.catalog.defaults), model: method };
+		const selection = `${method}:${strategy}`;
+		if (client.catalog && model && configuredSelection !== selection) {
+			configuredSelection = selection;
+			config = { ...$state.snapshot(client.catalog.defaults), model: method, method: strategy };
+		}
 	});
 	$effect(() => {
 		if (!dialog) return;
@@ -212,19 +218,47 @@
 						values.
 					</p>
 				</fieldset>
-				<div class="border-t pt-4">
-					<label class="block text-sm font-medium"
-						>Fit scope<select class="input mt-1 w-full" bind:value={scope}
-							><option value="voxel">Selected voxel</option><option
-								value="roi"
-								disabled={!roiIndices.length}>ROI · voxelwise ({roiIndices.length})</option
-							><option value="dataset">Whole dataset</option></select
-						></label
-					>
+				<fieldset class="border-t pt-4" disabled={client.busy || !!runningJob}>
+					<legend class="text-sm font-medium">Fit scope</legend>
+					<div class="mt-3 grid gap-2 sm:grid-cols-3">
+						{#each [{ value: 'voxel', title: 'Selected voxel', detail: 'Current image position' }, { value: 'roi', title: 'ROI · voxelwise', detail: `${roiIndices.length} selected voxels` }, { value: 'dataset', title: 'Whole dataset', detail: 'Entire 3D scan' }] as option (option.value)}
+							<label
+								class="flex min-h-24 cursor-pointer flex-col justify-between gap-3 rounded-xl border-2 p-3 text-sm transition-colors focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ring {scope ===
+								option.value
+									? 'border-selection bg-selection/10'
+									: 'border-border hover:border-selection/60'} {option.value === 'roi' &&
+								!roiIndices.length
+									? 'cursor-not-allowed opacity-50'
+									: ''}"
+							>
+								<input
+									class="sr-only"
+									type="radio"
+									name="fit-scope"
+									value={option.value}
+									bind:group={scope}
+									disabled={option.value === 'roi' && !roiIndices.length}
+								/>
+								<span class="flex items-center gap-2 font-medium">
+									<span
+										class="flex size-4 shrink-0 items-center justify-center rounded-full border-2 {scope ===
+										option.value
+											? 'border-selection'
+											: 'border-muted-foreground'}"
+										aria-hidden="true"
+										>{#if scope === option.value}<span class="size-2 rounded-full bg-selection"
+											></span>{/if}</span
+									>
+									{option.title}
+								</span>
+								<span class="text-xs text-muted-foreground">{option.detail}</span>
+							</label>
+						{/each}
+					</div>
 					{#if !ready}<p class="mt-2 text-sm text-destructive">
 							Fitting needs b=0 and at least four distinct b-values.
 						</p>{/if}
-				</div>
+				</fieldset>
 				<div class="flex flex-wrap justify-end gap-2 border-t pt-4">
 					<button class="button button-outline" type="button" onclick={close}>Cancel</button>
 					<button

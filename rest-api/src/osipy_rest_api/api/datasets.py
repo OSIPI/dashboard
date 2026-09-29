@@ -21,9 +21,8 @@ from osipy_rest_api.core.nifti_io import parse_bval_bytes, parse_nifti_bytes
 from osipy_rest_api.core.storage import Storage
 from osipy_rest_api.deps import get_settings_dep, get_storage
 from osipy_rest_api.models.schemas import DatasetMeta
-from osipy_rest_api.security import require_session_token
 
-router = APIRouter(tags=["datasets"], dependencies=[Depends(require_session_token)])
+router = APIRouter(tags=["datasets"])
 _MAX_BVAL_BYTES = 1024 * 1024
 _MAX_MULTIPART_OVERHEAD_BYTES = 64 * 1024
 _MAX_PART_HEADER_BYTES = 8 * 1024

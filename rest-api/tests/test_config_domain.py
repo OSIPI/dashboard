@@ -30,12 +30,6 @@ def test_settings_reject_public_bind_address():
         Settings(host="0.0.0.0")
 
 
-def test_short_random_local_session_token_is_accepted_but_shorter_is_rejected():
-    assert Settings(session_token="abcdefghijk").session_token == "abcdefghijk"
-    with pytest.raises(ValidationError):
-        Settings(session_token="abcdefghij")
-
-
 @pytest.mark.parametrize(
     "name", ["max_jobs", "max_datasets", "max_upload_bytes", "max_total_bytes"]
 )

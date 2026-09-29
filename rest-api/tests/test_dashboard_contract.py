@@ -1,4 +1,4 @@
-"""Focused dashboard contract, local-session protection, and cancellation tests."""
+"""Focused dashboard contract, local HTTP guards, and cancellation tests."""
 
 from __future__ import annotations
 
@@ -26,11 +26,13 @@ async def _upload(client):
     return response.json()["dataset_id"]
 
 
-async def test_catalog_requires_bearer_and_reports_verified_models(client, settings):
-    unauthenticated = await client.get("/catalog", headers={"Authorization": ""})
-    assert unauthenticated.status_code == 401
+async def test_catalog_allows_unauthenticated_local_access_and_retains_guards(client):
     blocked_host = await client.get("/catalog", headers={"Host": "example.test:8000"})
     assert blocked_host.status_code == 403
+    blocked_origin = await client.get(
+        "/catalog", headers={"Origin": "https://attacker.example"}
+    )
+    assert blocked_origin.status_code == 403
     catalog = await client.get("/catalog")
     assert catalog.status_code == 200
     body = catalog.json()

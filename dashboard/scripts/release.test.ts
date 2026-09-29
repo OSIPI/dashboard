@@ -382,7 +382,7 @@ test('dev-prod previews the Pages build without an embedded analysis API proxy',
 	const dashboardMakefile = readFileSync(new URL('dashboard/Makefile', repositoryRoot), 'utf8');
 	expect(rootMakefile).toContain('dev-prod:\n\t$(MAKE) -C dashboard dev-prod');
 	expect(dashboardMakefile).toContain('dev-prod:');
-	expect(dashboardMakefile).toContain('env -u OSIPY_API_SESSION_TOKEN -u OSIPY_LOCAL_API_PROXY');
+	expect(dashboardMakefile).toContain('env -u OSIPY_LOCAL_API_PROXY');
 	expect(dashboardMakefile).toContain('bun scripts/assert_sample_free.ts static');
 	expect(dashboardMakefile).toContain('bun run build');
 	expect(dashboardMakefile).toContain('bun scripts/assert_sample_free.ts build');
@@ -417,7 +417,7 @@ test('Pages builds and deploys the exact pushed main commit with least privilege
 	expect(workflow).not.toMatch(/gh release|release create|release upload|tags/);
 });
 
-test('container builds only the authenticated REST API, never the frontend or datasets', () => {
+test('container builds only the local REST API, never the frontend or datasets', () => {
 	const workflow = JSON.stringify(container);
 	expect(workflow).not.toContain('prepare_ivim.py');
 	expect(workflow).not.toContain('zenodo.org');

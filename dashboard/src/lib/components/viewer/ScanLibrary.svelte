@@ -125,7 +125,7 @@
 		<p class="text-sm text-muted-foreground">
 			Open NIfTI (.nii/.nii.gz) with b-values; discover BIDS folders or DICOM series. Files stay in
 			this browser on this device after a successful import. Running analysis sends samples only to
-			your authenticated loopback REST API, never a remote analysis service.
+			your loopback REST API, never a remote analysis service.
 		</p>
 		<div class="grid gap-3 sm:grid-cols-2">
 			<label class="rounded-lg border p-3 text-sm"

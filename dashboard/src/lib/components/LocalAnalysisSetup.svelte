@@ -46,7 +46,7 @@
 	{:else}
 		<p class="mt-2 text-sm leading-6 text-muted-foreground">
 			Run the local REST API and OSIPY together with Docker. The command pulls the latest published
-			image; keep the terminal open and copy its session token into the connection form.
+			image and exposes its API only on your computer's loopback port.
 		</p>
 		<pre class="mt-4 overflow-x-auto rounded-md border bg-background p-3 text-xs leading-5"><code
 				>{command}</code
@@ -72,28 +72,12 @@
 				bind:value={client.url}
 				placeholder="http://127.0.0.1:60016"
 			/>
-			<label class="block text-sm font-medium" for="api-token">Required session token</label>
-			<div class="flex gap-2">
-				<input
-					id="api-token"
-					class="input min-w-0 flex-1"
-					type="password"
-					autocomplete="off"
-					spellcheck="false"
-					placeholder="Paste token printed by the local API"
-					bind:value={client.token}
-					oninput={() => (client.error = '')}
-				/>
-				<button
-					class="button button-outline shrink-0"
-					type="submit"
-					disabled={client.busy || !client.token.trim()}
-					>{client.busy ? 'Connecting…' : client.catalog ? 'Reconnect' : 'Connect'}</button
-				>
-			</div>
+			<button class="button button-outline" type="submit" disabled={client.busy}
+				>{client.busy ? 'Connecting…' : client.catalog ? 'Reconnect' : 'Connect'}</button
+			>
 			<p class="text-xs text-muted-foreground">
-				The URL must use HTTP on localhost or 127.0.0.1. The required token remains in memory only.
-				If prompted, allow this site to access your local network.
+				The URL must use HTTP on localhost or 127.0.0.1. If prompted, allow this site to access your
+				local network.
 			</p>
 			{#if client.error}<p class="text-xs text-destructive" role="alert">{client.error}</p>{/if}
 		</form>

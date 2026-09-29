@@ -12,9 +12,8 @@ from osipy_rest_api.core.jobs import JobRunner
 from osipy_rest_api.core.storage import Storage
 from osipy_rest_api.deps import get_job_runner, get_storage
 from osipy_rest_api.models.schemas import FitCreated, FitRequest, JobView
-from osipy_rest_api.security import require_session_token
 
-router = APIRouter(tags=["fits"], dependencies=[Depends(require_session_token)])
+router = APIRouter(tags=["fits"])
 
 
 @router.post(

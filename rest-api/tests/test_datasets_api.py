@@ -100,7 +100,6 @@ async def test_upload_too_large_is_413():
     # Settings reach the datasets handler.
     app = build_app(Settings(
         cors_origins=["http://localhost:60010"],
-        session_token="test-local-session-token",
         max_datasets=3,
         max_total_bytes=50_000_000,
         data_ttl_seconds=3600,
@@ -112,7 +111,6 @@ async def test_upload_too_large_is_413():
         AsyncClient(
             transport=transport,
             base_url="http://127.0.0.1:8000",
-            headers={"Authorization": "Bearer test-local-session-token"},
         ) as c,
         app.router.lifespan_context(app),
     ):
@@ -129,7 +127,6 @@ async def test_upload_too_large_is_413():
 async def test_upload_compressed_bomb_is_413():
     app = build_app(Settings(
         cors_origins=["http://localhost:60010"],
-        session_token="test-local-session-token",
         max_datasets=3,
         max_total_bytes=50_000_000,
         data_ttl_seconds=3600,
@@ -140,7 +137,6 @@ async def test_upload_compressed_bomb_is_413():
         AsyncClient(
             transport=transport,
             base_url="http://127.0.0.1:8000",
-            headers={"Authorization": "Bearer test-local-session-token"},
         ) as c,
         app.router.lifespan_context(app),
     ):
@@ -174,40 +170,9 @@ async def test_upload_rejects_nonfinite_samples(client):
     assert (await _upload(client, data, bvals)).status_code == 422
 
 
-async def test_unauthenticated_large_multipart_is_rejected_before_form_parsing(
-    tmp_path, monkeypatch
-):
-    """Auth must run before Starlette can spool an upload to disk."""
-    app = build_app(Settings(
-        cors_origins=["http://localhost:60010"],
-        session_token="test-local-session-token",
-        max_datasets=3,
-        max_total_bytes=50_000_000,
-        data_ttl_seconds=3600,
-    ))
-
-    def no_spool(*args, **kwargs):
-        pytest.fail("multipart form parsing ran before authentication")
-
-    monkeypatch.setattr(starlette.formparsers, "SpooledTemporaryFile", no_spool)
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://127.0.0.1:8000") as c:
-        response = await c.post(
-            "/datasets",
-            files={
-                "nifti": ("large.nii.gz", b"x" * (1024 * 1024 + 1), "application/gzip"),
-                "bval": ("dwi.bval", b"0 100 200 800", "text/plain"),
-            },
-        )
-
-    assert response.status_code == 401
-    assert list(tmp_path.iterdir()) == []
-
-
 async def test_oversized_multipart_is_rejected_without_spooling(monkeypatch):
     app = build_app(Settings(
         cors_origins=["http://localhost:60010"],
-        session_token="test-local-session-token",
         max_datasets=3,
         max_total_bytes=50_000_000,
         data_ttl_seconds=3600,
@@ -223,7 +188,6 @@ async def test_oversized_multipart_is_rejected_without_spooling(monkeypatch):
         AsyncClient(
             transport=transport,
             base_url="http://127.0.0.1:8000",
-            headers={"Authorization": "Bearer test-local-session-token"},
         ) as c,
         app.router.lifespan_context(app),
     ):

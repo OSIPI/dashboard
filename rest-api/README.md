@@ -15,9 +15,9 @@ task-by-task implementation plans in [`docs/superpowers/plans/`](docs/superpower
 
 - **IVIM only.** Intravoxel incoherent motion diffusion analysis. DCE, DSC and ASL
   are deliberately left out for now, but the structure does not preclude them.
-- **Local-first.** Runs only on a loopback address and requires a bearer session
-  token on every API route. Host, Origin and CORS checks limit browser access to
-  explicitly configured dashboard origins.
+- **Local-first.** Runs only on a loopback address. No session token is required;
+  Host, Origin and CORS checks limit browser access to explicitly configured
+  dashboard origins.
 - **No persistence.** DWI data is sensitive; uploaded volumes and results live in
   memory only and are cleared on exit or after a TTL. Optional disk persistence and
   batch processing are planned but not built.
@@ -229,22 +229,21 @@ need request/concurrency limits and an OS/container memory limit as well.
 
 ## Safe local startup
 
-Set a private session token (at least 16 characters) and list only the dashboard
-origins that may call this API. The supported entry point validates that the bind
-host is loopback-only; do not start this package with a public `uvicorn --host`
-override.
+List only the dashboard origins that may call this API. The supported entry point
+validates that the bind host is loopback-only; do not start this package with a
+public `uvicorn --host` override. The API intentionally has no session-token
+authentication, so the loopback bind and browser-facing Host, Origin, and CORS
+guards must remain enabled.
 
 ```bash
-export OSIPY_API_SESSION_TOKEN="$(openssl rand -base64 32)"
 export OSIPY_API_CORS_ORIGINS='["http://localhost:60010","http://127.0.0.1:60010","https://osipi.github.io"]'
 uv sync
 uv run osipy-rest-api
 ```
 
-It binds to `127.0.0.1:8000` by default. Send the token only in
-`Authorization: Bearer <token>`; do not put it in a URL, persistent browser
-storage, exports, or logs. If no token is configured, a random token is generated
-and printed once at startup for an interactive local session.
+It binds to `127.0.0.1:8000` by default; set `OSIPY_API_PORT=60016` for the
+dashboard's default connection. Requests need no credentials. Configured dashboard origins are
+allowed; requests with another `Host` or `Origin` are rejected.
 
 ## Design choices up for review
 
@@ -268,7 +267,6 @@ be added later without breaking the endpoints above.
 
 ```bash
 uv sync
-export OSIPY_API_SESSION_TOKEN="$(openssl rand -base64 32)"
 uv run osipy-rest-api
 # API on http://127.0.0.1:8000, docs at /docs
 ```

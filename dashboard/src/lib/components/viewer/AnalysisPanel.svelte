@@ -13,6 +13,7 @@
 		dataset,
 		result,
 		selectedMethod,
+		selectedStrategy,
 		openPanel = $bindable(true),
 		onopen,
 		onselect
@@ -21,9 +22,10 @@
 		dataset: Dataset;
 		result?: FitResult;
 		selectedMethod?: string;
+		selectedStrategy?: string;
 		openPanel: boolean;
 		onopen: () => void;
-		onselect: (id: string) => void;
+		onselect: (id: string, strategy: string) => void;
 	} = $props();
 	const running = $derived(
 		client.runs.find((r) => ['pending', 'running', 'cancelling'].includes(r.state))
@@ -70,6 +72,7 @@
 			catalog={client.catalog}
 			canFit={!!client.catalog && ready}
 			selectedMethod={client.catalog ? selectedMethod : undefined}
+			selectedStrategy={client.catalog ? selectedStrategy : undefined}
 			{onselect}
 			compact
 		/>

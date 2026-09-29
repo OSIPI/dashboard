@@ -25,7 +25,6 @@ def _reset_settings_cache():
 def settings() -> Settings:
     return Settings(
         cors_origins=["http://localhost:60010"],
-        session_token="test-local-session-token",
         max_datasets=3,
         max_total_bytes=50_000_000,
         data_ttl_seconds=3600,
@@ -38,13 +37,12 @@ def app(settings):
 
 
 @pytest.fixture
-async def client(app, settings):
+async def client(app):
     transport = ASGITransport(app=app)
     async with (
         AsyncClient(
             transport=transport,
             base_url="http://127.0.0.1:8000",
-            headers={"Authorization": f"Bearer {settings.session_token}"},
         ) as c,
         app.router.lifespan_context(app),
     ):

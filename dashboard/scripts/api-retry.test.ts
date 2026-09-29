@@ -21,7 +21,7 @@ test('retries at the interval and stops after connecting', async () => {
 	}
 });
 
-test('waits for authorization and cancels pending retries on teardown', async () => {
+test('waits until attempts are allowed and cancels pending retries on teardown', async () => {
 	let allowed = false;
 	let attempts = 0;
 	const stop = retryUntilConnected(

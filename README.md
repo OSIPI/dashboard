@@ -22,7 +22,7 @@ To run the local OSIPY REST API for the dashboard:
 docker compose up
 ```
 
-Keep using <https://osipi.github.io/dashboard/>. Compose builds a Python-only image, publishes the authenticated REST API on `127.0.0.1:60016`, and prints a session token in the terminal. After importing a scan, paste that token into the local analysis connection. Rebuild after source changes with `docker compose up --build`. Stop `make dev` first; both commands use API port 60016.
+Keep using <https://osipi.github.io/dashboard/>. Compose builds a Python-only image, publishes the REST API on `127.0.0.1:60016`. The dashboard connects automatically when that port is available. Rebuild after source changes with `docker compose up --build`. Stop `make dev` first; both commands use API port 60016.
 
 To run the published REST API image without cloning:
 
@@ -30,7 +30,7 @@ To run the published REST API image without cloning:
 docker run --rm --pull=always -p 127.0.0.1:60016:60016 ghcr.io/osipi/dashboard:latest
 ```
 
-This pulls the local API with OSIPY installed; copy the printed session token into the public dashboard's local analysis connection. Use a versioned tag for a reproducible image. Only local port 60016 is exposed; do not publish it to a LAN or the internet.
+This pulls the local API with OSIPY installed; the public dashboard connects to it through the loopback port. Use a versioned tag for a reproducible image. Only local port 60016 is exposed; do not publish it to a LAN or the internet.
 
 See the [architecture diagram](dashboard/README.excalidraw.png) and its [editable Excalidraw source](dashboard/README.excalidraw).
 

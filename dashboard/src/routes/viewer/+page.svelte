@@ -182,8 +182,10 @@
 	let fitDialogOpen = $state(false);
 	let fitDialogTab = $state<'configure' | 'results'>('configure');
 	let fitMethod = $state('biexponential');
-	function configureFit(method: string) {
+	let fitStrategy = $state('segmented');
+	function configureFit(method: string, strategy: string) {
 		fitMethod = method;
+		fitStrategy = strategy;
 		fitDialogTab = 'configure';
 		fitDialogOpen = true;
 	}
@@ -252,13 +254,12 @@
 
 	onMount(() => {
 		alive = true;
-		if (__LOCAL_API_PROXY__) void analysis.connect();
+		void analysis.connect();
 		const stopRetry =
 			!import.meta.env.DEV && !__LOCAL_API_PROXY__
 				? retryUntilConnected(
 						() => !!analysis.catalog,
-						() =>
-							!document.hidden && !!analysis.token.trim() && !analysis.busy && !analysis.catalog,
+						() => !document.hidden && !analysis.busy && !analysis.catalog,
 						() => analysis.connect()
 					)
 				: undefined;
@@ -852,6 +853,7 @@
 						{dataset}
 						result={fitResult}
 						selectedMethod={fitMethod}
+						selectedStrategy={fitStrategy}
 						bind:openPanel={preferences.current.analysisOpen}
 						onopen={openAnalysis}
 						onselect={configureFit}
@@ -962,6 +964,7 @@
 		{slice}
 		roiIndices={roiSession?.current?.indices ?? []}
 		method={fitMethod}
+		strategy={fitStrategy}
 		bind:open={fitDialogOpen}
 		bind:activeTab={fitDialogTab}
 		onrun={() => {

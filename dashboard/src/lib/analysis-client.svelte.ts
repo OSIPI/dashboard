@@ -44,7 +44,6 @@ type ApiJob = {
 export class AnalysisClient {
 	onresult?: (result: FitResult) => void;
 	url = $state('http://127.0.0.1:60016');
-	token = $state('');
 	catalog = $state<Catalog>();
 	runs = $state<FitJob[]>([]);
 	results = $state.raw<FitResult[]>([]);
@@ -67,10 +66,7 @@ export class AnalysisClient {
 			...init,
 			redirect: 'error',
 			signal: this.controller.signal,
-			headers: {
-				...(!__LOCAL_API_PROXY__ ? { Authorization: `Bearer ${this.token.trim()}` } : {}),
-				...init.headers
-			}
+			headers: init.headers
 		});
 		if (!response.ok) {
 			const body = await response.json().catch(() => ({}));
@@ -84,8 +80,6 @@ export class AnalysisClient {
 		this.busy = true;
 		try {
 			this.endpoint = __LOCAL_API_PROXY__ ? '/local-api' : localApiUrl(this.url);
-			if (!__LOCAL_API_PROXY__ && !this.token.trim())
-				throw new Error('Paste the required local API session token.');
 			this.controller.abort();
 			this.controller = new AbortController();
 			clearTimeout(this.timer);

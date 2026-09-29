@@ -7,13 +7,15 @@
 		canFit = false,
 		compact = false,
 		selectedMethod,
+		selectedStrategy,
 		onselect
 	}: {
 		catalog?: Catalog;
 		canFit?: boolean;
 		compact?: boolean;
 		selectedMethod?: string;
-		onselect: (id: string) => void;
+		selectedStrategy?: string;
+		onselect: (id: string, strategy: string) => void;
 	} = $props();
 	let expanded = $state(false);
 	const names: Record<string, string> = {
@@ -54,13 +56,13 @@
 	</summary>
 	<div
 		class="mt-1 overflow-y-auto rounded-md border bg-card p-3 {compact
-			? 'max-h-64 w-full'
+			? 'max-h-[min(60dvh,28rem)] w-full'
 			: 'absolute left-0 z-30 max-h-[min(65dvh,32rem)] w-[min(22rem,calc(100vw-1rem))] shadow-lg max-[899px]:right-2 max-[899px]:left-2 max-[899px]:max-h-[calc(100dvh-14rem)] max-[899px]:w-auto'}"
 	>
 		<h2 class="text-sm font-semibold">OSIPY IVIM models</h2>
 		{#if catalog?.library?.length}
 			<p class="mt-1 text-muted-foreground">
-				OSIPY {catalog.osipyVersion}. Choose a signal model, then configure its fitter strategy.
+				OSIPY {catalog.osipyVersion}. Choose a model and fitting strategy to configure.
 			</p>
 			{#each catalog.library as section (section.technique)}
 				<section class="mt-3 border-t pt-2" aria-label={section.technique}>
@@ -72,19 +74,30 @@
 								{#each group.methods as method (method)}
 									<li>
 										{#if section.technique === 'IVIM' && catalog.models.some((model) => model.id === method)}
-											<button
-												type="button"
-												class="flex min-h-9 w-full items-center justify-between gap-2 rounded-md px-2 text-left hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-50"
-												aria-current={selectedMethod === method ? 'true' : undefined}
-												disabled={!canFit}
-												onclick={() => {
-													expanded = false;
-													onselect(method);
-												}}
-												><span title={method}>{label(method)}</span><span
-													class="shrink-0 text-selection">Configure →</span
-												></button
-											>
+											{@const model = catalog.models.find((item) => item.id === method)!}
+											<div class="px-2 pt-2 font-medium">{label(method)}</div>
+											<ul class="ml-2 border-l pl-2">
+												{#each model.fitterStrategies as strategy (strategy)}
+													<li>
+														<button
+															type="button"
+															class="flex min-h-9 w-full items-center justify-between gap-2 rounded-md px-2 text-left hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-50"
+															aria-current={selectedMethod === method &&
+															selectedStrategy === strategy
+																? 'true'
+																: undefined}
+															disabled={!canFit}
+															onclick={() => {
+																expanded = false;
+																onselect(method, strategy);
+															}}
+															><span>{label(strategy)}</span><span class="shrink-0 text-selection"
+																>Configure →</span
+															></button
+														>
+													</li>
+												{/each}
+											</ul>
 										{:else}<div
 												class="flex items-baseline justify-between gap-2 px-2 py-1 text-muted-foreground"
 											>

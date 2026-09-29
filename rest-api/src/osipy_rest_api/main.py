@@ -59,7 +59,7 @@ def build_app(settings: Settings | None = None) -> FastAPI:
         CORSMiddleware,
         allow_origins=settings.cors_origins,
         allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
-        allow_headers=["Authorization", "Content-Type"],
+        allow_headers=["Content-Type"],
         allow_credentials=False,
         max_age=600,
     )
@@ -91,5 +91,4 @@ def main() -> None:
     import uvicorn
 
     settings = get_settings()
-    logger.warning("Local API session token (keep private): %s", settings.session_token)
     uvicorn.run(build_app(settings), host=settings.host, port=settings.port)

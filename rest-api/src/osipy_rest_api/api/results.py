@@ -19,7 +19,6 @@ from osipy_rest_api.core.nifti_io import (
 from osipy_rest_api.core.storage import Storage
 from osipy_rest_api.deps import get_storage
 from osipy_rest_api.models.schemas import VoxelView
-from osipy_rest_api.security import require_session_token
 
 
 async def _succeeded_job(job_id: str, storage: Storage):
@@ -33,7 +32,7 @@ async def _succeeded_job(job_id: str, storage: Storage):
     return job
 
 
-router = APIRouter(tags=["results"], dependencies=[Depends(require_session_token)])
+router = APIRouter(tags=["results"])
 
 
 @router.get("/fits/{job_id}/maps/{name}")

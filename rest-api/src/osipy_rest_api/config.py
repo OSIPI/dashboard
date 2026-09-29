@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-import secrets
 from functools import lru_cache
 
-from pydantic import Field, PositiveInt, field_validator
+from pydantic import PositiveInt, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -26,20 +25,12 @@ class Settings(BaseSettings):
     max_total_bytes: PositiveInt = 2_147_483_648
     host: str = "127.0.0.1"
     port: int = 8000
-    session_token: str = Field(default_factory=lambda: secrets.token_urlsafe(32))
 
     @field_validator("host")
     @classmethod
     def _loopback_host_only(cls, value: str) -> str:
         if value not in {"127.0.0.1", "localhost", "::1"}:
             raise ValueError("host must be a loopback address")
-        return value
-
-    @field_validator("session_token")
-    @classmethod
-    def _token_is_safe(cls, value: str) -> str:
-        if len(value) < 11:
-            raise ValueError("session_token must contain at least 11 characters")
         return value
 
     @field_validator("cors_origins")
