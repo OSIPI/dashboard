@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.0 - 2026-09-29
+
+### Features
+
+- dashboard: simplify local analysis connection (0a50f40)
+
 ## 0.4.2 - 2026-09-29
 
 ### Fixes
