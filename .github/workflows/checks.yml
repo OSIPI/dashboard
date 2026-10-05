@@ -65,7 +65,7 @@ jobs:
 
       - name: Build local dashboard image without publishing
         working-directory: .
-        run: docker build -f dashboard/Dockerfile .
+        run: docker build -f Dockerfile .
 
   rest-api:
     runs-on: ubuntu-latest
