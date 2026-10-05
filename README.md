@@ -2,7 +2,7 @@
 
 This repository contains the OSIPY web platform.
 
-- [`dashboard/`](dashboard/) contains the SvelteKit dashboard.
+- [`dashboard/`](frontend/) contains the SvelteKit dashboard.
 - [`rest-api/`](rest-api/) contains the optional local IVIM analysis backend consumed by the dashboard.
 
 ## Dashboard development
@@ -32,7 +32,7 @@ docker run --rm --pull=always -p 127.0.0.1:60016:60016 ghcr.io/osipi/dashboard:l
 
 This pulls the local API with OSIPY installed; the public dashboard connects to it through the loopback port. Use a versioned tag for a reproducible image. Only local port 60016 is exposed; do not publish it to a LAN or the internet.
 
-See the [architecture diagram](dashboard/README.excalidraw.png) and its [editable Excalidraw source](dashboard/README.excalidraw).
+See the [architecture diagram](frontend/README.excalidraw.png) and its [editable Excalidraw source](frontend/README.excalidraw).
 
 ## Releases
 
