@@ -2,7 +2,7 @@
 
 This repository contains the OSIPY web platform.
 
-- [`dashboard/`](frontend/) contains the SvelteKit dashboard.
+- [`frontend/`](frontend/) contains the SvelteKit dashboard.
 - [`rest-api/`](rest-api/) contains the optional local IVIM analysis backend consumed by the dashboard.
 
 ## Dashboard development
@@ -12,7 +12,7 @@ make dev
 ```
 
 The dashboard is available at <http://localhost:60010>.
-Run `make stop` from the repository root to stop the frontend and REST API started by `make dev` (also available in `dashboard/`). This does not stop Docker Compose or unrelated servers. Stopping the API removes its in-memory datasets and run history.
+Run `make stop` from the repository root to stop the frontend and REST API started by `make dev` (also available in `frontend/`). This does not stop Docker Compose or unrelated servers. Stopping the API removes its in-memory datasets and run history.
 
 To preview the production Pages build locally, run `make dev-prod` and open <http://127.0.0.1:60014/dashboard/>. It starts only the static frontend. Run the local REST API separately for fitting; stop each process in its own terminal.
 

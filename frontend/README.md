@@ -1,6 +1,6 @@
 # OSIPY Dashboard
 
-An inspectable in-vivo IVIM MRI workspace for OSIPY projects. This app lives in the repository's `dashboard/` directory; run dashboard commands from here unless a command says otherwise.
+An inspectable in-vivo IVIM MRI workspace for OSIPY projects. This app lives in the repository's `frontend/` directory; run dashboard commands from here unless a command says otherwise.
 
 The dashboard can load the public OSIPI TF2.4 brain series or local NIfTI diffusion MRI files, explore images and signals, manage ROIs, compare scans, and export interoperable analysis bundles. Optional local IVIM fitting runs through the loopback-only `../rest-api` Python package. MRI data is not sent to a remote analysis service.
 
@@ -11,7 +11,7 @@ This is research software, not a medical device or diagnostic tool. Missing, inv
 From the repository root:
 
 ```sh
-cd dashboard
+cd frontend
 bun install
 bun run dev
 ```

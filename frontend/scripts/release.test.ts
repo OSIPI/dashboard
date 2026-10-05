@@ -376,7 +376,7 @@ const container = Bun.YAML.parse(
 test('repository root owns release entry points and documents all release effects', () => {
 	const makefile = readFileSync(new URL('Makefile', repositoryRoot), 'utf8');
 	expect(makefile).toContain('release:');
-	expect(makefile).toContain('bun dashboard/scripts/release.ts');
+	expect(makefile).toContain('bun frontend/scripts/release.ts');
 	expect(makefile).toContain('release-dry-run:');
 	const agents = readFileSync(new URL('AGENTS.md', repositoryRoot), 'utf8');
 	for (const requirement of [
@@ -391,18 +391,18 @@ test('repository root owns release entry points and documents all release effect
 
 test('dev-prod previews the Pages build without an embedded analysis API proxy', () => {
 	const rootMakefile = readFileSync(new URL('Makefile', repositoryRoot), 'utf8');
-	const dashboardMakefile = readFileSync(new URL('dashboard/Makefile', repositoryRoot), 'utf8');
-	expect(rootMakefile).toContain('dev-prod:\n\t$(MAKE) -C dashboard dev-prod');
-	expect(dashboardMakefile).toContain('dev-prod:');
-	expect(dashboardMakefile).toContain('env -u OSIPY_LOCAL_API_PROXY');
-	expect(dashboardMakefile).toContain('bun scripts/assert_sample_free.ts static');
-	expect(dashboardMakefile).toContain('bun run build');
-	expect(dashboardMakefile).toContain('bun scripts/assert_sample_free.ts build');
-	expect(dashboardMakefile).toContain(
+	const frontendMakefile = readFileSync(new URL('frontend/Makefile', repositoryRoot), 'utf8');
+	expect(rootMakefile).toContain('dev-prod:\n\t$(MAKE) -C frontend dev-prod');
+	expect(frontendMakefile).toContain('dev-prod:');
+	expect(frontendMakefile).toContain('env -u OSIPY_LOCAL_API_PROXY');
+	expect(frontendMakefile).toContain('bun scripts/assert_sample_free.ts static');
+	expect(frontendMakefile).toContain('bun run build');
+	expect(frontendMakefile).toContain('bun scripts/assert_sample_free.ts build');
+	expect(frontendMakefile).toContain(
 		'bun run preview -- --host 127.0.0.1 --port 60014 --strictPort'
 	);
-	expect(dashboardMakefile).not.toContain('sh scripts/dev-prod.sh');
-	expect(dashboardMakefile).not.toContain('docker run');
+	expect(frontendMakefile).not.toContain('sh scripts/dev-prod.sh');
+	expect(frontendMakefile).not.toContain('docker run');
 });
 
 test('Pages builds and deploys the exact pushed main commit with least privilege', () => {
@@ -457,7 +457,7 @@ test('container builds only the local REST API, never the frontend or datasets',
 test('release structure preserves local gates, freezes before commit and atomically pushes before publication', () => {
 	const source = readFileSync(new URL('./release.ts', import.meta.url), 'utf8');
 	for (const gate of [
-		"assertSampleFreeDirectory(resolve(dashboardDir, 'static'))",
+		"assertSampleFreeDirectory(resolve(frontendDir, 'static'))",
 		"['run', 'check']",
 		"['test']",
 		"['-m', 'pytest', 'tests']",
@@ -531,12 +531,12 @@ test('dry-run uses only read-only Git calls, leaves files/index/receipts untouch
 	}
 });
 
-test('dry-run reads package.json from dashboard/ and metadata files from the repository root', () => {
-	const directory = mkdtempSync(join(tmpdir(), 'dashboard-monorepo-release-test-'));
+test('dry-run reads package.json from frontend/ and metadata files from the repository root', () => {
+	const directory = mkdtempSync(join(tmpdir(), 'frontend-monorepo-release-test-'));
 	const script = new URL('./release.ts', import.meta.url).pathname;
 	try {
-		mkdirSync(join(directory, 'dashboard'));
-		writeFileSync(join(directory, 'dashboard/package.json'), '{"version":"0.0.1"}\n');
+		mkdirSync(join(directory, 'frontend'));
+		writeFileSync(join(directory, 'frontend/package.json'), '{"version":"0.0.1"}\n');
 		writeFileSync(join(directory, 'codemeta.json'), '{"softwareVersion":"0.0.1"}\n');
 		writeFileSync(join(directory, 'CITATION.cff'), "cff-version: 1.2.0\nversion: '0.0.1'\n");
 		writeFileSync(join(directory, 'CHANGELOG.md'), '# Changelog\n\n## Unreleased\n');
@@ -546,9 +546,9 @@ test('dry-run reads package.json from dashboard/ and metadata files from the rep
 		execFileSync('git', ['add', '.'], { cwd: directory });
 		execFileSync('git', ['commit', '-m', 'chore: baseline'], { cwd: directory });
 		execFileSync('git', ['tag', '-a', 'v0.0.1', '-m', 'baseline'], { cwd: directory });
-		writeFileSync(join(directory, 'dashboard/feature.txt'), 'feature\n');
+		writeFileSync(join(directory, 'frontend/feature.txt'), 'feature\n');
 		execFileSync('git', ['add', '.'], { cwd: directory });
-		execFileSync('git', ['commit', '-m', 'feat: add dashboard feature'], { cwd: directory });
+		execFileSync('git', ['commit', '-m', 'feat: add frontend feature'], { cwd: directory });
 		const result = spawnSync(process.execPath, [script, '--dry-run'], {
 			cwd: directory,
 			encoding: 'utf8'

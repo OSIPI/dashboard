@@ -2,9 +2,9 @@
 
 ## Layout
 
-- `dashboard/` contains the SvelteKit dashboard; `rest-api/` is its optional local Python analysis backend.
+- `frontend/` contains the SvelteKit dashboard; `rest-api/` is its optional local Python analysis backend.
 - Repository-level automation, release entry points, CI, Docker packaging (`Dockerfile`, `docker/`), and project/governance metadata (`CITATION.cff`, `codemeta.json`, `.zenodo.json`, `CHANGELOG.md`, `CONTRIBUTING.md`, `SECURITY.md`, `GOVERNANCE.md`, `CODE_OF_CONDUCT.md`, `ROADMAP.md`) live at the root.
-- Keep project-specific implementation guidance in `dashboard/AGENTS.md`.
+- Keep project-specific implementation guidance in `frontend/AGENTS.md`.
 
 ## Releases
 
@@ -16,11 +16,11 @@ Never run `make release` without explicit authorization to commit, tag, push, pu
 
 1. Require full Git history, a clean, current `main`, a reachable stable `vX.Y.Z` baseline, matching remote tags, and local HEAD equal to live `OSIPI/dashboard` main.
 2. Read Conventional Commits since the latest reachable `v*` tag. `fix`/`perf` selects patch, `feat` selects minor, and `!`, `BREAKING CHANGE:`, or `BREAKING-CHANGE:` selects major; the highest required bump wins.
-3. Update every authoritative dashboard version in `dashboard/package.json`, `CITATION.cff`, and `codemeta.json`, then prepend UTC-dated categorized notes to `CHANGELOG.md`.
-4. Run dashboard type checks, Bun tests, Python REST API tests, prepared-data verification, and the production build locally. This static web release has no platform signing or notarization step. Freeze the built archive and SHA-256 outside the disposable build directory.
+3. Update every authoritative dashboard version in `frontend/package.json`, `CITATION.cff`, and `codemeta.json`, then prepend UTC-dated categorized notes to `CHANGELOG.md`.
+4. Run frontend type checks, Bun tests, Python REST API tests, prepared-data verification, and the production build locally. This static web release has no platform signing or notarization step. Freeze the built archive and SHA-256 outside the disposable build directory.
 5. Create only `chore(release): vX.Y.Z`, create an annotated `vX.Y.Z` tag bound to the source and archive checksum, then atomically push `main` and the tag.
 6. Create or reconcile a draft GitHub Release, upload and read back the exact frozen archive and checksum, and publish only after verification. GitHub Release publication remains separate from the main-push Pages workflow, which checks out and builds the exact pushed commit.
 
 Retries use the receipt under `.git`, preserve the frozen archive, reconcile remote state, and refuse unrelated edits, conflicting tags, duplicate releases, changed assets, force pushes, or clobbering. Rerun the same `make release` after resolving a failure; never delete the receipt or rebuild published bytes to bypass a mismatch.
 
-Before changing release behavior, add or update tests in `dashboard/scripts/release.test.ts`. Verify with `cd dashboard && bun test scripts/release.test.ts`, `make release-dry-run`, and `git diff --check`. Never use a real release as a test.
+Before changing release behavior, add or update tests in `frontend/scripts/release.test.ts`. Verify with `cd frontend && bun test scripts/release.test.ts`, `make release-dry-run`, and `git diff --check`. Never use a real release as a test.

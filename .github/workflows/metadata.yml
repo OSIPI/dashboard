@@ -42,7 +42,7 @@ jobs:
           import json
           import pathlib
 
-          package = json.loads(pathlib.Path("dashboard/package.json").read_text())
+          package = json.loads(pathlib.Path("frontend/package.json").read_text())
           assert package["name"] == "osipy-dashboard"
           assert package["license"] == "MIT"
           assert package["repository"]["url"] == "git+https://github.com/OSIPI/dashboard.git"

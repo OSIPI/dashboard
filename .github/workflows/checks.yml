@@ -12,7 +12,7 @@ permissions:
 
 defaults:
   run:
-    working-directory: dashboard
+    working-directory: frontend
 
 concurrency:
   group: checks-${{ github.event.pull_request.number || 'main' }}

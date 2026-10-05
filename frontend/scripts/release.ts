@@ -17,7 +17,7 @@ import { assertSampleFreeArchive, assertSampleFreeDirectory } from './assert_sam
 
 const files = ['package.json', 'CITATION.cff', 'codemeta.json', 'CHANGELOG.md'];
 const gitPaths: Record<string, string> = {
-	'package.json': 'dashboard/package.json',
+	'package.json': 'frontend/package.json',
 	'CITATION.cff': 'CITATION.cff',
 	'codemeta.json': 'codemeta.json',
 	'CHANGELOG.md': 'CHANGELOG.md'
@@ -455,14 +455,14 @@ export function release(dry: boolean) {
 	for (const file of files) writeFileSync(gitFiles[file], after[file]);
 	if (!state.archive) {
 		if (state.pushed || state.releaseId) throw new Error('Missing frozen archive checkpoint');
-		const dashboardDir = resolve(root, 'dashboard');
+		const frontendDir = resolve(root, 'frontend');
 		const python = resolveReleasePython(process.env.RELEASE_PYTHON, root);
-		assertSampleFreeDirectory(resolve(dashboardDir, 'static'));
-		run('bun', ['run', 'check'], process.env, dashboardDir);
-		run('bun', ['test'], process.env, dashboardDir);
+		assertSampleFreeDirectory(resolve(frontendDir, 'static'));
+		run('bun', ['run', 'check'], process.env, frontendDir);
+		run('bun', ['test'], process.env, frontendDir);
 		run(python, ['-m', 'pytest', 'tests'], process.env, resolve(root, 'rest-api'));
-		run('bun', ['run', 'build'], { ...process.env, APP_VERSION: tag, APP_SHA: base }, dashboardDir);
-		const buildDir = resolve(dashboardDir, 'build');
+		run('bun', ['run', 'build'], { ...process.env, APP_VERSION: tag, APP_SHA: base }, frontendDir);
+		const buildDir = resolve(frontendDir, 'build');
 		assertSampleFreeDirectory(buildDir);
 		writeFileSync(
 			resolve(buildDir, 'release.json'),
