@@ -67,6 +67,10 @@ jobs:
         working-directory: .
         run: docker build -f Dockerfile .
 
+      - name: Build frontend image without publishing
+        working-directory: .
+        run: docker build -f frontend/Dockerfile frontend
+
   rest-api:
     runs-on: ubuntu-latest
     defaults:

@@ -6,3 +6,12 @@ services:
     ports:
       - '127.0.0.1:60016:60016'
     init: true
+
+  frontend:
+    build:
+      context: frontend
+      dockerfile: Dockerfile
+    ports:
+      - '127.0.0.1:60014:80'
+    depends_on:
+      - api
