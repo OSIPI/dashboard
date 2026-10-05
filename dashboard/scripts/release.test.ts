@@ -427,16 +427,17 @@ test('container builds only the local REST API, never the frontend or datasets',
 	const dockerignore = readFileSync(new URL('.dockerignore', repositoryRoot), 'utf8');
 	expect(dockerignore).toContain('**/data\n');
 	expect(dockerignore).toContain('**/static/datasets\n');
-	const dockerfile = readFileSync(new URL('dashboard/Dockerfile', repositoryRoot), 'utf8');
+	const dockerfile = readFileSync(new URL('Dockerfile', repositoryRoot), 'utf8');
 	expect(dockerfile).toContain('COPY rest-api/src /app/rest-api/src');
 	expect(dockerfile).toContain('CMD ["sh", "/app/api-entrypoint.sh"]');
-	expect(dockerfile).not.toMatch(/COPY\s+(?:\.|(?:static|build|data|docker)(?:\s|\/))/);
+	expect(dockerfile).not.toMatch(/COPY\s+(?:\.|(?:static|build|data)(?:\s|\/))/);
+	expect(dockerfile).not.toMatch(/COPY\s+docker(?:\s|\/)(?!api-entrypoint\.sh)/);
 	expect(container.jobs.publish.steps.at(-1)?.with.context).toBe('.');
 	const ciImage = checks.jobs.container.steps.find((step) =>
 		step.name?.includes('Build local dashboard image')
 	);
 	expect(ciImage?.['working-directory']).toBe('.');
-	expect(ciImage?.run).toBe('docker build -f dashboard/Dockerfile .');
+	expect(ciImage?.run).toBe('docker build -f Dockerfile .');
 	const compose = readFileSync(new URL('docker-compose.yml', repositoryRoot), 'utf8');
 	expect(compose).toContain('127.0.0.1:60016:60016');
 });
@@ -444,12 +445,12 @@ test('container builds only the local REST API, never the frontend or datasets',
 test('release structure preserves local gates, freezes before commit and atomically pushes before publication', () => {
 	const source = readFileSync(new URL('./release.ts', import.meta.url), 'utf8');
 	for (const gate of [
-		"assertSampleFreeDirectory('static')",
+		"assertSampleFreeDirectory(resolve(dashboardDir, 'static'))",
 		"['run', 'check']",
 		"['test']",
-		"['-m', 'pytest', '../rest-api/tests']",
+		"['-m', 'pytest', 'tests']",
 		"['run', 'build']",
-		"assertSampleFreeDirectory('build')",
+		'assertSampleFreeDirectory(buildDir)',
 		'assertSampleFreeArchive(`${path}.tmp`)'
 	])
 		expect(source).toContain(gate);
@@ -481,9 +482,12 @@ test('dry-run uses only read-only Git calls, leaves files/index/receipts untouch
 		status: localGit('status', '--porcelain', '--untracked-files=all'),
 		head: localGit('rev-parse', 'HEAD'),
 		index: fileDigest(resolve(root, indexPath)),
-		files: ['package.json', 'CITATION.cff', 'codemeta.json', 'CHANGELOG.md'].map((file) =>
-			fileDigest(join(root, file))
-		),
+		files: [
+			join(root, 'package.json'),
+			join(root, '..', 'CITATION.cff'),
+			join(root, '..', 'codemeta.json'),
+			join(root, '..', 'CHANGELOG.md')
+		].map(fileDigest),
 		gitEntries: readdirSync(resolve(root, localGit('rev-parse', '--git-dir'))).sort()
 	});
 	try {
@@ -515,18 +519,15 @@ test('dry-run uses only read-only Git calls, leaves files/index/receipts untouch
 	}
 });
 
-test('dry-run reads authoritative versions from dashboard in a monorepo', () => {
+test('dry-run reads package.json from dashboard/ and metadata files from the repository root', () => {
 	const directory = mkdtempSync(join(tmpdir(), 'dashboard-monorepo-release-test-'));
 	const script = new URL('./release.ts', import.meta.url).pathname;
 	try {
 		mkdirSync(join(directory, 'dashboard'));
 		writeFileSync(join(directory, 'dashboard/package.json'), '{"version":"0.0.1"}\n');
-		writeFileSync(join(directory, 'dashboard/codemeta.json'), '{"softwareVersion":"0.0.1"}\n');
-		writeFileSync(
-			join(directory, 'dashboard/CITATION.cff'),
-			"cff-version: 1.2.0\nversion: '0.0.1'\n"
-		);
-		writeFileSync(join(directory, 'dashboard/CHANGELOG.md'), '# Changelog\n\n## Unreleased\n');
+		writeFileSync(join(directory, 'codemeta.json'), '{"softwareVersion":"0.0.1"}\n');
+		writeFileSync(join(directory, 'CITATION.cff'), "cff-version: 1.2.0\nversion: '0.0.1'\n");
+		writeFileSync(join(directory, 'CHANGELOG.md'), '# Changelog\n\n## Unreleased\n');
 		execFileSync('git', ['init', '-b', 'main'], { cwd: directory });
 		execFileSync('git', ['config', 'user.name', 'Release Test'], { cwd: directory });
 		execFileSync('git', ['config', 'user.email', 'release@example.invalid'], { cwd: directory });
