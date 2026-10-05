@@ -8,7 +8,7 @@ Run from the repository root. `make release` is the intentional one-command rele
 
 Before a real release, finish review/merge, fetch origin and tags yourself, and check out clean, current `main`. Full history and a reachable stable `vX.Y.Z` baseline are required (initial baseline: `v0.0.1`). Latest means highest stable SemVer reachable from HEAD. Unsupported reachable `v*` tags fail closed. No qualifying commits means no new release.
 
-Install locked Bun dependencies in `dashboard/`, Git, GitHub CLI and the REST API Python environment separately. `RELEASE_PYTHON` defaults to `rest-api/.venv/bin/python` from the repository root. Existing Git HTTPS and `gh` authentication must allow pushing main/tags and managing Releases in `OSIPI/dashboard`; branch protections must permit the release commit. No credentials are printed, exported or stored by the script. Configure Pages to use GitHub Actions and permit the `github-pages` environment to deploy from `main`.
+Install locked Bun dependencies in `dashboard/`, Git, GitHub CLI and the REST API Python environment separately. `RELEASE_PYTHON` defaults to `rest-api/.venv/bin/python` from the repository root; a relative override resolves from `rest-api/`, an absolute override is used as-is. Existing Git HTTPS and `gh` authentication must allow pushing main/tags and managing Releases in `OSIPI/dashboard`; branch protections must permit the release commit. No credentials are printed, exported or stored by the script. Configure Pages to use GitHub Actions and permit the `github-pages` environment to deploy from `main`.
 
 ## One-command release
 

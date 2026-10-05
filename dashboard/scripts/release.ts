@@ -12,7 +12,7 @@ import {
 	rmdirSync,
 	renameSync
 } from 'node:fs';
-import { resolve } from 'node:path';
+import { isAbsolute, resolve } from 'node:path';
 import { assertSampleFreeArchive, assertSampleFreeDirectory } from './assert_sample_free';
 
 const files = ['package.json', 'CITATION.cff', 'codemeta.json', 'CHANGELOG.md'];
@@ -94,6 +94,11 @@ export function versionFiles(source: Record<string, string>, version: string) {
 		`version: '${version}'`
 	);
 	return result;
+}
+
+export function resolveReleasePython(override: string | undefined, root: string) {
+	if (!override) return resolve(root, 'rest-api/.venv/bin/python');
+	return isAbsolute(override) ? override : resolve(root, 'rest-api', override);
 }
 
 export function validateRetryContent(
@@ -451,7 +456,7 @@ export function release(dry: boolean) {
 	if (!state.archive) {
 		if (state.pushed || state.releaseId) throw new Error('Missing frozen archive checkpoint');
 		const dashboardDir = resolve(root, 'dashboard');
-		const python = process.env.RELEASE_PYTHON ?? resolve(root, 'rest-api/.venv/bin/python');
+		const python = resolveReleasePython(process.env.RELEASE_PYTHON, root);
 		assertSampleFreeDirectory(resolve(dashboardDir, 'static'));
 		run('bun', ['run', 'check'], process.env, dashboardDir);
 		run('bun', ['test'], process.env, dashboardDir);

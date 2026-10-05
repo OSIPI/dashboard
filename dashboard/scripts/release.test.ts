@@ -5,7 +5,8 @@ import {
 	prependNotes,
 	versionFiles,
 	validateRetryContent,
-	validateRemoteTags
+	validateRemoteTags,
+	resolveReleasePython
 } from './release';
 
 const commit = (message: string) => ({ hash: 'abcdef123456', message });
@@ -83,6 +84,17 @@ test('retry accepts only original or generated content; committed releases requi
 	expect(() =>
 		validateRetryContent('package.json', 'generated', 'original', 'generated', true)
 	).not.toThrow();
+});
+
+test('RELEASE_PYTHON keeps resolving a relative override from the pytest working directory', () => {
+	expect(resolveReleasePython(undefined, '/repo')).toBe('/repo/rest-api/.venv/bin/python');
+	expect(resolveReleasePython('../rest-api/.venv/bin/python', '/repo')).toBe(
+		'/repo/rest-api/.venv/bin/python'
+	);
+	expect(resolveReleasePython('.venv/bin/python', '/repo')).toBe(
+		'/repo/rest-api/.venv/bin/python'
+	);
+	expect(resolveReleasePython('/opt/python/bin/python', '/repo')).toBe('/opt/python/bin/python');
 });
 
 test('all local and remote release tags must match exactly', () => {
