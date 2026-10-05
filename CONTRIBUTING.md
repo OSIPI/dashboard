@@ -22,6 +22,7 @@ Thank you for considering a contribution to OSIPY Dashboard.
 ## Local Checks
 
 ```sh
+cd frontend
 bun install
 bun run check
 bun run lint
