@@ -22,19 +22,19 @@ jobs:
           test -f README.md
           test -f AGENTS.md
           test -f Makefile
-          test -f dashboard/CITATION.cff
-          test -f dashboard/.zenodo.json
-          test -f dashboard/codemeta.json
-          test -f dashboard/CONTRIBUTING.md
-          test -f dashboard/SECURITY.md
-          test -f dashboard/GOVERNANCE.md
-          test -f dashboard/CODE_OF_CONDUCT.md
-          test -f dashboard/CHANGELOG.md
+          test -f CITATION.cff
+          test -f .zenodo.json
+          test -f codemeta.json
+          test -f CONTRIBUTING.md
+          test -f SECURITY.md
+          test -f GOVERNANCE.md
+          test -f CODE_OF_CONDUCT.md
+          test -f CHANGELOG.md
 
       - name: Validate JSON metadata
         run: |
-          python -m json.tool dashboard/.zenodo.json > /dev/null
-          python -m json.tool dashboard/codemeta.json > /dev/null
+          python -m json.tool .zenodo.json > /dev/null
+          python -m json.tool codemeta.json > /dev/null
 
       - name: Check package metadata
         run: |
