@@ -3,7 +3,7 @@
 ## Layout
 
 - `dashboard/` contains the SvelteKit dashboard; `rest-api/` is its optional local Python analysis backend.
-- Repository-level automation, release entry points, and CI live at the root.
+- Repository-level automation, release entry points, CI, Docker packaging (`Dockerfile`, `docker/`), and project/governance metadata (`CITATION.cff`, `codemeta.json`, `.zenodo.json`, `CHANGELOG.md`, `CONTRIBUTING.md`, `SECURITY.md`, `GOVERNANCE.md`, `CODE_OF_CONDUCT.md`, `ROADMAP.md`) live at the root.
 - Keep project-specific implementation guidance in `dashboard/AGENTS.md`.
 
 ## Releases
@@ -16,7 +16,7 @@ Never run `make release` without explicit authorization to commit, tag, push, pu
 
 1. Require full Git history, a clean, current `main`, a reachable stable `vX.Y.Z` baseline, matching remote tags, and local HEAD equal to live `OSIPI/dashboard` main.
 2. Read Conventional Commits since the latest reachable `v*` tag. `fix`/`perf` selects patch, `feat` selects minor, and `!`, `BREAKING CHANGE:`, or `BREAKING-CHANGE:` selects major; the highest required bump wins.
-3. Update every authoritative dashboard version in `dashboard/package.json`, `dashboard/CITATION.cff`, and `dashboard/codemeta.json`, then prepend UTC-dated categorized notes to `dashboard/CHANGELOG.md`.
+3. Update every authoritative dashboard version in `dashboard/package.json`, `CITATION.cff`, and `codemeta.json`, then prepend UTC-dated categorized notes to `CHANGELOG.md`.
 4. Run dashboard type checks, Bun tests, Python REST API tests, prepared-data verification, and the production build locally. This static web release has no platform signing or notarization step. Freeze the built archive and SHA-256 outside the disposable build directory.
 5. Create only `chore(release): vX.Y.Z`, create an annotated `vX.Y.Z` tag bound to the source and archive checksum, then atomically push `main` and the tag.
 6. Create or reconcile a draft GitHub Release, upload and read back the exact frozen archive and checksum, and publish only after verification. GitHub Release publication remains separate from the main-push Pages workflow, which checks out and builds the exact pushed commit.
