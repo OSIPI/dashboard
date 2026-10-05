@@ -65,4 +65,4 @@ bun run build
 
 SvelteKit 2, Svelte 5, Tailwind CSS 4, Bun, and the optional Python REST API.
 
-Project policies and technical notes are kept alongside the dashboard until the repository-wide documentation is reorganized.
+Project policies (contributing, security, governance, citation) live at the repository root.
