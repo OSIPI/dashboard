@@ -5,7 +5,8 @@ import {
 	prependNotes,
 	versionFiles,
 	validateRetryContent,
-	validateRemoteTags
+	validateRemoteTags,
+	resolveReleasePython
 } from './release';
 
 const commit = (message: string) => ({ hash: 'abcdef123456', message });
@@ -83,6 +84,17 @@ test('retry accepts only original or generated content; committed releases requi
 	expect(() =>
 		validateRetryContent('package.json', 'generated', 'original', 'generated', true)
 	).not.toThrow();
+});
+
+test('RELEASE_PYTHON keeps resolving a relative override from the pytest working directory', () => {
+	expect(resolveReleasePython(undefined, '/repo')).toBe('/repo/rest-api/.venv/bin/python');
+	expect(resolveReleasePython('../rest-api/.venv/bin/python', '/repo')).toBe(
+		'/repo/rest-api/.venv/bin/python'
+	);
+	expect(resolveReleasePython('.venv/bin/python', '/repo')).toBe(
+		'/repo/rest-api/.venv/bin/python'
+	);
+	expect(resolveReleasePython('/opt/python/bin/python', '/repo')).toBe('/opt/python/bin/python');
 });
 
 test('all local and remote release tags must match exactly', () => {
@@ -364,7 +376,7 @@ const container = Bun.YAML.parse(
 test('repository root owns release entry points and documents all release effects', () => {
 	const makefile = readFileSync(new URL('Makefile', repositoryRoot), 'utf8');
 	expect(makefile).toContain('release:');
-	expect(makefile).toContain('bun dashboard/scripts/release.ts');
+	expect(makefile).toContain('bun frontend/scripts/release.ts');
 	expect(makefile).toContain('release-dry-run:');
 	const agents = readFileSync(new URL('AGENTS.md', repositoryRoot), 'utf8');
 	for (const requirement of [
@@ -379,18 +391,18 @@ test('repository root owns release entry points and documents all release effect
 
 test('dev-prod previews the Pages build without an embedded analysis API proxy', () => {
 	const rootMakefile = readFileSync(new URL('Makefile', repositoryRoot), 'utf8');
-	const dashboardMakefile = readFileSync(new URL('dashboard/Makefile', repositoryRoot), 'utf8');
-	expect(rootMakefile).toContain('dev-prod:\n\t$(MAKE) -C dashboard dev-prod');
-	expect(dashboardMakefile).toContain('dev-prod:');
-	expect(dashboardMakefile).toContain('env -u OSIPY_LOCAL_API_PROXY');
-	expect(dashboardMakefile).toContain('bun scripts/assert_sample_free.ts static');
-	expect(dashboardMakefile).toContain('bun run build');
-	expect(dashboardMakefile).toContain('bun scripts/assert_sample_free.ts build');
-	expect(dashboardMakefile).toContain(
+	const frontendMakefile = readFileSync(new URL('frontend/Makefile', repositoryRoot), 'utf8');
+	expect(rootMakefile).toContain('dev-prod:\n\t$(MAKE) -C frontend dev-prod');
+	expect(frontendMakefile).toContain('dev-prod:');
+	expect(frontendMakefile).toContain('env -u OSIPY_LOCAL_API_PROXY');
+	expect(frontendMakefile).toContain('bun scripts/assert_sample_free.ts static');
+	expect(frontendMakefile).toContain('bun run build');
+	expect(frontendMakefile).toContain('bun scripts/assert_sample_free.ts build');
+	expect(frontendMakefile).toContain(
 		'bun run preview -- --host 127.0.0.1 --port 60014 --strictPort'
 	);
-	expect(dashboardMakefile).not.toContain('sh scripts/dev-prod.sh');
-	expect(dashboardMakefile).not.toContain('docker run');
+	expect(frontendMakefile).not.toContain('sh scripts/dev-prod.sh');
+	expect(frontendMakefile).not.toContain('docker run');
 });
 
 test('Pages builds and deploys the exact pushed main commit with least privilege', () => {
@@ -424,19 +436,20 @@ test('container builds only the local REST API, never the frontend or datasets',
 	expect(workflow).toContain('releases/latest');
 	expect(workflow).toContain('refusing stale latest promotion');
 	expect(container.concurrency['cancel-in-progress']).toBe(false);
-	const dockerignore = readFileSync(new URL('.dockerignore', repositoryRoot), 'utf8');
-	expect(dockerignore).toContain('**/data\n');
-	expect(dockerignore).toContain('**/static/datasets\n');
-	const dockerfile = readFileSync(new URL('dashboard/Dockerfile', repositoryRoot), 'utf8');
-	expect(dockerfile).toContain('COPY rest-api/src /app/rest-api/src');
+	const dockerignore = readFileSync(new URL('rest-api/.dockerignore', repositoryRoot), 'utf8');
+	expect(dockerignore).toContain('docs\n');
+	expect(dockerignore).toContain('tests\n');
+	const dockerfile = readFileSync(new URL('rest-api/Dockerfile', repositoryRoot), 'utf8');
+	expect(dockerfile).toContain('COPY src /app/rest-api/src');
 	expect(dockerfile).toContain('CMD ["sh", "/app/api-entrypoint.sh"]');
-	expect(dockerfile).not.toMatch(/COPY\s+(?:\.|(?:static|build|data|docker)(?:\s|\/))/);
-	expect(container.jobs.publish.steps.at(-1)?.with.context).toBe('.');
+	expect(dockerfile).not.toMatch(/COPY\s+(?:\.|(?:static|build|data)(?:\s|\/))/);
+	expect(dockerfile).not.toMatch(/COPY\s+docker(?:\s|\/)(?!api-entrypoint\.sh)/);
+	expect(container.jobs.publish.steps.at(-1)?.with.context).toBe('rest-api');
 	const ciImage = checks.jobs.container.steps.find((step) =>
 		step.name?.includes('Build local dashboard image')
 	);
 	expect(ciImage?.['working-directory']).toBe('.');
-	expect(ciImage?.run).toBe('docker build -f dashboard/Dockerfile .');
+	expect(ciImage?.run).toBe('docker build -f rest-api/Dockerfile rest-api');
 	const compose = readFileSync(new URL('docker-compose.yml', repositoryRoot), 'utf8');
 	expect(compose).toContain('127.0.0.1:60016:60016');
 });
@@ -444,12 +457,12 @@ test('container builds only the local REST API, never the frontend or datasets',
 test('release structure preserves local gates, freezes before commit and atomically pushes before publication', () => {
 	const source = readFileSync(new URL('./release.ts', import.meta.url), 'utf8');
 	for (const gate of [
-		"assertSampleFreeDirectory('static')",
+		"assertSampleFreeDirectory(resolve(frontendDir, 'static'))",
 		"['run', 'check']",
 		"['test']",
-		"['-m', 'pytest', '../rest-api/tests']",
+		"['-m', 'pytest', 'tests']",
 		"['run', 'build']",
-		"assertSampleFreeDirectory('build')",
+		'assertSampleFreeDirectory(buildDir)',
 		'assertSampleFreeArchive(`${path}.tmp`)'
 	])
 		expect(source).toContain(gate);
@@ -481,9 +494,12 @@ test('dry-run uses only read-only Git calls, leaves files/index/receipts untouch
 		status: localGit('status', '--porcelain', '--untracked-files=all'),
 		head: localGit('rev-parse', 'HEAD'),
 		index: fileDigest(resolve(root, indexPath)),
-		files: ['package.json', 'CITATION.cff', 'codemeta.json', 'CHANGELOG.md'].map((file) =>
-			fileDigest(join(root, file))
-		),
+		files: [
+			join(root, 'package.json'),
+			join(root, '..', 'CITATION.cff'),
+			join(root, '..', 'codemeta.json'),
+			join(root, '..', 'CHANGELOG.md')
+		].map(fileDigest),
 		gitEntries: readdirSync(resolve(root, localGit('rev-parse', '--git-dir'))).sort()
 	});
 	try {
@@ -515,27 +531,24 @@ test('dry-run uses only read-only Git calls, leaves files/index/receipts untouch
 	}
 });
 
-test('dry-run reads authoritative versions from dashboard in a monorepo', () => {
-	const directory = mkdtempSync(join(tmpdir(), 'dashboard-monorepo-release-test-'));
+test('dry-run reads package.json from frontend/ and metadata files from the repository root', () => {
+	const directory = mkdtempSync(join(tmpdir(), 'frontend-monorepo-release-test-'));
 	const script = new URL('./release.ts', import.meta.url).pathname;
 	try {
-		mkdirSync(join(directory, 'dashboard'));
-		writeFileSync(join(directory, 'dashboard/package.json'), '{"version":"0.0.1"}\n');
-		writeFileSync(join(directory, 'dashboard/codemeta.json'), '{"softwareVersion":"0.0.1"}\n');
-		writeFileSync(
-			join(directory, 'dashboard/CITATION.cff'),
-			"cff-version: 1.2.0\nversion: '0.0.1'\n"
-		);
-		writeFileSync(join(directory, 'dashboard/CHANGELOG.md'), '# Changelog\n\n## Unreleased\n');
+		mkdirSync(join(directory, 'frontend'));
+		writeFileSync(join(directory, 'frontend/package.json'), '{"version":"0.0.1"}\n');
+		writeFileSync(join(directory, 'codemeta.json'), '{"softwareVersion":"0.0.1"}\n');
+		writeFileSync(join(directory, 'CITATION.cff'), "cff-version: 1.2.0\nversion: '0.0.1'\n");
+		writeFileSync(join(directory, 'CHANGELOG.md'), '# Changelog\n\n## Unreleased\n');
 		execFileSync('git', ['init', '-b', 'main'], { cwd: directory });
 		execFileSync('git', ['config', 'user.name', 'Release Test'], { cwd: directory });
 		execFileSync('git', ['config', 'user.email', 'release@example.invalid'], { cwd: directory });
 		execFileSync('git', ['add', '.'], { cwd: directory });
 		execFileSync('git', ['commit', '-m', 'chore: baseline'], { cwd: directory });
 		execFileSync('git', ['tag', '-a', 'v0.0.1', '-m', 'baseline'], { cwd: directory });
-		writeFileSync(join(directory, 'dashboard/feature.txt'), 'feature\n');
+		writeFileSync(join(directory, 'frontend/feature.txt'), 'feature\n');
 		execFileSync('git', ['add', '.'], { cwd: directory });
-		execFileSync('git', ['commit', '-m', 'feat: add dashboard feature'], { cwd: directory });
+		execFileSync('git', ['commit', '-m', 'feat: add frontend feature'], { cwd: directory });
 		const result = spawnSync(process.execPath, [script, '--dry-run'], {
 			cwd: directory,
 			encoding: 'utf8'

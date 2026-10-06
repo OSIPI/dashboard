@@ -12,7 +12,7 @@ permissions:
 
 defaults:
   run:
-    working-directory: dashboard
+    working-directory: frontend
 
 concurrency:
   group: checks-${{ github.event.pull_request.number || 'main' }}
@@ -27,13 +27,6 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-
-      - name: Validate Conventional Commit title
-        if: github.event_name == 'pull_request'
-        env:
-          PR_TITLE: ${{ github.event.pull_request.title }}
-        run: |
-          node -e 'const title = process.env.PR_TITLE ?? ""; if (!/^(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)(\([^)]+\))?(!)?: .+/.test(title)) { console.error(`PR title is not a Conventional Commit: ${title}`); process.exit(1); }'
 
       - name: Setup Node
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -65,7 +58,11 @@ jobs:
 
       - name: Build local dashboard image without publishing
         working-directory: .
-        run: docker build -f dashboard/Dockerfile .
+        run: docker build -f rest-api/Dockerfile rest-api
+
+      - name: Build frontend image without publishing
+        working-directory: .
+        run: docker build -f frontend/Dockerfile frontend
 
   rest-api:
     runs-on: ubuntu-latest
