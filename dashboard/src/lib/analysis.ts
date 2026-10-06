@@ -87,6 +87,7 @@ export type FitReport = {
 	provenance?: Record<string, unknown>;
 };
 export type FitResult = { id: string; report: FitReport; maps: Record<string, Float32Array> };
+export type ComparableParameter = { name: string; unit: string; minimum: number; maximum: number };
 export type ImageOverlay = {
 	values: Float32Array;
 	valid: Float32Array;
@@ -95,6 +96,58 @@ export type ImageOverlay = {
 	opacity: number;
 	showInvalid: boolean;
 };
+
+export function compatibleFitResults(results: FitResult[], dataset: Dataset): FitResult[] {
+	return results.filter(
+		(result) =>
+			result.report.dataset.sha256 === dataset.sha256 &&
+			result.report.dataset.dimensions.every(
+				(value, index) => value === dataset.dimensions[index]
+			) &&
+			result.report.dataset.affine.every((row, r) =>
+				row.every((value, c) => Math.abs(value - dataset.affine[r][c]) <= 1e-6)
+			)
+	);
+}
+
+export function commonFitParameters(a?: FitResult, b?: FitResult): ComparableParameter[] {
+	if (!a || !b) return [];
+	return a.report.maps.flatMap((left) => {
+		if (['Valid', 'Status'].includes(left.name)) return [];
+		const right = b.report.maps.find(
+			(candidate) => candidate.name === left.name && candidate.unit === left.unit
+		);
+		if (!right || !a.maps[left.name] || !b.maps[right.name]) return [];
+		let minimum = Math.min(left.min, right.min);
+		let maximum = Math.max(left.max, right.max);
+		if (!Number.isFinite(minimum) || !Number.isFinite(maximum)) return [];
+		if (maximum <= minimum) {
+			const padding = Math.max(Math.abs(minimum) * 0.01, 1e-12);
+			minimum -= padding;
+			maximum += padding;
+		}
+		return [{ name: left.name, unit: left.unit, minimum, maximum }];
+	});
+}
+
+export function fitCurveAtVoxel(result: FitResult, index: number) {
+	const parameterNames =
+		result.report.model === 'simplified' ? ['S0', 'D', 'f'] : ['S0', 'D', 'D*', 'f'];
+	const cutoff = Number(result.report.provenance?.model_cutoff);
+	if (
+		(result.report.model === 'simplified' && !Number.isFinite(cutoff)) ||
+		!parameterNames.every((name) => Number.isFinite(result.maps[name]?.[index]))
+	)
+		return undefined;
+	return {
+		parameters: Object.fromEntries([
+			...parameterNames.map((name) => [name, result.maps[name][index]]),
+			['bThreshold', cutoff]
+		]),
+		valid: result.maps.Valid?.[index] === 1,
+		model: `${result.report.model} · ${result.report.config.method}`
+	};
+}
 
 export function localApiUrl(raw: string): string {
 	const url = new URL(raw);
