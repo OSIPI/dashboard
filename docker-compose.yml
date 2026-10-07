@@ -2,7 +2,7 @@ services:
   api:
     build:
       context: .
-      dockerfile: dashboard/Dockerfile
+      dockerfile: Dockerfile
     ports:
       - '127.0.0.1:60016:60016'
     init: true
