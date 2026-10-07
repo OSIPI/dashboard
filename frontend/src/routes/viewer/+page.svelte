@@ -44,6 +44,7 @@
 	import ViewerPanel from '$lib/components/viewer/ViewerPanel.svelte';
 	import ImageControls from '$lib/components/viewer/ImageControls.svelte';
 	import SignalPanel from '$lib/components/viewer/SignalPanel.svelte';
+	import FitComparison from '$lib/components/viewer/FitComparison.svelte';
 	import SavedVoxels from '$lib/components/viewer/SavedVoxels.svelte';
 	import WorkspaceFiles from '$lib/components/viewer/WorkspaceFiles.svelte';
 	import DatasetDetails from '$lib/components/viewer/DatasetDetails.svelte';
@@ -183,6 +184,10 @@
 	let fitDialogTab = $state<'configure' | 'results'>('configure');
 	let fitMethod = $state('biexponential');
 	let fitStrategy = $state('segmented');
+	let compareMode = $state(false);
+	let comparisonFitA = $state('');
+	let comparisonFitB = $state('');
+	let comparisonParameter = $state('');
 	function configureFit(method: string, strategy: string) {
 		fitMethod = method;
 		fitStrategy = strategy;
@@ -737,7 +742,9 @@
 				{tiles}
 				linked={preferences.current.linked}
 				bind:navigationOpen={preferences.current.navigationOpen}
+				bind:compareMode
 				onlink={toggleLink}
+				oncompare={() => (preferences.current.inspectorTab = 'Analyze')}
 				bind:gridLayout={preferences.current.gridLayout}
 				bind:tool
 				panel={preferences.current.panel}
@@ -753,6 +760,24 @@
 				ondisplay={setDisplay}
 				onreset={resetView}
 			>
+				{#snippet comparison()}<FitComparison
+						dataset={dataset!}
+						{volumes}
+						{active}
+						{slice}
+						{x}
+						{y}
+						display={activeDisplay}
+						results={analysis.results}
+						bind:fitA={comparisonFitA}
+						bind:fitB={comparisonFitB}
+						bind:parameter={comparisonParameter}
+						onselect={(vx, vy) => {
+							x = vx;
+							y = vy;
+						}}
+						ondisplay={(value) => setDisplay(value, active)}
+					/>{/snippet}
 				{#snippet controls()}<ImageControls
 						dataset={dataset!}
 						{slice}
@@ -781,23 +806,23 @@
 				aria-label="Inspector"
 				tabindex="0"
 			>
-				<SignalPanel
-					{roiMean}
-					fit={fitResult?.maps['D*'] ? fitResult : undefined}
-					{dataset}
-					{volumes}
-					{active}
-					{x}
-					{y}
-					{slice}
-					{bookmarks}
-					{compared}
-					bind:open={preferences.current.signalOpen}
-					bind:valuesOpen={preferences.current.signalValuesOpen}
-					onerror={(text) => (message = text)}
-					onselect={selectVolume}
-					onanalysis={showAnalysis}
-				/>
+				{#if !compareMode}<SignalPanel
+						{roiMean}
+						fit={fitResult?.maps['D*'] ? fitResult : undefined}
+						{dataset}
+						{volumes}
+						{active}
+						{x}
+						{y}
+						{slice}
+						{bookmarks}
+						{compared}
+						bind:open={preferences.current.signalOpen}
+						bind:valuesOpen={preferences.current.signalValuesOpen}
+						onerror={(text) => (message = text)}
+						onselect={selectVolume}
+						onanalysis={showAnalysis}
+					/>{/if}
 				<div
 					class="sticky top-0 z-10 grid grid-cols-4 gap-1 rounded-lg border bg-card p-1"
 					role="tablist"
@@ -854,6 +879,13 @@
 						result={fitResult}
 						selectedMethod={fitMethod}
 						selectedStrategy={fitStrategy}
+						{compareMode}
+						bind:fitA={comparisonFitA}
+						bind:fitB={comparisonFitB}
+						bind:parameter={comparisonParameter}
+						{x}
+						{y}
+						{slice}
 						bind:openPanel={preferences.current.analysisOpen}
 						onopen={openAnalysis}
 						onselect={configureFit}

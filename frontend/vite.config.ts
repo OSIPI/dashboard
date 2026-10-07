@@ -50,7 +50,9 @@ function localApiProxy(port: number): Plugin {
 							))) ||
 					(req.method === 'POST' &&
 						(path === '/datasets' || /^\/datasets\/[a-f0-9-]+\/fits$/.test(path))) ||
-					(req.method === 'DELETE' && /^\/(?:fits|datasets)\/[a-f0-9-]+$/.test(path));
+					(req.method === 'DELETE' &&
+						(/^\/(?:fits|datasets)\/[a-f0-9-]+$/.test(path) ||
+							/^\/fits\/[a-f0-9-]+\/retained$/.test(path)));
 				if (
 					!['localhost:60010', '127.0.0.1:60010'].includes(host ?? '') ||
 					(origin && origin !== `http://${host}`) ||

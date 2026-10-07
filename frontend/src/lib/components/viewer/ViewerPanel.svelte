@@ -32,12 +32,15 @@
 		linked,
 		showLink = true,
 		navigationOpen = $bindable(false),
+		compareMode = $bindable(false),
 		onlink,
+		oncompare,
 		singleScan = false,
 		gridLayout = $bindable('auto'),
 		tool = $bindable('inspect'),
 		panel,
 		controls,
+		comparison,
 		onselect,
 		onspatialselect,
 		ondisplay,
@@ -59,12 +62,15 @@
 		linked: boolean;
 		showLink?: boolean;
 		navigationOpen: boolean;
+		compareMode?: boolean;
 		onlink?: () => void;
+		oncompare?: () => void;
 		singleScan?: boolean;
 		gridLayout: GridLayout;
 		tool: ViewerTool;
 		panel: string;
 		controls: Snippet;
+		comparison?: Snippet;
 		onselect: (x: number, y: number) => void;
 		onspatialselect: (x: number, y: number, z: number) => void;
 		ondisplay: (view: Display, index: number) => void;
@@ -177,18 +183,37 @@
 					popovertarget={menuId}
 					bind:this={layoutTrigger}
 					aria-label="Choose view layout"
-					onclick={() => (spatial = false)}
-					><GridIcon class="size-4" />{montage ? 'Multiview' : 'Native view'} ▾</button
+					onclick={() => {
+						spatial = false;
+						compareMode = false;
+					}}
+					><GridIcon class="size-4" /><span class="max-[420px]:hidden"
+						>{montage ? 'Multiview' : 'Native view'} ▾</span
+					><span class="min-[421px]:hidden">View ▾</span></button
 				>
+				{#if comparison}<button
+						class="button button-ghost text-xs max-[899px]:h-11"
+						aria-pressed={compareMode}
+						onclick={() => {
+							compareMode = !compareMode;
+							spatial = false;
+							if (compareMode) oncompare?.();
+						}}>Compare<span class="max-[420px]:hidden"> fits</span></button
+					>{/if}
 				<button
 					class="button button-ghost text-xs max-[899px]:h-11"
 					aria-pressed={spatial}
 					title="Open linked spatial views (overlays are shown in Native view)"
-					onclick={() => (spatial = !spatial)}
-					><BoxIcon class="size-4" aria-hidden="true" />3D + slices</button
+					onclick={() => {
+						spatial = !spatial;
+						compareMode = false;
+					}}
+					><BoxIcon class="size-4" aria-hidden="true" /><span class="max-[420px]:hidden"
+						>3D + slices</span
+					><span class="min-[421px]:hidden">3D</span></button
 				>
 			</div>{/if}
-		{#if showLink && selected.length > 1}<button
+		{#if showLink && selected.length > 1 && !compareMode}<button
 				class="button button-ghost gap-2 px-2 text-xs max-[899px]:h-11 @min-[760px]:absolute @min-[760px]:top-1/2 @min-[760px]:left-1/2 @min-[760px]:-translate-x-1/2 @min-[760px]:-translate-y-1/2"
 				aria-label="Link views: zoom, pan, window and level"
 				aria-pressed={linked}
@@ -208,7 +233,7 @@
 				></button
 			>{/if}
 		<div class="ml-auto flex flex-wrap items-center justify-end gap-1 max-[899px]:[&_.button]:h-11">
-			{#if !spatial && gridPages > 1}<div class="flex items-center gap-1 text-xs">
+			{#if !spatial && !compareMode && gridPages > 1}<div class="flex items-center gap-1 text-xs">
 					<button
 						class="button button-ghost"
 						aria-label="Previous grid page"
@@ -221,7 +246,7 @@
 						onclick={() => (active = selected[(gridPage + 1) * grid.capacity])}>›</button
 					>
 				</div>{/if}
-			{#if !spatial}<div
+			{#if !spatial && !compareMode}<div
 					class="flex items-center gap-0.5 rounded-lg border bg-muted/20 p-0.5 [&_.button]:px-2.5 [&_.button]:text-xs max-[899px]:[&_.button]:gap-1 max-[899px]:[&_.button]:px-1"
 					role="group"
 					aria-label="Image tools"
@@ -307,7 +332,9 @@
 			</details>
 		</div>
 	</div>
-	{#if spatial}
+	{#if compareMode && comparison}
+		{@render comparison()}
+	{:else if spatial}
 		<div
 			class="min-h-0 flex-1 flex-col {panel === 'Controls' ? 'hidden min-[900px]:flex' : 'flex'}"
 		>
