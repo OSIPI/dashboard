@@ -1,16 +1,16 @@
 .PHONY: dev dev-prod stop release release-dry-run
 
 dev:
-	$(MAKE) -C dashboard dev
+	$(MAKE) -C frontend dev
 
 dev-prod:
-	$(MAKE) -C dashboard dev-prod
+	$(MAKE) -C frontend dev-prod
 
 stop:
-	$(MAKE) -C dashboard stop
+	$(MAKE) -C frontend stop
 
 release:
-	bun dashboard/scripts/release.ts
+	bun frontend/scripts/release.ts
 
 release-dry-run:
-	bun dashboard/scripts/release.ts --dry-run
+	bun frontend/scripts/release.ts --dry-run

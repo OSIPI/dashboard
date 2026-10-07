@@ -12,10 +12,16 @@ import {
 	rmdirSync,
 	renameSync
 } from 'node:fs';
-import { resolve } from 'node:path';
+import { isAbsolute, resolve } from 'node:path';
 import { assertSampleFreeArchive, assertSampleFreeDirectory } from './assert_sample_free';
 
 const files = ['package.json', 'CITATION.cff', 'codemeta.json', 'CHANGELOG.md'];
+const gitPaths: Record<string, string> = {
+	'package.json': 'frontend/package.json',
+	'CITATION.cff': 'CITATION.cff',
+	'codemeta.json': 'codemeta.json',
+	'CHANGELOG.md': 'CHANGELOG.md'
+};
 const semver = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
 type Commit = { hash: string; message: string };
 
@@ -90,6 +96,11 @@ export function versionFiles(source: Record<string, string>, version: string) {
 	return result;
 }
 
+export function resolveReleasePython(override: string | undefined, root: string) {
+	if (!override) return resolve(root, 'rest-api/.venv/bin/python');
+	return isAbsolute(override) ? override : resolve(root, 'rest-api', override);
+}
+
 export function validateRetryContent(
 	file: string,
 	content: string,
@@ -129,9 +140,9 @@ function git(...args: string[]) {
 		env: { ...process.env, GIT_OPTIONAL_LOCKS: '0', GIT_TERMINAL_PROMPT: '0' }
 	}).trim();
 }
-function run(command: string, args: string[], env = process.env) {
+function run(command: string, args: string[], env = process.env, cwd = process.cwd()) {
 	console.log(`> ${command} ${args.join(' ')}`);
-	execFileSync(command, args, { stdio: 'inherit', env });
+	execFileSync(command, args, { stdio: 'inherit', env, cwd });
 }
 export type State = {
 	base: string;
@@ -300,8 +311,8 @@ export function publishRelease(state: State, save: () => void, gh: Github = gith
 
 export function release(dry: boolean) {
 	const root = git('rev-parse', '--show-toplevel');
-	process.chdir(resolve(root, 'dashboard'));
-	const gitFiles = Object.fromEntries(files.map((file) => [file, `dashboard/${file}`]));
+	process.chdir(root);
+	const gitFiles = Object.fromEntries(files.map((file) => [file, gitPaths[file]]));
 	const statePath = git('rev-parse', '--git-path', 'dashboard-release.json');
 	let state: State | undefined = existsSync(statePath)
 		? JSON.parse(readFileSync(statePath, 'utf8'))
@@ -340,7 +351,9 @@ export function release(dry: boolean) {
 			`Readiness: branch=${branch}; tree=${dirty ? 'dirty' : 'clean'}. Live origin/main and tags NOT checked.`
 		);
 		if (version) {
-			const source = Object.fromEntries(files.map((file) => [file, readFileSync(file, 'utf8')]));
+			const source = Object.fromEntries(
+				files.map((file) => [file, readFileSync(gitFiles[file], 'utf8')])
+			);
 			console.log(
 				state?.after['CHANGELOG.md'] ??
 					prependNotes(
@@ -388,7 +401,8 @@ export function release(dry: boolean) {
 	const tag = `v${version}`;
 	const message = `chore(release): ${tag}`;
 	const before =
-		state?.before ?? Object.fromEntries(files.map((file) => [file, readFileSync(file, 'utf8')]));
+		state?.before ??
+		Object.fromEntries(files.map((file) => [file, readFileSync(gitFiles[file], 'utf8')]));
 	const after = state?.after ?? versionFiles(before, version);
 	if (!state)
 		after['CHANGELOG.md'] = prependNotes(
@@ -412,7 +426,7 @@ export function release(dry: boolean) {
 	if (changed.some((file) => !allowed.has(file)))
 		throw new Error('Unrelated changes during release; preserve them and resolve before retry');
 	for (const file of files) {
-		const content = readFileSync(file, 'utf8');
+		const content = readFileSync(gitFiles[file], 'utf8');
 		validateRetryContent(file, content, before[file], after[file], committed);
 		validateRetryContent(
 			file,
@@ -438,25 +452,27 @@ export function release(dry: boolean) {
 		renameSync(`${statePath}.tmp`, statePath);
 	};
 	save();
-	for (const file of files) writeFileSync(file, after[file]);
+	for (const file of files) writeFileSync(gitFiles[file], after[file]);
 	if (!state.archive) {
 		if (state.pushed || state.releaseId) throw new Error('Missing frozen archive checkpoint');
-		const python = process.env.RELEASE_PYTHON ?? '../rest-api/.venv/bin/python';
-		assertSampleFreeDirectory('static');
-		run('bun', ['run', 'check']);
-		run('bun', ['test']);
-		run(python, ['-m', 'pytest', '../rest-api/tests']);
-		run('bun', ['run', 'build'], { ...process.env, APP_VERSION: tag, APP_SHA: base });
-		assertSampleFreeDirectory('build');
+		const frontendDir = resolve(root, 'frontend');
+		const python = resolveReleasePython(process.env.RELEASE_PYTHON, root);
+		assertSampleFreeDirectory(resolve(frontendDir, 'static'));
+		run('bun', ['run', 'check'], process.env, frontendDir);
+		run('bun', ['test'], process.env, frontendDir);
+		run(python, ['-m', 'pytest', 'tests'], process.env, resolve(root, 'rest-api'));
+		run('bun', ['run', 'build'], { ...process.env, APP_VERSION: tag, APP_SHA: base }, frontendDir);
+		const buildDir = resolve(frontendDir, 'build');
+		assertSampleFreeDirectory(buildDir);
 		writeFileSync(
-			'build/release.json',
+			resolve(buildDir, 'release.json'),
 			JSON.stringify({ version: tag, source: base, basePath: '/dashboard' }) + '\n'
 		);
 		// Keep the durable artifact outside build/: a later Vite build must not erase it.
 		const directory = git('rev-parse', '--git-path', `dashboard-releases/${tag}`);
 		mkdirSync(directory, { recursive: true });
 		const path = resolve(directory, `osipy-${tag}.tar.gz`);
-		run('tar', ['-czf', `${path}.tmp`, '-C', 'build', '--exclude=*.tar.gz*', '.']);
+		run('tar', ['-czf', `${path}.tmp`, '-C', buildDir, '--exclude=*.tar.gz*', '.']);
 		assertSampleFreeArchive(`${path}.tmp`);
 		renameSync(`${path}.tmp`, path);
 		state.archive = { path, sha256: fileDigest(path) };
@@ -464,7 +480,8 @@ export function release(dry: boolean) {
 	if (git('rev-parse', 'HEAD') !== head || git('branch', '--show-current') !== 'main')
 		throw new Error('HEAD or branch changed while checking release');
 	for (const file of files) {
-		if (readFileSync(file, 'utf8') !== after[file]) throw new Error(`Checks changed ${file}`);
+		if (readFileSync(gitFiles[file], 'utf8') !== after[file])
+			throw new Error(`Checks changed ${file}`);
 		validateRetryContent(
 			file,
 			git('show', `:${gitFiles[file]}`),
@@ -491,7 +508,7 @@ export function release(dry: boolean) {
 		throw new Error('Checksum file changed; refusing overwrite');
 	writeFileSync(checksumPath, checksum);
 	if (!committed) {
-		run('git', ['add', '--', ...files]);
+		run('git', ['add', '--', ...files.map((file) => gitFiles[file])]);
 		if (
 			git('diff', '--cached', '--name-only')
 				.split('\n')
