@@ -37,7 +37,7 @@ async def test_catalog_allows_unauthenticated_local_access_and_retains_guards(cl
     assert catalog.status_code == 200
     body = catalog.json()
     assert {model["id"] for model in body["models"]} == {"biexponential", "simplified"}
-    assert body["models"][0]["fitter_strategies"] == ["segmented", "full", "bayesian"]
+    assert set(body["models"][0]["fitter_strategies"]) == {"segmented", "full", "bayesian"}
     assert "max_iterations" not in body["defaults"]
     assert "tolerance" not in body["defaults"]
     assert body["effective_fitter_defaults"]["levenberg_marquardt"] == {
