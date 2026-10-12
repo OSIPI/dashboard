@@ -16,13 +16,13 @@ bun install
 bun run dev
 ```
 
-The app opens at <http://localhost:60010>. You can also use the dashboard-local development tooling:
+The app opens at <http://localhost:60010>. From the repository root you can also start the frontend and REST API together:
 
 ```sh
 make dev
 ```
 
-`make dev` starts the Bun frontend and the OSIPY REST API on your host. The browser connects automatically through the local development proxy. Ctrl+C stops both. First run `cd ../rest-api && uv sync` to install the API environment (or override `API_PYTHON`). The root Makefile delegates development here and owns the release entry points.
+`make dev` starts the Bun frontend and the OSIPY REST API on your host. The browser connects automatically through the local development proxy. Ctrl+C stops both. First run `cd rest-api && uv sync` to install the API environment (or override `API_PYTHON`). Run `make dev` from the repository root; the root Makefile owns the development and release entry points.
 
 For a Pages-style production preview without an embedded proxy or backend, run `make dev-prod` and open <http://127.0.0.1:60014/dashboard/>. It builds the static frontend and rejects local MRI sample files in the output. Run the site's **Run local fitting** Docker command yourself in a separate terminal; Ctrl+C stops only the preview.
 
