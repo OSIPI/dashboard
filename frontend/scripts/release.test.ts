@@ -123,7 +123,7 @@ test('all local and remote release tags must match exactly', () => {
 });
 
 // All publication effects below are in-memory fakes; no Git writes or GitHub calls.
-import { mkdtempSync, writeFileSync, readFileSync, rmSync, readdirSync, mkdirSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, rmSync, readdirSync, mkdirSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -391,18 +391,15 @@ test('repository root owns release entry points and documents all release effect
 
 test('dev-prod previews the Pages build without an embedded analysis API proxy', () => {
 	const rootMakefile = readFileSync(new URL('Makefile', repositoryRoot), 'utf8');
-	const frontendMakefile = readFileSync(new URL('frontend/Makefile', repositoryRoot), 'utf8');
-	expect(rootMakefile).toContain('dev-prod:\n\t$(MAKE) -C frontend dev-prod');
-	expect(frontendMakefile).toContain('dev-prod:');
-	expect(frontendMakefile).toContain('env -u OSIPY_LOCAL_API_PROXY');
-	expect(frontendMakefile).toContain('bun scripts/assert_sample_free.ts static');
-	expect(frontendMakefile).toContain('bun run build');
-	expect(frontendMakefile).toContain('bun scripts/assert_sample_free.ts build');
-	expect(frontendMakefile).toContain(
-		'bun run preview -- --host 127.0.0.1 --port 60014 --strictPort'
-	);
-	expect(frontendMakefile).not.toContain('sh scripts/dev-prod.sh');
-	expect(frontendMakefile).not.toContain('docker run');
+	expect(existsSync(new URL('frontend/Makefile', repositoryRoot))).toBe(false);
+	expect(rootMakefile).toContain('dev-prod:');
+	expect(rootMakefile).toContain('env -u OSIPY_LOCAL_API_PROXY');
+	expect(rootMakefile).toContain('bun scripts/assert_sample_free.ts static');
+	expect(rootMakefile).toContain('bun run build');
+	expect(rootMakefile).toContain('bun scripts/assert_sample_free.ts build');
+	expect(rootMakefile).toContain('bun run preview -- --host 127.0.0.1 --port 60014 --strictPort');
+	expect(rootMakefile).not.toContain('sh scripts/dev-prod.sh');
+	expect(rootMakefile).not.toContain('docker run');
 });
 
 test('Pages builds and deploys the exact pushed main commit with least privilege', () => {
