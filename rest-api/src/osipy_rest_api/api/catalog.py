@@ -7,10 +7,13 @@ import math
 import osipy
 from fastapi import APIRouter
 from osipy.ivim import get_ivim_model
-from osipy.ivim.models.registry import IVIM_MODEL_REGISTRY
 
 from osipy_rest_api import __version__
-from osipy_rest_api.core.ivim import effective_fitter_defaults, supported_fitter_strategies
+from osipy_rest_api.core.ivim import (
+    effective_fitter_defaults,
+    supported_fitter_strategies,
+    supported_models,
+)
 from osipy_rest_api.models.schemas import Catalog, CatalogModel, CatalogParameter, FitRequest
 
 router = APIRouter(tags=["catalog"])
@@ -25,9 +28,7 @@ _STATUS_CODES = {
 def _catalog() -> Catalog:
     models = []
     strategies = list(supported_fitter_strategies())
-    for identifier in ("biexponential", "simplified"):
-        if identifier not in IVIM_MODEL_REGISTRY or not strategies:
-            continue
+    for identifier in supported_models():
         model = get_ivim_model(identifier)
         bounds = model.get_bounds()
         models.append(

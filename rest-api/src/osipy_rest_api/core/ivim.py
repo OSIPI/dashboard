@@ -9,20 +9,12 @@ from datetime import UTC, datetime
 import numpy as np
 import osipy
 from osipy import fit_ivim
-from osipy.ivim.fitting.estimators import FittingMethod, IVIMFitParams
-from osipy.ivim.models.biexponential import IVIMBiexponentialModel, IVIMParams, IVIMSimplifiedModel
-from osipy.ivim.models.registry import IVIM_MODEL_REGISTRY
+from osipy.ivim import get_ivim_model, list_ivim_fitters, list_models
+from osipy.ivim.fitting.estimators import IVIMFitParams
 
 from osipy_rest_api.core.domain import Dataset, FitConfig, FitResult
 from osipy_rest_api.core.errors import InvalidInputError
 
-_METHODS = ("segmented", "full", "bayesian")
-_SUPPORTED_MODELS = {"biexponential", "simplified"}
-_MODEL_MAP_KEYS = {
-    "biexponential": ("d", "d_star", "f", "s0"),
-    "simplified": ("d", "f", "s0"),
-}
-_PARAMETER_MAPS = {"d": "d_map", "d_star": "d_star_map", "f": "f_map", "s0": "s0_map"}
 _STATUS_CODES = {
     "0": "not_selected",
     "1": "post_fit_quality_passed_convergence_unavailable",
@@ -53,18 +45,19 @@ _BAYESIAN_EFFECTIVE_DEFAULTS = {
 }
 
 
-def supported_fitter_strategies() -> tuple[str, ...]:
-    """Return only fitter registry entries present in this OSIPY installation."""
-    from osipy.ivim.fitting.registry import get_ivim_fitter
+def supported_models() -> tuple[str, ...]:
+    """Models registered in the installed OSIPY."""
+    return tuple(list_models())
 
-    strategies = []
-    for method in _METHODS:
-        try:
-            get_ivim_fitter(method)
-        except Exception:  # Registry lookup failure means it must not be exposed.
-            continue
-        strategies.append(method)
-    return tuple(strategies)
+
+def supported_fitter_strategies() -> tuple[str, ...]:
+    """Fitting methods registered in the installed OSIPY."""
+    return tuple(list_ivim_fitters())
+
+
+def _map_key(osipy_name: str) -> str:
+    """API key for an OSIPY parameter name, e.g. ``D*`` -> ``d_star``."""
+    return osipy_name.lower().replace("*", "_star")
 
 
 def effective_fitter_defaults() -> dict[str, dict]:
@@ -117,9 +110,9 @@ def _status_policy(r_squared_available: bool) -> dict:
 
 
 def validate_fit_config(config: FitConfig, dataset: Dataset) -> None:
-    if config.model not in _SUPPORTED_MODELS or config.model not in IVIM_MODEL_REGISTRY:
+    if config.model not in supported_models():
         raise InvalidInputError(
-            f"unsupported IVIM model {config.model!r}; choose one of {sorted(_SUPPORTED_MODELS)}"
+            f"unsupported IVIM model {config.model!r}; choose one of {list(supported_models())}"
         )
     strategies = supported_fitter_strategies()
     if config.method not in strategies:
@@ -228,7 +221,7 @@ def run_fit(
     effective_threshold = _effective_b_threshold(config)
     model_cutoff = _effective_model_cutoff(config)
     params = IVIMFitParams(
-        method=FittingMethod(config.method),
+        method=config.method,
         b_threshold=effective_threshold,
         signal_model=config.model,
     )
@@ -240,30 +233,19 @@ def run_fit(
         progress_callback=progress_callback,
     )
     maps = {
-        name: getattr(result, attribute)
-        for name, attribute in _PARAMETER_MAPS.items()
-        if name in _MODEL_MAP_KEYS[config.model]
+        _map_key(name): getattr(result, f"{_map_key(name)}_map")
+        for name in get_ivim_model(config.model).parameters
     }
     # OSIPY's batch quality mask only identifies voxels that were submitted to
     # its fitter. It is neither an R-squared filter nor a convergence signal.
     quality_mask = np.asarray(
         result.quality_mask if result.quality_mask is not None else selection_mask, dtype=bool
     ) & selection_mask
-    # Never surface values which OSIPY did not mark fit-quality-valid.
+    # Never surface non-finite values.
     for parameter_map in maps.values():
         values = np.asarray(parameter_map.values, dtype=float).copy()
         quality_mask &= np.isfinite(values)
         parameter_map.values = values  # type: ignore[attr-defined]
-    d = np.asarray(maps["d"].values, dtype=float)  # type: ignore[attr-defined]
-    s0 = np.asarray(maps["s0"].values, dtype=float)  # type: ignore[attr-defined]
-    f = np.asarray(maps["f"].values, dtype=float)  # type: ignore[attr-defined]
-    baseline = dataset.data[..., int(np.argmin(dataset.b_values))]
-    quality_mask &= (
-        np.isfinite(baseline) & (baseline > 0) & (d > 0) & (s0 > 0) & (f >= 0) & (f <= 1)
-    )
-    if "d_star" in maps:
-        d_star = np.asarray(maps["d_star"].values, dtype=float)  # type: ignore[attr-defined]
-        quality_mask &= d_star > d
     r_squared = (
         None if result.r_squared is None else np.asarray(result.r_squared, dtype=float).copy()
     )
@@ -350,19 +332,11 @@ def voxel_detail(
         key: float(fit_result.maps[key].values[x, y, z])  # type: ignore[attr-defined]
         for key in fit_result.maps
     }
-    if "d_star" in params:
-        curve = IVIMBiexponentialModel().predict(
-            b,
-            IVIMParams(
-                s0=params["s0"], d=params["d"], d_star=params["d_star"], f=params["f"]
-            ),
-        )
-    else:
-        assert fit_result.model_cutoff is not None
-        curve = IVIMSimplifiedModel(b_threshold=fit_result.model_cutoff).predict(
-            b,
-            np.asarray([params["s0"], params["d"], params["f"]], dtype=float),
-        )
+    model = get_ivim_model(
+        fit_result.provenance["model"],
+        **({} if fit_result.model_cutoff is None else {"b_threshold": fit_result.model_cutoff}),
+    )
+    curve = model.predict(b, np.asarray([params[_map_key(n)] for n in model.parameters]))
     r2 = fit_result.r_squared
     return {
         **detail,

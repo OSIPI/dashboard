@@ -532,7 +532,7 @@ wheels = [
 [[package]]
 name = "osipy"
 version = "0.1.4"
-source = { registry = "https://pypi.org/simple" }
+source = { git = "https://github.com/OSIPI/osipy.git#8f0500c2abecb7e085109056e0c850d5c93bac0f" }
 dependencies = [
     { name = "dcm2niix" },
     { name = "matplotlib" },
@@ -541,10 +541,6 @@ dependencies = [
     { name = "pydantic" },
     { name = "pydicom" },
     { name = "pyyaml" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/04/59/2c24062d1f92db5cbdd399b9958feab19df60c234614b46bd26624df0727/osipy-0.1.4.tar.gz", hash = "sha256:750a497d3670d45b2e17a27820f8509fff0488af7b1f24abf66080fbd8a2d49d", size = 6314434, upload-time = "2026-06-09T03:51:15.665Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/14/f7/580e8c8337f1164b0b48e8cdcfaf7405ec8db7bc14d76484a1dbc7c51e53/osipy-0.1.4-py3-none-any.whl", hash = "sha256:60731701427f59be28f3c00166c752d17345bd4edce74030ac8295b8d024bf06", size = 318610, upload-time = "2026-06-09T03:51:14.071Z" },
 ]
 
 [[package]]
@@ -576,7 +572,7 @@ requires-dist = [
     { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.27" },
     { name = "nibabel", specifier = ">=5.3" },
     { name = "numpy", specifier = ">=2.0" },
-    { name = "osipy", specifier = ">=0.1.4" },
+    { name = "osipy", git = "https://github.com/OSIPI/osipy.git" },
     { name = "pydantic", specifier = ">=2.9" },
     { name = "pydantic-settings", specifier = ">=2.6" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3" },
