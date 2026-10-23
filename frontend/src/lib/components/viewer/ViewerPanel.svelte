@@ -3,6 +3,7 @@
 	import type { Dataset, VoxelVolume } from '$lib/ivim';
 	import { GRID_LAYOUTS, gridVolumes, type GridLayout, type Display } from '$lib/workspace';
 	import ViewerTile from '../ViewerTile.svelte';
+	import InspectionControls from './InspectionControls.svelte';
 	import type { ImageOverlay } from '$lib/analysis';
 	import type { ViewerTool, PixelPoint, RoiOverlay } from '$lib/roi';
 	import SpatialViewer from './SpatialViewer.svelte';
@@ -151,6 +152,8 @@
 	let spacePan = $state(false);
 	let spatial = $state(false);
 	let windowWidth = $state(0);
+	let magnification = $state(0);
+	let cineOpen = $state(false);
 	function startSpacePan(event: KeyboardEvent) {
 		if (event.defaultPrevented || event.isComposing || spatial) return;
 		const target = event.target instanceof Element ? event.target : undefined;
@@ -251,9 +254,9 @@
 			</div>{/if}
 		{#if showLink && selected.length > 1}<button
 				class="button button-ghost gap-2 px-2 text-xs max-[899px]:h-11"
-				aria-label="Link views: zoom, pan, window and level"
+				aria-label="Link views: zoom, pan, window, level and display transforms"
 				aria-pressed={linked}
-				title="Link zoom, pan, window and level across views. Slice and voxel stay linked."
+				title="Link zoom, pan, window, level, rotation, flips and inversion across views. Slice and voxel stay linked."
 				onclick={onlink}
 				>Link views
 				<span
@@ -269,6 +272,21 @@
 				></button
 			>{/if}
 		<div class="ml-auto flex flex-wrap items-center justify-end gap-1 max-[899px]:[&_.button]:h-11">
+			{#if !spatial}<details class="relative">
+					<summary
+						class="button button-ghost flex cursor-pointer list-none items-center px-2 [&::-webkit-details-marker]:hidden"
+						aria-label="Display transforms and inspection controls">Display ▾</summary
+					>
+					<div
+						class="absolute top-full right-0 z-30 mt-1 max-w-[calc(100vw-24px)] rounded-lg bg-card p-3 shadow-lg"
+					>
+						<InspectionControls
+							view={linked ? display : (tiles[active] ?? display)}
+							onchange={(view) => ondisplay(view, active)}
+							bind:magnification
+						/>
+					</div>
+				</details>{/if}
 			{#if !spatial && gridPages > 1}<div class="flex items-center gap-1 text-xs">
 					<button
 						class="button button-ghost"
@@ -412,23 +430,34 @@
 							(linked
 								? ' Display applies to all linked views.'
 								: ` Display applies to volume ${active + 1}.`)}
-						Native indices · {dataset.axisCodes.join(' / ')} · No reorientation.
+						Native indices · {dataset.axisCodes.join(' / ')} · Display transforms never change source
+						voxels.
 					</p>
 				</div>
 			</details>
 		</div>
 	</div>
 	{#if onslice && onvolume && !spatial}
+		<button
+			class="button button-ghost shrink-0 rounded-none border-b text-xs min-[900px]:hidden {panel ===
+			'Controls'
+				? 'hidden'
+				: ''}"
+			aria-expanded={cineOpen}
+			onclick={() => (cineOpen = !cineOpen)}>Cine playback {cineOpen ? '▴' : '▾'}</button
+		>
 		<div class="shrink-0 {panel === 'Controls' ? 'max-[899px]:hidden' : ''}">
-			<CineControls
-				{dataset}
-				context={cineContext}
-				enabled={windowWidth >= 900 || panel === 'Image'}
-				{slice}
-				{active}
-				{onslice}
-				{onvolume}
-			/>
+			<div class={!cineOpen ? 'max-[899px]:hidden' : ''}>
+				<CineControls
+					{dataset}
+					context={cineContext}
+					enabled={windowWidth >= 900 || (panel === 'Image' && cineOpen)}
+					{slice}
+					{active}
+					{onslice}
+					{onvolume}
+				/>
+			</div>
 		</div>
 	{/if}
 	{#if spatial}
@@ -482,6 +511,7 @@
 						onslice={selectSlice}
 						onshortcut={(event) => shortcut(event, index)}
 						linkedViews={linked && showLink}
+						magnification={index === active ? magnification : 0}
 						temporaryPan={spacePan}
 						active={montage && index === active}
 						scrollable={montage}
