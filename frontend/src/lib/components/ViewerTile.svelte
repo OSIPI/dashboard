@@ -17,6 +17,10 @@
 		roi,
 		onroi,
 		tool,
+		wheel = 'zoom',
+		dragBinding = 'tool',
+		onslice,
+		onshortcut,
 		temporaryPan = false,
 		active = true,
 		scrollable = false,
@@ -36,6 +40,10 @@
 		roi?: RoiOverlay;
 		onroi?: (points: PixelPoint[], slice: number, rectangle: boolean) => void;
 		tool: ViewerTool;
+		wheel?: 'zoom' | 'slice';
+		dragBinding?: 'tool' | 'slice';
+		onslice?: (slice: number) => void;
+		onshortcut?: (event: KeyboardEvent) => void;
 		temporaryPan?: boolean;
 		active?: boolean;
 		scrollable?: boolean;
@@ -49,8 +57,15 @@
 	let drawing = $state<PixelPoint[]>([]);
 	let drawMode = $state<'rectangle' | 'freehand'>();
 	let drawSlice = 0;
+	let sliceDrag: { id: number; y: number; slice: number } | undefined;
+	const slicing = $derived(tool === 'slice' || (tool === 'inspect' && dragBinding === 'slice'));
+	function selectSlice(value: number) {
+		if (Number.isFinite(value))
+			onslice?.(Math.max(0, Math.min(dataset.dimensions[2] - 1, Math.round(value))));
+	}
 	const panning = $derived(tool === 'pan' || temporaryPan);
 	$effect(() => {
+		if (panning || !slicing) sliceDrag = undefined;
 		if (!panning) drag = undefined;
 		if (panning || (tool !== 'rectangle' && tool !== 'freehand')) {
 			drawing = [];
@@ -61,6 +76,8 @@
 	const ny = $derived(dataset.dimensions[1]);
 	const aspect = $derived((nx * dataset.spacing[0]) / (ny * dataset.spacing[1]));
 	function wheelZoom(node: HTMLButtonElement) {
+		let accumulated = 0;
+		let lastWheel = 0;
 		const destroy = on(
 			node,
 			'wheel',
@@ -80,6 +97,19 @@
 				event.stopPropagation();
 				const bounds = layer.getBoundingClientRect();
 				onactivate();
+				if (wheel === 'slice' && onslice) {
+					const now = performance.now();
+					if (now - lastWheel > 200 || Math.sign(accumulated) !== Math.sign(event.deltaY))
+						accumulated = 0;
+					lastWheel = now;
+					accumulated += event.deltaY * unit;
+					const steps = Math.trunc(accumulated / 40);
+					if (steps) {
+						selectSlice(slice + steps);
+						accumulated -= steps * 40;
+					}
+					return;
+				}
 				onview(
 					zoomAtPointer(
 						view,
@@ -98,6 +128,7 @@
 		onactivate();
 		(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
 		if (panning) drag = { id: e.pointerId, x: e.clientX, y: e.clientY, view: { ...view } };
+		else if (slicing && onslice) sliceDrag = { id: e.pointerId, y: e.clientY, slice };
 		else if ((tool === 'rectangle' || tool === 'freehand') && onroi) {
 			const r = layer.getBoundingClientRect();
 			const point: [number, number] = [
@@ -117,6 +148,8 @@
 		}
 	}
 	function move(e: PointerEvent) {
+		if (sliceDrag?.id === e.pointerId)
+			selectSlice(sliceDrag.slice + Math.trunc((e.clientY - sliceDrag.y) / 24));
 		if (drawing.length && drawMode) {
 			const r = layer.getBoundingClientRect();
 			const point: PixelPoint = [
@@ -143,6 +176,11 @@
 			drawMode = undefined;
 			return;
 		}
+		// Do not navigate away from a partially drawn ROI.
+		if (drawing.length) return;
+		if (!e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.isComposing) onshortcut?.(e);
+		if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || e.isComposing)
+			return;
 		const delta = (
 			{ ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] } as Record<
 				string,
@@ -164,25 +202,43 @@
 				Math.max(0, Math.min(ny - 1, y + delta[1]))
 			);
 	}
+	function cancelGesture() {
+		drag = undefined;
+		sliceDrag = undefined;
+		drawing = [];
+		drawMode = undefined;
+	}
 </script>
+
+<svelte:window onblur={cancelGesture} />
+<svelte:document
+	onvisibilitychange={() => {
+		if (document.hidden) cancelGesture();
+	}}
+/>
 
 <button
 	data-viewer-tile
 	use:wheelZoom
-	title="Scroll to zoom. Hold Space + drag to pan. Shift+scroll moves through the multiview grid."
+	title="Scroll to {wheel === 'slice' ? 'step slices' : 'zoom'}. {slicing
+		? 'Drag to step slices.'
+		: ''} Hold Space + drag to pan. Shift+scroll moves through the multiview grid. Configure bindings in navigation shortcuts."
 	class="[container-type:size] relative grid size-full min-h-0 place-items-center overflow-hidden border bg-[#080808] text-[#ddd] {active
 		? 'border-selection'
 		: 'border-transparent'} {panning
 		? 'cursor-grab touch-none active:cursor-grabbing'
-		: scrollable && tool === 'inspect'
+		: scrollable && tool === 'inspect' && !slicing
 			? 'cursor-crosshair touch-pan-y'
 			: 'cursor-crosshair touch-none'}"
 	aria-label="Volume {index + 1}, b {dataset.bValues[index]}, slice {slice + 1}. {panning
 		? 'Drag or arrow keys to pan'
-		: 'Click or arrow keys to select voxel'}"
+		: slicing
+			? 'Drag to step slices; arrow keys select voxel'
+			: 'Click or arrow keys to select voxel'}"
 	onpointerdown={down}
 	onpointermove={move}
 	onpointerup={(e) => {
+		sliceDrag = undefined;
 		drag = undefined;
 		if (drawMode && drawing.length > 1) onroi?.(drawing, drawSlice, drawMode === 'rectangle');
 		drawing = [];
@@ -190,11 +246,13 @@
 		if (e.button === 2) setTimeout(onlayout, 0);
 	}}
 	onpointercancel={() => {
+		sliceDrag = undefined;
 		drag = undefined;
 		drawing = [];
 		drawMode = undefined;
 	}}
 	onlostpointercapture={() => {
+		sliceDrag = undefined;
 		drag = undefined;
 		drawing = [];
 		drawMode = undefined;

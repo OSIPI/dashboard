@@ -223,6 +223,7 @@
 				dataset={primary.dataset}
 				volumes={primary.volumes}
 				active={volume}
+				{onvolume}
 				selected={[volume]}
 				slice={point[2]}
 				x={point[0]}
@@ -287,6 +288,7 @@
 					dataset={secondary.dataset}
 					volumes={secondary.volumes}
 					active={rightVolume}
+					onvolume={(i) => (rightVolume = i)}
 					selected={[rightVolume]}
 					slice={rightPoint[2]}
 					x={rightPoint[0]}

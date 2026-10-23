@@ -743,6 +743,7 @@
 				onlink={toggleLink}
 				bind:gridLayout={preferences.current.gridLayout}
 				bind:tool
+				onvolume={selectVolume}
 				panel={preferences.current.panel}
 				onselect={(vx, vy) => {
 					x = vx;
