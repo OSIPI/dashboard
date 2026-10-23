@@ -226,34 +226,39 @@
 	aria-label="Image viewer"
 >
 	<div
-		class="relative flex shrink-0 flex-wrap items-center gap-2 border-b px-3 py-2.5 max-[899px]:px-2 max-[899px]:py-1 {panel ===
+		class="relative flex shrink-0 flex-wrap items-center gap-2 border-b px-3 py-2.5 max-[899px]:grid max-[899px]:grid-cols-[minmax(0,1fr)_auto_auto] max-[899px]:gap-1 max-[899px]:px-2 max-[899px]:py-1 {panel ===
 		'Controls'
 			? 'max-[899px]:hidden'
 			: ''}"
 	>
 		{#if singleScan}<h3 class="text-xs font-semibold">Native view</h3>{:else}<div
-				class="flex items-center gap-1"
+				class="flex items-center gap-1 max-[899px]:col-start-1 max-[899px]:row-start-1"
 				role="group"
 				aria-label="View modes"
 			>
 				<button
-					class="button button-ghost"
+					class="button button-ghost max-[899px]:h-11 max-[899px]:px-1"
 					popovertarget={menuId}
 					bind:this={layoutTrigger}
 					aria-label="Choose view layout"
 					onclick={() => (spatial = false)}
-					><GridIcon class="size-4" />{montage ? 'Multiview' : 'Native view'} ▾</button
+					><GridIcon class="size-4" /><span class="max-[899px]:hidden"
+						>{montage ? 'Multiview' : 'Native view'}</span
+					><span class="min-[900px]:hidden">View</span> ▾</button
 				>
 				<button
-					class="button button-ghost text-xs max-[899px]:h-11"
+					class="button button-ghost text-xs max-[899px]:h-11 max-[899px]:px-1"
+					aria-label="3D + slices"
 					aria-pressed={spatial}
 					title="Open linked spatial views (overlays are shown in Native view)"
 					onclick={() => (spatial = !spatial)}
-					><BoxIcon class="size-4" aria-hidden="true" />3D + slices</button
+					><BoxIcon class="size-4" aria-hidden="true" /><span class="max-[899px]:hidden"
+						>3D + slices</span
+					><span class="min-[900px]:hidden">3D</span></button
 				>
 			</div>{/if}
 		{#if showLink && selected.length > 1}<button
-				class="button button-ghost gap-2 px-2 text-xs max-[899px]:h-11"
+				class="button button-ghost gap-2 px-2 text-xs max-[899px]:col-span-3 max-[899px]:row-start-3 max-[899px]:h-11"
 				aria-label="Link views: zoom, pan, window, level and display transforms"
 				aria-pressed={linked}
 				title="Link zoom, pan, window, level, rotation, flips and inversion across views. Slice and voxel stay linked."
@@ -271,8 +276,10 @@
 					></span></span
 				></button
 			>{/if}
-		<div class="ml-auto flex flex-wrap items-center justify-end gap-1 max-[899px]:[&_.button]:h-11">
-			{#if !spatial}<details class="relative">
+		<div
+			class="ml-auto flex flex-wrap items-center justify-end gap-1 max-[899px]:contents max-[899px]:[&_.button]:h-11"
+		>
+			{#if !spatial}<details class="relative max-[899px]:col-start-2 max-[899px]:row-start-1">
 					<summary
 						class="button button-ghost flex cursor-pointer list-none items-center px-2 [&::-webkit-details-marker]:hidden"
 						aria-label="Display transforms and inspection controls">Display ▾</summary
@@ -287,7 +294,9 @@
 						/>
 					</div>
 				</details>{/if}
-			{#if !spatial && gridPages > 1}<div class="flex items-center gap-1 text-xs">
+			{#if !spatial && gridPages > 1}<div
+					class="flex items-center gap-1 text-xs max-[899px]:col-span-3 max-[899px]:row-start-4"
+				>
 					<button
 						class="button button-ghost"
 						aria-label="Previous grid page"
@@ -301,20 +310,22 @@
 					>
 				</div>{/if}
 			{#if !spatial}<div
-					class="flex items-center gap-0.5 rounded-lg border bg-muted/20 p-0.5 [&_.button]:px-2.5 [&_.button]:text-xs max-[899px]:[&_.button]:gap-1 max-[899px]:[&_.button]:px-1"
+					class="flex items-center gap-0.5 rounded-lg border bg-muted/20 p-0.5 max-[899px]:col-span-3 max-[899px]:row-start-2 max-[899px]:justify-center [&_.button]:px-2.5 [&_.button]:text-xs max-[899px]:[&_.button]:min-w-11 max-[899px]:[&_.button]:gap-1 max-[899px]:[&_.button]:px-1"
 					role="group"
 					aria-label="Image tools"
 				>
 					<button
 						class="button button-ghost"
 						aria-pressed={tool === 'inspect'}
-						onclick={() => (tool = 'inspect')}><CrosshairIcon class="size-4" />Voxel</button
+						onclick={() => (tool = 'inspect')}
+						><CrosshairIcon class="size-4" /><span class="max-[899px]:sr-only">Voxel</span></button
 					>
 					<button
 						class="button button-ghost"
 						aria-pressed={tool === 'pan'}
 						title="Pan tool. Hold Space over an image to pan temporarily."
-						onclick={() => (tool = 'pan')}><HandIcon class="size-4" />Pan</button
+						onclick={() => (tool = 'pan')}
+						><HandIcon class="size-4" /><span class="max-[899px]:sr-only">Pan</span></button
 					>
 					<button
 						class="button button-ghost max-[899px]:min-w-11"
@@ -333,16 +344,22 @@
 						><ScanIcon class="size-4" /><span class="max-[899px]:sr-only">Region</span></button
 					>
 					<button class="button button-ghost" onclick={onreset}
-						><RotateCcwIcon class="size-4" />Reset</button
+						><RotateCcwIcon class="size-4" /><span class="max-[899px]:sr-only">Reset</span></button
 					>
 					<button
 						class="button button-ghost"
 						aria-pressed={tool === 'slice'}
 						title="Drag vertically to step through native slices. Arrow keys still select a voxel."
-						onclick={() => (tool = 'slice')}>Slice</button
+						onclick={() => (tool = 'slice')}
+						><MouseIcon class="hidden size-4 max-[899px]:block" /><span class="max-[899px]:sr-only"
+							>Slice</span
+						></button
 					>
 				</div>{/if}
-			<details class="relative text-xs" bind:open={navigationOpen}>
+			<details
+				class="relative text-xs max-[899px]:col-start-3 max-[899px]:row-start-1"
+				bind:open={navigationOpen}
+			>
 				<summary
 					class="button button-ghost flex cursor-pointer list-none items-center gap-1.5 text-muted-foreground hover:text-foreground max-[899px]:h-11 [&::-webkit-details-marker]:hidden"
 					aria-label="View navigation shortcuts"

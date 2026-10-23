@@ -46,7 +46,7 @@
 {#if magnification > 0}
 	<div
 		data-inspection-lens
-		class="pointer-events-none absolute top-8 right-2 z-10 size-32 overflow-hidden rounded-md border border-white/50 bg-[#080808] shadow-lg"
+		class="pointer-events-none absolute top-[min(2rem,10cqh)] right-2 z-10 size-[min(8rem,40cqw,50cqh)] overflow-hidden rounded-md border border-white/50 bg-[#080808] shadow-lg"
 		aria-label="Local inspection lens, {magnification} times current image magnification"
 	>
 		<div
@@ -90,7 +90,7 @@
 	{#if windowMessage}<span class="block" role="status">{windowMessage}</span>{/if}
 	<span class="block">Source intensity: {value} · units unknown</span>
 	<span class="block"
-		>Index (0-based): ({x}, {y}, {slice}), acquisition {index} · {view.zoom.toFixed(1)}×</span
+		>Index (0-based): ({x}, {y}, {slice}) · volume {index + 1} · {view.zoom.toFixed(1)}×</span
 	>
 	<span class="block"
 		>{dataset.xformCode === 0 ? 'Unspecified frame' : 'RAS'}: ({world.join(', ')}) {dataset.spatialUnit ||
