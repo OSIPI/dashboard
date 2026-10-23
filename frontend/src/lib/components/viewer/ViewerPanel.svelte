@@ -223,7 +223,10 @@
 	aria-label="Image viewer"
 >
 	<div
-		class="relative flex shrink-0 flex-wrap items-center gap-2 border-b px-3 py-2.5 max-[899px]:px-2 max-[899px]:py-1"
+		class="relative flex shrink-0 flex-wrap items-center gap-2 border-b px-3 py-2.5 max-[899px]:px-2 max-[899px]:py-1 {panel ===
+		'Controls'
+			? 'max-[899px]:hidden'
+			: ''}"
 	>
 		{#if singleScan}<h3 class="text-xs font-semibold">Native view</h3>{:else}<div
 				class="flex items-center gap-1"
@@ -416,15 +419,17 @@
 		</div>
 	</div>
 	{#if onslice && onvolume && !spatial}
-		<CineControls
-			{dataset}
-			context={cineContext}
-			enabled={windowWidth >= 900 || panel === 'Image' || panel === 'Controls'}
-			{slice}
-			{active}
-			{onslice}
-			{onvolume}
-		/>
+		<div class="shrink-0 {panel === 'Controls' ? 'max-[899px]:hidden' : ''}">
+			<CineControls
+				{dataset}
+				context={cineContext}
+				enabled={windowWidth >= 900 || panel === 'Image'}
+				{slice}
+				{active}
+				{onslice}
+				{onvolume}
+			/>
+		</div>
 	{/if}
 	{#if spatial}
 		<div
