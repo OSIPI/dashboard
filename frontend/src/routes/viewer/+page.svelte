@@ -722,6 +722,9 @@
 				onreset={resetLayout}
 			/>
 			<ViewerPanel
+				cineContext={technique}
+				onslice={(value) => (slice = value)}
+				onvolume={selectVolume}
 				roi={regionOverlay}
 				onroi={(points, z, rectangle) => roiSession?.draw(points, z, rectangle)}
 				onundo={() => roiSession?.undo()}

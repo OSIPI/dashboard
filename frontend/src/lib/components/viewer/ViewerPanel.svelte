@@ -6,6 +6,7 @@
 	import type { ImageOverlay } from '$lib/analysis';
 	import type { ViewerTool, PixelPoint, RoiOverlay } from '$lib/roi';
 	import SpatialViewer from './SpatialViewer.svelte';
+	import CineControls from './CineControls.svelte';
 	import CrosshairIcon from '~icons/lucide/crosshair';
 	import HandIcon from '~icons/lucide/hand';
 	import RotateCcwIcon from '~icons/lucide/rotate-ccw';
@@ -41,6 +42,9 @@
 		onselect,
 		onspatialselect,
 		ondisplay,
+		onslice,
+		onvolume,
+		cineContext = '',
 		onreset
 	}: {
 		dataset: Dataset;
@@ -68,6 +72,9 @@
 		onselect: (x: number, y: number) => void;
 		onspatialselect: (x: number, y: number, z: number) => void;
 		ondisplay: (view: Display, index: number) => void;
+		onslice?: (index: number) => void;
+		onvolume?: (index: number) => void;
+		cineContext?: string;
 		onreset: () => void;
 	} = $props();
 	let layoutMenu: HTMLDivElement;
@@ -95,6 +102,7 @@
 	let imageStage = $state<HTMLDivElement>();
 	let spacePan = $state(false);
 	let spatial = $state(false);
+	let windowWidth = $state(0);
 	function startSpacePan(event: KeyboardEvent) {
 		if (event.defaultPrevented) return;
 		const target = event.target instanceof Element ? event.target : undefined;
@@ -138,6 +146,7 @@
 </script>
 
 <svelte:window
+	bind:innerWidth={windowWidth}
 	onresize={positionLayoutMenu}
 	onscroll={positionLayoutMenu}
 	onkeydown={startSpacePan}
@@ -307,6 +316,17 @@
 			</details>
 		</div>
 	</div>
+	{#if onslice && onvolume && !spatial}
+		<CineControls
+			{dataset}
+			context={cineContext}
+			enabled={windowWidth >= 900 || panel === 'Image' || panel === 'Controls'}
+			{slice}
+			{active}
+			{onslice}
+			{onvolume}
+		/>
+	{/if}
 	{#if spatial}
 		<div
 			class="min-h-0 flex-1 flex-col {panel === 'Controls' ? 'hidden min-[900px]:flex' : 'flex'}"
