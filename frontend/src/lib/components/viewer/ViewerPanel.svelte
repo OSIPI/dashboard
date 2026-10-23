@@ -16,6 +16,15 @@
 	import XIcon from '~icons/lucide/x';
 	import MouseIcon from '~icons/lucide/mouse';
 	import KeyboardIcon from '~icons/lucide/keyboard';
+	import InputPreferences from './InputPreferences.svelte';
+	import {
+		INPUT_ACTIONS,
+		defaultInputPreferences,
+		readInputPreferences,
+		shortcutKey,
+		type InputAction
+	} from '$lib/viewer-input';
+	import { persistedPreference } from '$lib/persisted-preference.svelte';
 	let {
 		dataset,
 		volumes,
@@ -77,6 +86,43 @@
 		cineContext?: string;
 		onreset: () => void;
 	} = $props();
+	const input = persistedPreference(
+		'osipy.viewer.input',
+		defaultInputPreferences(),
+		readInputPreferences
+	);
+	function selectSlice(value: number) {
+		if (Number.isFinite(value))
+			onspatialselect(x, y, Math.max(0, Math.min(dataset.dimensions[2] - 1, Math.round(value))));
+	}
+	function runAction(action: InputAction, index = active) {
+		active = index;
+		if (action === 'previousSlice' || action === 'nextSlice')
+			selectSlice(slice + (action === 'nextSlice' ? 1 : -1));
+		else if (action === 'previousVolume' || action === 'nextVolume')
+			onvolume?.(
+				Math.max(0, Math.min(dataset.dimensions[3] - 1, index + (action === 'nextVolume' ? 1 : -1)))
+			);
+		else if (action === 'reset') onreset();
+		else if (action === 'zoomIn' || action === 'zoomOut') {
+			const view = linked ? display : (tiles[index] ?? display);
+			ondisplay(
+				{
+					...view,
+					zoom: Math.max(1, Math.min(4, view.zoom + (action === 'zoomIn' ? 0.25 : -0.25)))
+				},
+				index
+			);
+		} else if ((action !== 'rectangle' && action !== 'freehand') || onroi) tool = action;
+	}
+	function shortcut(event: KeyboardEvent, index: number) {
+		const key = shortcutKey(event.key);
+		const action = INPUT_ACTIONS.find(([id]) => key && input.current.shortcuts[id] === key)?.[0];
+		if (!action) return;
+		event.preventDefault();
+		event.stopPropagation();
+		runAction(action, index);
+	}
 	let layoutMenu: HTMLDivElement;
 	let layoutTrigger = $state<HTMLButtonElement>();
 	let menuPosition = $state({ left: 12, top: 12, width: 340, height: 400 });
@@ -104,9 +150,10 @@
 	let spatial = $state(false);
 	let windowWidth = $state(0);
 	function startSpacePan(event: KeyboardEvent) {
-		if (event.defaultPrevented) return;
+		if (event.defaultPrevented || event.isComposing || spatial) return;
 		const target = event.target instanceof Element ? event.target : undefined;
 		const imageFocused = target?.closest('[data-viewer-tile]') && imageStage?.contains(target);
+		if (target?.closest('input, textarea, select, [contenteditable], [role="textbox"]')) return;
 		if (
 			!imageFocused &&
 			(!imageStage?.matches(':hover') ||
@@ -249,6 +296,12 @@
 					<button class="button button-ghost" onclick={onreset}
 						><RotateCcwIcon class="size-4" />Reset</button
 					>
+					<button
+						class="button button-ghost"
+						aria-pressed={tool === 'slice'}
+						title="Drag vertically to step through native slices. Arrow keys still select a voxel."
+						onclick={() => (tool = 'slice')}>Slice</button
+					>
 				</div>{/if}
 			<details class="relative text-xs" bind:open={navigationOpen}>
 				<summary
@@ -273,7 +326,9 @@
 					>
 						<li class="flex gap-2">
 							<MouseIcon aria-hidden="true" /><span
-								><strong class="text-foreground">Scroll</strong> · Zoom at pointer (1–4×)</span
+								><strong class="text-foreground">Scroll</strong> · {input.current.wheel === 'zoom'
+									? 'Zoom at pointer (1–4×)'
+									: 'Step through slices'}</span
 							>
 						</li>
 						<li class="flex gap-2">
@@ -302,6 +357,18 @@
 							>
 						</li>
 					</ul>
+					<div
+						role="group"
+						aria-label="Keyboard accessible navigation"
+						class="mt-3 flex flex-wrap gap-1"
+					>
+						{#each INPUT_ACTIONS.filter(([id]) => !['inspect', 'pan', 'slice'].includes(id) && (onroi || !['rectangle', 'freehand'].includes(id)) && (onvolume || !['previousVolume', 'nextVolume'].includes(id))) as [id, label] (id)}
+							<button class="button button-outline min-h-11" onclick={() => runAction(id)}
+								>{label}</button
+							>
+						{/each}
+					</div>
+					<InputPreferences bind:value={input.current} />
 					<p class="mt-3 border-t pt-2 text-muted-foreground">
 						{showLink
 							? 'Slice and voxel stay linked.'
@@ -373,6 +440,10 @@
 						{x}
 						{y}
 						{tool}
+						wheel={input.current.wheel}
+						dragBinding={input.current.drag}
+						onslice={selectSlice}
+						onshortcut={(event) => shortcut(event, index)}
 						temporaryPan={spacePan}
 						active={montage && index === active}
 						scrollable={montage}
