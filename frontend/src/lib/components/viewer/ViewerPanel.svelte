@@ -9,6 +9,8 @@
 	import CineControls from './CineControls.svelte';
 	import CrosshairIcon from '~icons/lucide/crosshair';
 	import HandIcon from '~icons/lucide/hand';
+	import ContrastIcon from '~icons/lucide/contrast';
+	import ScanIcon from '~icons/lucide/scan';
 	import RotateCcwIcon from '~icons/lucide/rotate-ccw';
 	import GridIcon from '~icons/lucide/layout-grid';
 	import BoxIcon from '~icons/lucide/box';
@@ -245,7 +247,7 @@
 				>
 			</div>{/if}
 		{#if showLink && selected.length > 1}<button
-				class="button button-ghost gap-2 px-2 text-xs max-[899px]:h-11 @min-[760px]:absolute @min-[760px]:top-1/2 @min-[760px]:left-1/2 @min-[760px]:-translate-x-1/2 @min-[760px]:-translate-y-1/2"
+				class="button button-ghost gap-2 px-2 text-xs max-[899px]:h-11"
 				aria-label="Link views: zoom, pan, window and level"
 				aria-pressed={linked}
 				title="Link zoom, pan, window and level across views. Slice and voxel stay linked."
@@ -293,6 +295,22 @@
 						title="Pan tool. Hold Space over an image to pan temporarily."
 						onclick={() => (tool = 'pan')}><HandIcon class="size-4" />Pan</button
 					>
+					<button
+						class="button button-ghost max-[899px]:min-w-11"
+						aria-label="Window and level tool"
+						aria-pressed={tool === 'window'}
+						title="Drag right to widen the window, up to raise the level. Numeric controls are in Display."
+						onclick={() => (tool = 'window')}
+						><ContrastIcon class="size-4" /><span class="max-[899px]:sr-only">W/L</span></button
+					>
+					<button
+						class="button button-ghost max-[899px]:min-w-11"
+						aria-label="Regional window tool"
+						aria-pressed={tool === 'window-region'}
+						title="Draw a temporary rectangle: 2–98% of scaled native values, without changing analysis ROIs."
+						onclick={() => (tool = 'window-region')}
+						><ScanIcon class="size-4" /><span class="max-[899px]:sr-only">Region</span></button
+					>
 					<button class="button button-ghost" onclick={onreset}
 						><RotateCcwIcon class="size-4" />Reset</button
 					>
@@ -335,10 +353,24 @@
 							<HandIcon aria-hidden="true" /><span><kbd>Space</kbd> + drag · Pan temporarily</span>
 						</li>
 						<li class="flex gap-2">
+							<ContrastIcon aria-hidden="true" /><span
+								><strong class="text-foreground">W/L</strong> · Drag right to widen, up to raise level.
+								Display has numeric controls and reset.</span
+							>
+						</li>
+						<li class="flex gap-2">
+							<ScanIcon aria-hidden="true" /><span
+								><strong class="text-foreground">Region</strong> · Draw a temporary rectangle for slice-local
+								2–98% windowing. Escape cancels; analysis ROIs are unchanged.</span
+							>
+						</li>
+						<li class="flex gap-2">
 							<KeyboardIcon aria-hidden="true" /><span
 								><kbd>Arrow keys</kbd> · {tool === 'pan'
 									? 'Pan the focused image'
-									: 'Move the selected voxel'}</span
+									: tool === 'window' || tool === 'window-region'
+										? 'Use Display numeric controls for windowing'
+										: 'Move the selected voxel'}</span
 							>
 						</li>
 						<li class="flex gap-2">
@@ -444,6 +476,7 @@
 						dragBinding={input.current.drag}
 						onslice={selectSlice}
 						onshortcut={(event) => shortcut(event, index)}
+						linkedViews={linked && showLink}
 						temporaryPan={spacePan}
 						active={montage && index === active}
 						scrollable={montage}

@@ -758,6 +758,12 @@
 			>
 				{#snippet controls()}<ImageControls
 						dataset={dataset!}
+						volume={volumes[active]}
+						linked={preferences.current.linked}
+						onregion={() => {
+							tool = 'window-region';
+							preferences.current.panel = 'Image';
+						}}
 						{slice}
 						{active}
 						display={activeDisplay}
