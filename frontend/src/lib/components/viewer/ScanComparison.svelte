@@ -241,6 +241,11 @@
 			>
 				{#snippet controls()}<ImageControls
 						dataset={primary.dataset}
+						volume={primary.volumes[volume]}
+						onregion={() => {
+							leftTool = 'window-region';
+							mobilePanel.current = 'Image';
+						}}
 						slice={point[2]}
 						active={volume}
 						{display}
@@ -306,6 +311,11 @@
 				>
 					{#snippet controls()}<ImageControls
 							dataset={secondary.dataset}
+							volume={secondary.volumes[rightVolume]}
+							onregion={() => {
+								rightTool = 'window-region';
+								mobilePanel.current = 'Image';
+							}}
 							slice={rightPoint[2]}
 							active={rightVolume}
 							display={rightDisplay}

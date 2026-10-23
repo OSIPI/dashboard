@@ -1,6 +1,13 @@
 import { voxelIndex, type Dataset, type VoxelVolume } from './ivim';
 
-export type ViewerTool = 'inspect' | 'pan' | 'slice' | 'rectangle' | 'freehand';
+export type ViewerTool =
+	| 'inspect'
+	| 'pan'
+	| 'slice'
+	| 'rectangle'
+	| 'freehand'
+	| 'window'
+	| 'window-region';
 export type PixelPoint = [number, number];
 export type Roi = { id: string; label: number; name: string; color: string; indices: number[] };
 export type RoiOverlay = { mask: Uint8Array; color: [number, number, number]; opacity: number };
