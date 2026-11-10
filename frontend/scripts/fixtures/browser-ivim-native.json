@@ -1,0 +1,99 @@
+{
+  "schema": 1,
+  "osipyVersion": "0.1.4",
+  "relativeTolerance": 1e-07,
+  "absoluteTolerance": 1e-09,
+  "input": {
+    "bValues": [
+      0.0,
+      0.0,
+      10.0,
+      50.0,
+      100.0,
+      200.0,
+      400.0,
+      800.0
+    ],
+    "signal": [
+      1000.0,
+      1000.0,
+      964.4538679971133,
+      860.0986698394223,
+      778.9484957645375,
+      678.4875858800488,
+      541.110047439179,
+      348.4177349949874
+    ]
+  },
+  "combinations": [
+    {
+      "model": "biexponential",
+      "method": "segmented",
+      "effectiveBThreshold": 200.0,
+      "params": {
+        "d": 0.0011000000000000562,
+        "f": 0.15999999999997777,
+        "s0": 1000.0000000000005,
+        "dStar": 0.018000000000004155
+      },
+      "rSquared": 1.0
+    },
+    {
+      "model": "biexponential",
+      "method": "full",
+      "effectiveBThreshold": 0.0,
+      "params": {
+        "d": 0.0010999999999999998,
+        "f": 0.16000000000000006,
+        "s0": 1000.0000000000001,
+        "dStar": 0.018
+      },
+      "rSquared": 1.0
+    },
+    {
+      "model": "biexponential",
+      "method": "bayesian",
+      "effectiveBThreshold": 200.0,
+      "params": {
+        "d": 0.0011000000000000022,
+        "f": 0.15999999999999917,
+        "s0": 1000.0000000000001,
+        "dStar": 0.018000000000000193
+      },
+      "rSquared": 1.0
+    },
+    {
+      "model": "simplified",
+      "method": "segmented",
+      "effectiveBThreshold": 200.0,
+      "params": {
+        "d": 0.0016165998648170377,
+        "f": 0.0,
+        "s0": 975.4262991813614
+      },
+      "rSquared": 0.9652118364693723
+    },
+    {
+      "model": "simplified",
+      "method": "full",
+      "effectiveBThreshold": 0.0,
+      "params": {
+        "d": 0.001331635427716212,
+        "f": 0.07361809019117148,
+        "s0": 1000.0000063177872
+      },
+      "rSquared": 0.986077797672944
+    },
+    {
+      "model": "simplified",
+      "method": "bayesian",
+      "effectiveBThreshold": 200.0,
+      "params": {
+        "d": 0.001612405643723235,
+        "f": 0.0,
+        "s0": 975.0466170844574
+      },
+      "rSquared": 0.9655167277583961
+    }
+  ]
+}

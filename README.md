@@ -24,6 +24,8 @@ docker compose up
 
 Keep using <https://osipi.github.io/dashboard/>. Compose builds a Python-only image, publishes the REST API on `127.0.0.1:60016`. The dashboard connects automatically when that port is available. Rebuild after source changes with `docker compose up --build`. Stop `make dev` first; both commands use API port 60016.
 
+For the separate no-server synthetic IVIM experiment, see the [browser IVIM demo](docs/browser-ivim-demo.md). It runs the published OSIPY fitter in a Pyodide Web Worker and does not accept or transmit scans.
+
 To run the published REST API image without cloning:
 
 ```sh
