@@ -4,6 +4,7 @@
 	import ChevronRightIcon from '~icons/lucide/chevron-right';
 	import { onMount, onDestroy, tick } from 'svelte';
 	import { AnalysisClient } from '$lib/analysis-client.svelte';
+	import { BrowserAnalysisClient } from '$lib/browser-analysis-client.svelte';
 	import { retryUntilConnected } from '$lib/api-retry';
 	import LocalAnalysisSetup from '$lib/components/LocalAnalysisSetup.svelte';
 	import AnalysisPanel from '$lib/components/viewer/AnalysisPanel.svelte';
@@ -178,7 +179,20 @@
 	let storageMessage = $state('Saved only in this browser.');
 	let message = $state('');
 	let workspaceWidth = $state(900);
-	const analysis = new AnalysisClient();
+	const localAnalysis = new AnalysisClient();
+	const browserAnalysis = new BrowserAnalysisClient();
+	let fittingEngine = $state<'browser' | 'local'>('browser');
+	const analysis = $derived(fittingEngine === 'browser' ? browserAnalysis : localAnalysis);
+	function changeFittingEngine(engine: 'browser' | 'local') {
+		if (
+			analysis.busy ||
+			analysis.runs.some((r) => ['running', 'pending', 'cancelling'].includes(r.state))
+		)
+			return;
+		fittingEngine = engine;
+		fitDialogOpen = false;
+		if (!analysis.catalog) void analysis.connect();
+	}
 	let fitDialogOpen = $state(false);
 	let fitDialogTab = $state<'configure' | 'results'>('configure');
 	let fitMethod = $state('biexponential');
@@ -193,7 +207,7 @@
 		fitDialogTab = fitResult ? 'results' : 'configure';
 		fitDialogOpen = true;
 	}
-	analysis.onresult = (result) => {
+	localAnalysis.onresult = browserAnalysis.onresult = (result) => {
 		for (const item of catalog.filter((s) => s.sha256 === result.report.dataset.sha256))
 			void saveResult(item.id, result).catch(
 				(e) => (message = `Result not saved locally: ${storageError(e)}`)
@@ -203,7 +217,8 @@
 		alive = false;
 		loadSequence++;
 		flushWorkspace();
-		analysis.dispose();
+		localAnalysis.dispose();
+		browserAnalysis.dispose();
 	});
 	const fitResult = $derived(
 		analysis.results.find(
@@ -258,9 +273,13 @@
 		const stopRetry =
 			!import.meta.env.DEV && !__LOCAL_API_PROXY__
 				? retryUntilConnected(
-						() => !!analysis.catalog,
-						() => !document.hidden && !analysis.busy && !analysis.catalog,
-						() => analysis.connect()
+						() => !!localAnalysis.catalog,
+						() =>
+							fittingEngine === 'local' &&
+							!document.hidden &&
+							!localAnalysis.busy &&
+							!localAnalysis.catalog,
+						() => localAnalysis.connect()
 					)
 				: undefined;
 		void listStoredScans()
@@ -344,11 +363,13 @@
 				roiSessions.set(id, session);
 			}
 			const validFit = savedFit && validSavedResult(savedFit, scan.dataset) ? savedFit : undefined;
-			if (validFit && !analysis.results.some((r) => r.id === validFit.id))
-				analysis.results = [...analysis.results, validFit];
+			const resultClient =
+				validFit?.report.provenance?.engine === 'browser' ? browserAnalysis : localAnalysis;
+			if (validFit && !resultClient.results.some((r) => r.id === validFit.id))
+				resultClient.results = [...resultClient.results, validFit];
 			if (activate) {
 				activateScan(scan);
-				if (validFit) analysis.selected = validFit.id;
+				if (validFit) resultClient.selected = validFit.id;
 				let destination = resolve('/viewer');
 				destination += `?scan=${encodeURIComponent(id)}`;
 				replaceState(destination, page.state);
@@ -606,7 +627,10 @@
 				>{dataset.dimensions[2]} slices</span
 			>
 		</div>{/if}
-	<div class="ml-auto"><LocalAnalysisSetup client={analysis} /></div>
+	<div class="ml-auto">
+		{#if fittingEngine === 'local'}<LocalAnalysisSetup client={localAnalysis} />
+		{:else}<span class="badge">Browser fitting · no server</span>{/if}
+	</div>
 </Header>
 <main
 	class="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-3 max-[899px]:gap-1 max-[899px]:p-1"
@@ -850,6 +874,7 @@
 				>
 					<AnalysisPanel
 						client={analysis}
+						onengine={changeFittingEngine}
 						{dataset}
 						result={fitResult}
 						selectedMethod={fitMethod}

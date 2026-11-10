@@ -42,6 +42,8 @@ type ApiJob = {
 };
 
 export class AnalysisClient {
+	readonly engine: 'browser' | 'local' = 'local';
+	readonly maxVoxels: number = Infinity;
 	onresult?: (result: FitResult) => void;
 	url = $state('http://127.0.0.1:60016');
 	catalog = $state<Catalog>();
@@ -362,7 +364,7 @@ export class AnalysisClient {
 			this.error = e instanceof Error ? e.message : 'Result unavailable';
 		}
 	}
-	private range(values: Float32Array) {
+	protected range(values: Float32Array) {
 		let min = Infinity,
 			max = -Infinity;
 		for (const value of values)
