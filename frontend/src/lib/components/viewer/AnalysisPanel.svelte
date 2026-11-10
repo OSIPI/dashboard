@@ -16,6 +16,7 @@
 		selectedStrategy,
 		openPanel = $bindable(true),
 		onopen,
+		onengine,
 		onselect
 	}: {
 		client: AnalysisClient;
@@ -25,6 +26,7 @@
 		selectedStrategy?: string;
 		openPanel: boolean;
 		onopen: () => void;
+		onengine: (engine: 'browser' | 'local') => void;
 		onselect: (id: string, strategy: string) => void;
 	} = $props();
 	const running = $derived(
@@ -63,6 +65,33 @@
 				/>{/if}
 		</button>
 	</h2>
+	<fieldset class="space-y-2" disabled={client.busy || !!running}>
+		<legend class="mb-2 text-xs font-medium">Fit on this computer</legend>
+		<div
+			class="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1"
+			role="group"
+			aria-label="Fitting engine"
+		>
+			{#each [{ value: 'browser' as const, label: 'Browser' }, { value: 'local' as const, label: 'Local Python' }] as engine (engine.value)}
+				<button
+					type="button"
+					class="button min-h-11 text-xs {client.engine === engine.value
+						? 'bg-card text-foreground shadow-sm'
+						: 'button-ghost text-muted-foreground'}"
+					aria-pressed={client.engine === engine.value}
+					onclick={() => onengine(engine.value)}>{engine.label}</button
+				>
+			{/each}
+		</div>
+	</fieldset>
+	<p class="text-xs text-muted-foreground">
+		{#if client.engine === 'browser'}
+			Fits this scan's acquired signals in a Python browser worker. No Docker or scan uploads. First
+			fit downloads Python, NumPy and OSIPY from public CDNs. Up to {client.maxVoxels.toLocaleString()}
+			voxels per run.
+		{:else}Fits with OSIPY through your loopback REST API. Use local Python for larger ROI and
+			whole-scan runs.{/if}
+	</p>
 	{#if !client.catalog}<p class="text-xs text-muted-foreground">
 			Open Local analysis at the top right to connect before fitting.
 		</p>{/if}
@@ -174,8 +203,9 @@
 			{/if}
 			<div class="flex flex-wrap items-center justify-between gap-2">
 				<p class="text-muted-foreground">
-					Result · {client.catalog?.models.find((m) => m.id === result.report.model)?.label ??
-						result.report.model}
+					{result.report.provenance?.engine === 'browser' ? 'Browser' : 'Local Python'} result · {client.catalog?.models.find(
+						(m) => m.id === result.report.model
+					)?.label ?? result.report.model}
 				</p>
 			</div>
 		</div>
@@ -200,8 +230,11 @@
 							class="mt-1 ml-3 underline"
 							disabled={job.state === 'completed' &&
 								!client.results.some((item) => item.id === job.id)}
-							title="Free an API run slot. Already downloaded maps stay in your browser; API voxel detail for this run becomes unavailable."
-							onclick={() => client.release(job)}>Free API slot</button
+							title={client.engine === 'browser'
+								? 'Remove this run and its maps from this session.'
+								: 'Free an API run slot. Already downloaded maps stay in your browser; API voxel detail for this run becomes unavailable.'}
+							onclick={() => client.release(job)}
+							>{client.engine === 'browser' ? 'Remove run' : 'Free API slot'}</button
 						>{/if}
 				</div>{/each}
 		</div>

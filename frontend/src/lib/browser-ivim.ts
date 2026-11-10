@@ -58,13 +58,16 @@ export function parseNumberArray(text: string, label: string): number[] {
 	return values;
 }
 
-export function validateBrowserIvimRequest(value: BrowserIvimRequest): BrowserIvimRequest {
+export function validateBrowserIvimRequest(
+	value: BrowserIvimRequest,
+	maxSamples = 64
+): BrowserIvimRequest {
 	if (!IVIM_MODELS.includes(value.model)) throw new Error('Choose a supported IVIM model.');
 	if (!IVIM_METHODS.includes(value.method)) throw new Error('Choose a supported fitting method.');
 	if (value.bValues.length !== value.signal.length)
 		throw new Error('b-values and signal must contain the same number of samples.');
-	if (value.bValues.length < 4 || value.bValues.length > 64)
-		throw new Error('Use between 4 and 64 samples. Repeated b-values are retained.');
+	if (value.bValues.length < 4 || value.bValues.length > maxSamples)
+		throw new Error(`Use between 4 and ${maxSamples} samples. Repeated b-values are retained.`);
 	if (!value.bValues.every((item) => finiteNumber(item) && item >= 0 && item <= 10_000))
 		throw new Error('Each b-value must be finite and between 0 and 10,000 s/mm².');
 	if (!value.signal.every((item) => finiteNumber(item) && item > 0 && item <= 1_000_000_000))
