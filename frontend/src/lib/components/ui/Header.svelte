@@ -6,6 +6,7 @@
 	import Logo from '$lib/assets/icons/Logo.svelte';
 	import MoonIcon from '~icons/lucide/moon';
 	import SunIcon from '~icons/lucide/sun';
+	import Diagnostics from './Diagnostics.svelte';
 	const theme = persistedPreference<'dark' | 'light'>(
 		'theme',
 		'dark',
@@ -54,6 +55,7 @@
 				aria-current={page.route.id === '/packages' ? 'page' : undefined}
 				class="aria-[current=page]:text-foreground">Code catalog</a
 			>
+			<Diagnostics />
 			<a href="https://github.com/OSIPI/dashboard/issues/new" target="_blank" rel="noreferrer"
 				>Feedback</a
 			><a href="https://osipy.readthedocs.io" target="_blank" rel="noreferrer">Docs</a><a
@@ -65,6 +67,7 @@
 				class="button button-ghost button-icon max-[899px]:min-w-11"
 				type="button"
 				onclick={toggleTheme}
+				data-diagnostic="theme"
 				aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'}
 				>{#if dark}<SunIcon class="size-4" aria-hidden="true" />{:else}<MoonIcon
 						class="size-4"

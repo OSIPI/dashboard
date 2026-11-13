@@ -1,4 +1,10 @@
 <script lang="ts">
+	import {
+		diagnostic,
+		diagnosticDataset,
+		diagnosticOperation,
+		diagnosticError
+	} from '$lib/diagnostics';
 	import ClipboardCheckIcon from '~icons/lucide/clipboard-check';
 	import ChevronDownIcon from '~icons/lucide/chevron-down';
 	import ChevronRightIcon from '~icons/lucide/chevron-right';
@@ -313,6 +319,7 @@
 		}
 	}
 	async function loadSaved(id: string, activate = true) {
+		const trace = diagnosticOperation('library', { stage: 'read' });
 		const sequence = ++loadSequence;
 		flushWorkspace();
 		restoring = true;
@@ -340,7 +347,10 @@
 				readSavedRois(id),
 				readSavedResult(id)
 			]);
-			if (!alive || sequence !== loadSequence) return;
+			if (!alive || sequence !== loadSequence) {
+				trace.end('cancelled');
+				return;
+			}
 			if (!scans.some((s) => s.id === id)) scans = [...scans, scan];
 			if (savedView && !scanViews.has(id)) {
 				try {
@@ -374,7 +384,12 @@
 				destination += `?scan=${encodeURIComponent(id)}`;
 				replaceState(destination, page.state);
 			}
+			trace.end('success', {
+				dataset: diagnosticDataset(scan.dataset),
+				bytes: scan.dataset.byteLength
+			});
 		} catch (e) {
+			trace.end('failed', { category: diagnosticError(e) });
 			if (alive && sequence === loadSequence) dataError = storageError(e);
 		} finally {
 			if (sequence === loadSequence) restoring = false;
@@ -390,6 +405,11 @@
 		if (currentId === primary && scans.some((s) => s.id === id)) comparisonId = id;
 	}
 	function activateScan(scan: Scan) {
+		diagnostic('dataset.active', {
+			dataset: diagnosticDataset(scan.dataset),
+			bytes: scan.dataset.byteLength,
+			volumes: scan.volumes.length
+		});
 		if (dataset && currentId && volumes.length) scanViews.set(currentId, workspaceData());
 		paneStorage = undefined;
 		currentId = scan.id;
@@ -462,6 +482,7 @@
 	}
 	function removeScan(id: string) {
 		if (id === currentId) return;
+		diagnostic('interaction', { action: 'scan-remove' });
 		scans = scans.filter((s) => s.id !== id);
 		scanViews.delete(id);
 	}

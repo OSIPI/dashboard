@@ -158,6 +158,7 @@
 />
 
 <section
+	data-diagnostic="view"
 	class="viewer-panel card @container min-h-0 min-w-0 flex-col overflow-hidden {panel === 'Image' ||
 	panel === 'Controls'
 		? 'flex'
