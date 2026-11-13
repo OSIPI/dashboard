@@ -13,6 +13,13 @@ import {
 	type VoxelFit
 } from './analysis';
 import type { Dataset, VoxelVolume } from './ivim';
+import {
+	diagnostic,
+	diagnosticChoice,
+	diagnosticDataset,
+	diagnosticError,
+	diagnosticOperation
+} from './diagnostics';
 
 class ApiError extends Error {
 	constructor(
@@ -63,18 +70,71 @@ export class AnalysisClient {
 	private controller = new AbortController();
 	private timer: ReturnType<typeof setTimeout> | undefined;
 	private generation = 0;
+	private traces = new SvelteMap<string, ReturnType<typeof diagnosticOperation>>();
 	private async request(path: string, init: RequestInit = {}) {
-		const response = await fetch(this.endpoint + path, {
-			...init,
-			redirect: 'error',
-			signal: this.controller.signal,
-			headers: init.headers
-		});
-		if (!response.ok) {
-			const body = await response.json().catch(() => ({}));
-			throw new ApiError(body.detail || body.error || `HTTP ${response.status}`, response.status);
+		const stage =
+			path === '/datasets'
+				? 'upload'
+				: path.endsWith('/fits')
+					? 'submit'
+					: path.includes('/maps/')
+						? 'maps'
+						: path.includes('/voxel?')
+							? 'voxel'
+							: path.endsWith('/retained')
+								? 'release'
+								: init.method === 'DELETE'
+									? 'cancel'
+									: path.startsWith('/fits/')
+										? 'poll'
+										: 'connect';
+		const started = performance.now();
+		const trace =
+			stage === 'poll' || stage === 'voxel' ? undefined : diagnosticOperation('api', { stage });
+		try {
+			const response = await fetch(this.endpoint + path, {
+				...init,
+				redirect: 'error',
+				signal: this.controller.signal,
+				headers: init.headers
+			});
+			if (!response.ok) {
+				trace?.end('failed', { status: response.status });
+				if (!trace)
+					diagnostic('operation.end', {
+						kind: 'api',
+						stage,
+						outcome: 'failed',
+						status: response.status,
+						durationMs: Math.round(performance.now() - started)
+					});
+				const body = await response.json().catch(() => ({}));
+				throw new ApiError(body.detail || body.error || `HTTP ${response.status}`, response.status);
+			}
+			trace?.end('success', { status: response.status });
+			if (!trace && performance.now() - started > 2000)
+				diagnostic('operation.end', {
+					kind: 'api',
+					stage,
+					outcome: 'success',
+					status: response.status,
+					durationMs: Math.round(performance.now() - started)
+				});
+			return response;
+		} catch (error) {
+			trace?.end(this.controller.signal.aborted ? 'cancelled' : 'failed', {
+				category: diagnosticError(error)
+			});
+			if (!trace && !(error instanceof ApiError))
+				diagnostic('operation.end', {
+					kind: 'api',
+					stage,
+					outcome: this.controller.signal.aborted ? 'cancelled' : 'failed',
+					category: diagnosticError(error),
+					durationMs: Math.round(performance.now() - started)
+				});
+			throw error;
 		}
-		return response;
 	}
 	async connect() {
 		this.generation++;
@@ -94,6 +154,7 @@ export class AnalysisClient {
 			this.stage = 'Connected · local REST API';
 		} catch (e) {
 			this.catalog = undefined;
+			diagnostic('runtime.error', { kind: 'api', stage: 'connect', category: diagnosticError(e) });
 			this.error =
 				e instanceof TypeError
 					? 'Cannot reach the local OSIPY REST API. Check Docker is running and allow local network access for this site.'
@@ -213,6 +274,22 @@ export class AnalysisClient {
 				startedAt: new SvelteDate().toISOString()
 			};
 			this.runs = [...this.runs, job];
+			this.traces.set(
+				job.id,
+				diagnosticOperation('api', {
+					dataset: diagnosticDataset(dataset),
+					engine: 'local',
+					model: diagnosticChoice(config.model),
+					method: diagnosticChoice(config.method),
+					scope: scope === 'voxel' ? 'voxel-scope' : scope,
+					bytes: dataset.byteLength,
+					volumes: volumes.length,
+					selectedVoxels:
+						scope === 'dataset'
+							? dataset.dimensions.slice(0, 3).reduce((a, b) => a * b, 1)
+							: indices.length
+				})
+			);
 			this.selected = job.id;
 			this.stage = 'Fitting locally';
 			this.poll(job, dataset);
@@ -223,6 +300,7 @@ export class AnalysisClient {
 					: e instanceof Error
 						? e.message
 						: 'Analysis failed';
+			diagnostic('runtime.error', { kind: 'api', stage: 'submit', category: diagnosticError(e) });
 			this.stage = 'Ready';
 		} finally {
 			this.busy = false;
@@ -234,6 +312,32 @@ export class AnalysisClient {
 			const api = (await (await this.request(`/fits/${job.id}`)).json()) as ApiJob;
 			if (generation !== this.generation) return;
 			const updated = this.fromApiJob(api, job);
+			if (
+				updated.state !== job.state ||
+				Math.floor(updated.progress * 10) !== Math.floor(job.progress * 10)
+			)
+				diagnostic('analysis.state', {
+					operation: this.traces.get(job.id)?.id,
+					engine: 'local',
+					state: updated.state,
+					progress: updated.progress
+				});
+			if (['completed', 'failed', 'cancelled'].includes(updated.state)) {
+				this.traces
+					.get(job.id)
+					?.end(
+						updated.state === 'completed'
+							? 'success'
+							: updated.state === 'cancelled'
+								? 'cancelled'
+								: 'failed',
+						{
+							selectedVoxels: updated.summary?.selectedVoxels,
+							validVoxels: updated.summary?.validVoxels
+						}
+					);
+				this.traces.delete(job.id);
+			}
 			this.runs = this.runs.map((item) => (item.id === job.id ? updated : item));
 			if (updated.state === 'completed' && dataset && !this.results.some((r) => r.id === job.id))
 				await this.loadResult(updated, dataset);
@@ -242,6 +346,8 @@ export class AnalysisClient {
 			else this.stage = 'Ready';
 		} catch (e) {
 			if (generation === this.generation && !this.controller.signal.aborted) {
+				this.traces.get(job.id)?.end('failed', { category: diagnosticError(e) });
+				this.traces.delete(job.id);
 				this.error = e instanceof Error ? e.message : 'Lost connection';
 				this.stage = 'Disconnected — reconnect to run another fit';
 			}
@@ -362,6 +468,7 @@ export class AnalysisClient {
 			this.stage = 'Ready';
 		} catch (e) {
 			this.error = e instanceof Error ? e.message : 'Result unavailable';
+			diagnostic('runtime.error', { kind: 'api', stage: 'maps', category: diagnosticError(e) });
 		}
 	}
 	protected range(values: Float32Array) {
@@ -411,6 +518,8 @@ export class AnalysisClient {
 		}
 	}
 	dispose() {
+		for (const trace of this.traces.values()) trace.end('cancelled');
+		this.traces.clear();
 		this.generation++;
 		this.controller.abort();
 		clearTimeout(this.timer);

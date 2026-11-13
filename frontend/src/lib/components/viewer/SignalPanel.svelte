@@ -402,7 +402,10 @@
 		{@html expanded ? interactiveChart : preview}
 	</span>
 {/snippet}
-<section class="card overflow-hidden {open ? '' : '[&>*:not(:first-child)]:hidden'}">
+<section
+	data-diagnostic="signal"
+	class="card overflow-hidden {open ? '' : '[&>*:not(:first-child)]:hidden'}"
+>
 	<div class="p-3 pb-1">
 		<div class="flex items-start gap-0.5">
 			<h2

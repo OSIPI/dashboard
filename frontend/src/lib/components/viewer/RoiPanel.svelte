@@ -113,7 +113,10 @@
 	}
 </script>
 
-<section class="card space-y-2.5 p-3 {open ? '' : '[&>*:not(:first-child)]:hidden'}">
+<section
+	data-diagnostic="roi-edit"
+	class="card space-y-2.5 p-3 {open ? '' : '[&>*:not(:first-child)]:hidden'}"
+>
 	<div class="flex items-center gap-2">
 		<h2 class="min-w-0 flex-1">
 			<button

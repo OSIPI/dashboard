@@ -5,13 +5,13 @@ self.onmessage = async (
 ) => {
 	try {
 		const { image, bval, bvec, availableBytes } = event.data;
-		const result = await decodeNifti(
-			await readImageFile(image),
-			bval ? await readSidecar(bval) : undefined,
-			bvec ? await readSidecar(bvec) : undefined,
-			image.name,
-			availableBytes
-		);
+		self.postMessage({ stage: 'read' });
+		const buffer = await readImageFile(image);
+		self.postMessage({ stage: 'sidecars', bytes: buffer.byteLength });
+		const bvals = bval ? await readSidecar(bval) : undefined;
+		const bvecs = bvec ? await readSidecar(bvec) : undefined;
+		self.postMessage({ stage: 'decode' });
+		const result = await decodeNifti(buffer, bvals, bvecs, image.name, availableBytes);
 		self.postMessage({ result }, { transfer: [result.volumes[0].buffer] });
 	} catch (error) {
 		self.postMessage({
