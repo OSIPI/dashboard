@@ -2,6 +2,10 @@
 
 This repository contains the OSIPY web platform.
 
+The [community code catalog](https://osipi.github.io/dashboard/packages) lists
+OSIPI contributions and their source-based Pyodide assessments. Listing is not
+runtime integration; see [scope and methodology](docs/contribution-catalog.md).
+
 - [`frontend/`](frontend/) contains the SvelteKit dashboard.
 - [`rest-api/`](rest-api/) contains the optional local IVIM analysis backend consumed by the dashboard.
 
