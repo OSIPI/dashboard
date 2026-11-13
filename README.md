@@ -26,6 +26,8 @@ Keep using <https://osipi.github.io/dashboard/>. Compose builds a Python-only im
 
 For the separate no-server synthetic IVIM experiment, see the [browser IVIM demo](docs/browser-ivim-demo.md). It runs the published OSIPY fitter in a Pyodide Web Worker and does not accept or transmit scans.
 
+Researchers adapting their own packages can use the [Pyodide compatibility and integration guide](docs/pyodide-researcher-guide.md).
+
 To run the published REST API image without cloning:
 
 ```sh

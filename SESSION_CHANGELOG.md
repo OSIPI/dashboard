@@ -1,0 +1,2 @@
+2026-11-13 · OpenCode · Pyodide researcher documentation: prepared a follow-up guide with a browser/worker architecture diagram and the dated IVIM demo screenshot; preserved unrelated checkout changes in a separate worktree. Documentation-only changes; no application tests run (not requested).
+2026-11-13 · OpenCode · PR preparation: fetched and merged origin/main (already up to date at a0a3b78); diff whitespace check and SVG XML parsing passed. Preparing a documentation-only PR with both images embedded.
