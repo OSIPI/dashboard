@@ -4,6 +4,7 @@
 	import ChevronRightIcon from '~icons/lucide/chevron-right';
 	import { download, parseWorkspace, type Workspace } from '$lib/workspace';
 	import type { Dataset } from '$lib/ivim';
+	import { diagnosticError, diagnosticOperation } from '$lib/diagnostics';
 	let {
 		dataset,
 		getworkspace,
@@ -33,17 +34,23 @@
 		const file = input.files?.[0];
 		input.value = '';
 		if (!file) return;
+		const trace = diagnosticOperation('workspace', { bytes: file.size });
 		try {
 			if (file.size > 100_000) throw new Error('Workspace is too large (100 KB maximum).');
 			pending = parseWorkspace(await file.text(), dataset);
 			dialog.showModal();
+			trace.end('success');
 		} catch (e) {
+			trace.end('rejected', { category: diagnosticError(e) });
 			onmessage(e instanceof Error ? e.message : 'Invalid workspace file.');
 		}
 	}
 </script>
 
-<section class="card space-y-3 p-3 {open ? '' : '[&>*:not(:first-child)]:hidden'}">
+<section
+	data-diagnostic="workspace"
+	class="card space-y-3 p-3 {open ? '' : '[&>*:not(:first-child)]:hidden'}"
+>
 	<h2>
 		<button
 			type="button"
@@ -80,6 +87,7 @@
 	</p>
 </section>
 <dialog
+	data-diagnostic="workspace"
 	bind:this={dialog}
 	class="m-auto max-h-[calc(100dvh-24px)] w-[min(520px,calc(100vw-24px))] overflow-auto rounded-xl border bg-card p-5 text-foreground backdrop:bg-black/65"
 	aria-labelledby="import-title"

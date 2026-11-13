@@ -35,7 +35,10 @@
 	const ready = $derived(dataset.bValues.includes(0) && new Set(dataset.bValues).size >= 4);
 </script>
 
-<section class="card space-y-3 p-3 {openPanel ? '' : '[&>*:not(:first-child)]:hidden'}">
+<section
+	data-diagnostic="analysis"
+	class="card space-y-3 p-3 {openPanel ? '' : '[&>*:not(:first-child)]:hidden'}"
+>
 	<h2 id="ivim-analysis" tabindex="-1" class="scroll-mt-3">
 		<button
 			type="button"

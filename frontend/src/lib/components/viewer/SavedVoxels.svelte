@@ -26,7 +26,10 @@
 	} = $props();
 </script>
 
-<section class="card p-3 {open ? '' : '[&>*:not(:first-child)]:hidden'}">
+<section
+	data-diagnostic="bookmarks"
+	class="card p-3 {open ? '' : '[&>*:not(:first-child)]:hidden'}"
+>
 	<h2>
 		<button
 			type="button"

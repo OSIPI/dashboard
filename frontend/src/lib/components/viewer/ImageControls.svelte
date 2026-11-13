@@ -25,7 +25,10 @@
 	} = $props();
 </script>
 
-<div class="grid gap-3 @min-[640px]:grid-cols-2 @min-[960px]:grid-cols-[1fr_1.15fr_1fr]">
+<div
+	data-diagnostic="controls"
+	class="grid gap-3 @min-[640px]:grid-cols-2 @min-[960px]:grid-cols-[1fr_1.15fr_1fr]"
+>
 	<fieldset class="min-w-0 space-y-2">
 		<legend class="mb-2 text-xs font-semibold">Acquisition</legend>
 		<NumericControl

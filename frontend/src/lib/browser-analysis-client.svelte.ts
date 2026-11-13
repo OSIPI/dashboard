@@ -4,6 +4,13 @@ import type { Catalog, FitConfig, FitJob, FitResult, VoxelFit } from './analysis
 import type { Dataset, VoxelVolume } from './ivim';
 import { voxelIndex } from './ivim';
 import {
+	diagnostic,
+	diagnosticChoice,
+	diagnosticDataset,
+	diagnosticError,
+	diagnosticOperation
+} from './diagnostics';
+import {
 	IVIM_MODELS,
 	IVIM_METHODS,
 	OSIPY_VERSION,
@@ -48,6 +55,8 @@ export class BrowserAnalysisClient extends AnalysisClient {
 	private epoch = 0;
 	private rejectPending?: (reason: Error) => void;
 	private details = new SvelteMap<string, SvelteMap<number, VoxelFit>>();
+	private trace?: ReturnType<typeof diagnosticOperation>;
+	private loggedReady = false;
 
 	override async connect() {
 		this.catalog = browserCatalog;
@@ -72,8 +81,13 @@ export class BrowserAnalysisClient extends AnalysisClient {
 				);
 			worker.onmessage = (event: MessageEvent<BrowserIvimWorkerResponse>) => {
 				if (event.data.jobId !== jobId) return;
-				if (event.data.phase === 'ready') this.stage = 'Fitting in browser';
-				else if (event.data.phase === 'error') reject(new Error(event.data.error));
+				if (event.data.phase === 'ready') {
+					this.stage = 'Fitting in browser';
+					if (!this.loggedReady) {
+						this.loggedReady = true;
+						this.trace?.stage('ready');
+					}
+				} else if (event.data.phase === 'error') reject(new Error(event.data.error));
 				else {
 					try {
 						resolve(validateBrowserIvimResult(event.data.result, request.signal.length));
@@ -96,6 +110,17 @@ export class BrowserAnalysisClient extends AnalysisClient {
 		indices: number[]
 	) {
 		if (this.busy) return;
+		this.loggedReady = false;
+		const trace = diagnosticOperation('browser-fit', {
+			model: diagnosticChoice(config.model),
+			method: diagnosticChoice(config.method),
+			dataset: diagnosticDataset(dataset),
+			engine: 'browser',
+			scope: scope === 'voxel' ? 'voxel-scope' : scope,
+			bytes: dataset.byteLength,
+			volumes: volumes.length
+		});
+		this.trace = trace;
 		this.error = '';
 		const count = dataset.dimensions.slice(0, 3).reduce((a, b) => a * b, 1);
 		let selected: number[];
@@ -142,6 +167,7 @@ export class BrowserAnalysisClient extends AnalysisClient {
 				4096
 			);
 		} catch (error) {
+			trace.end('rejected', { category: 'validation' });
 			this.error = error instanceof Error ? error.message : 'Invalid browser fit';
 			return;
 		}
@@ -161,6 +187,7 @@ export class BrowserAnalysisClient extends AnalysisClient {
 		this.selected = job.id;
 		this.busy = true;
 		this.stage = this.worker ? 'Fitting in browser' : 'Downloading browser Python and OSIPY…';
+		trace.stage(this.worker ? 'ready' : 'read', { selectedVoxels: selected.length });
 		const started = performance.now();
 		const descriptors = browserCatalog.models.find((m) => m.id === config.model)!.parameters;
 		const maps: Record<string, Float32Array> = {};
@@ -242,6 +269,13 @@ export class BrowserAnalysisClient extends AnalysisClient {
 				this.runs = this.runs.map((r) =>
 					r.id === job.id ? { ...r, progress: (n + 1) / selected.length } : r
 				);
+				if (Math.floor(((n + 1) * 10) / selected.length) !== Math.floor((n * 10) / selected.length))
+					diagnostic('analysis.state', {
+						operation: trace.id,
+						engine: 'browser',
+						state: 'running',
+						progress: (n + 1) / selected.length
+					});
 			}
 			const completedAt = new SvelteDate().toISOString();
 			const durationSeconds = (performance.now() - started) / 1000;
@@ -311,8 +345,10 @@ export class BrowserAnalysisClient extends AnalysisClient {
 			this.map = 'none';
 			this.onresult?.(result);
 			this.stage = 'Ready · browser fitting';
+			trace.end('success', { selectedVoxels: selected.length, validVoxels: valid });
 		} catch (error) {
 			if (epoch !== this.epoch) return;
+			trace.end('failed', { category: diagnosticError(error) });
 			this.stopWorker();
 			this.error = error instanceof Error ? error.message : 'Browser fitting failed';
 			this.runs = this.runs.map((r) =>
@@ -359,6 +395,7 @@ export class BrowserAnalysisClient extends AnalysisClient {
 	override async cancel(job: FitJob) {
 		if (!['running', 'pending', 'cancelling'].includes(job.state)) return;
 		this.epoch++;
+		this.trace?.end('cancelled');
 		this.stopWorker();
 		this.runs = this.runs.map((r) =>
 			r.id === job.id ? { ...r, state: 'cancelled', finishedAt: new SvelteDate().toISOString() } : r
@@ -367,6 +404,7 @@ export class BrowserAnalysisClient extends AnalysisClient {
 		this.stage = 'Cancelled · browser runtime cleared';
 	}
 	override dispose() {
+		this.trace?.end('cancelled');
 		this.epoch++;
 		this.stopWorker();
 		super.dispose();

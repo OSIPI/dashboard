@@ -4,6 +4,9 @@
 
 This is research software and is not for clinical use.
 
+For adapting other scientific packages, see the
+[Pyodide researcher guide](pyodide-researcher-guide.md).
+
 ## Run it
 
 Development:

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
+	import { diagnosticOperation, diagnosticError } from '$lib/diagnostics';
 	import {
 		IVIM_METHODS,
 		IVIM_MODELS,
@@ -32,6 +33,7 @@
 	let submittedSignal: number[] = $state([]);
 	let worker: Worker | undefined;
 	let activeJob = 0;
+	let trace: ReturnType<typeof diagnosticOperation> | undefined;
 
 	const busy = $derived(runState === 'loading' || runState === 'fitting');
 	const plot = $derived.by(() => {
@@ -63,6 +65,7 @@
 
 	function cancel() {
 		if (!busy) return;
+		trace?.end('cancelled');
 		activeJob += 1;
 		stopWorker();
 		runState = 'cancelled';
@@ -71,6 +74,7 @@
 
 	function runFit() {
 		if (busy) return;
+		trace = diagnosticOperation('browser-fit', { engine: 'browser', model, method });
 		error = '';
 		result = undefined;
 		try {
@@ -82,6 +86,7 @@
 				signal: parseNumberArray(signalText, 'Signal')
 			});
 			submittedBValues = [...request.bValues];
+			trace.stage('read', { volumes: request.bValues.length });
 			submittedSignal = [...request.signal];
 			const jobId = ++activeJob;
 			worker ??= new Worker(new URL('../browser-ivim.worker.ts', import.meta.url), {
@@ -91,10 +96,12 @@
 			worker.onmessage = (event: MessageEvent<BrowserIvimWorkerResponse>) => {
 				if (!isCurrentBrowserIvimJob(event.data.jobId, activeJob)) return;
 				if (event.data.phase === 'ready') {
+					trace?.stage('ready');
 					runState = 'fitting';
 					return;
 				}
 				if (event.data.phase === 'error') {
+					trace?.end('failed');
 					runState = 'error';
 					error = event.data.error;
 					stopWorker();
@@ -103,7 +110,9 @@
 				try {
 					result = validateBrowserIvimResult(event.data.result, request.bValues.length);
 					runState = 'done';
+					trace?.end('success');
 				} catch (workerError) {
+					trace?.end('failed', { category: diagnosticError(workerError) });
 					runState = 'error';
 					error =
 						workerError instanceof Error ? workerError.message : 'The fit result was invalid.';
@@ -112,18 +121,23 @@
 			};
 			worker.onerror = (event) => {
 				if (!isCurrentBrowserIvimJob(jobId, activeJob)) return;
+				trace?.end('failed');
 				runState = 'error';
 				error = event.message || 'The fitting worker stopped unexpectedly.';
 				stopWorker();
 			};
 			worker.postMessage({ jobId, request });
 		} catch (validationError) {
+			trace.end('rejected', { category: diagnosticError(validationError) });
 			runState = 'error';
 			error = validationError instanceof Error ? validationError.message : 'Check the fit inputs.';
 		}
 	}
 
-	onDestroy(stopWorker);
+	onDestroy(() => {
+		trace?.end('cancelled');
+		stopWorker();
+	});
 </script>
 
 <main class="mx-auto flex min-h-full w-full max-w-6xl flex-col gap-4 px-3 py-4 sm:px-5 sm:py-6">

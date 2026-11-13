@@ -5,6 +5,7 @@
 	import Logo from '$lib/assets/icons/Logo.svelte';
 	import MoonIcon from '~icons/lucide/moon';
 	import SunIcon from '~icons/lucide/sun';
+	import Diagnostics from './Diagnostics.svelte';
 	const theme = persistedPreference<'dark' | 'light'>(
 		'theme',
 		'dark',
@@ -48,6 +49,7 @@
 			class="ml-auto flex gap-4 text-xs text-muted-foreground max-[899px]:gap-3.5 [&>*]:flex [&>*]:min-h-9 [&>*]:items-center max-[899px]:[&>*]:min-h-11"
 			aria-label="Resources"
 		>
+			<Diagnostics />
 			<a href="https://github.com/OSIPI/dashboard/issues/new" target="_blank" rel="noreferrer"
 				>Feedback</a
 			><a href="https://osipy.readthedocs.io" target="_blank" rel="noreferrer">Docs</a><a
@@ -59,6 +61,7 @@
 				class="button button-ghost button-icon max-[899px]:min-w-11"
 				type="button"
 				onclick={toggleTheme}
+				data-diagnostic="theme"
 				aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'}
 				>{#if dark}<SunIcon class="size-4" aria-hidden="true" />{:else}<MoonIcon
 						class="size-4"
