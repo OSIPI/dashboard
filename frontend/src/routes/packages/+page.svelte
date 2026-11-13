@@ -11,7 +11,7 @@
 			(entry) =>
 				(collection === 'all' || entry.collection === collection) &&
 				(assessment === 'all' || entry.assessment === assessment) &&
-				`${entry.name} ${entry.path} ${entry.language} ${entry.notes}`
+				`${entry.name} ${entry.description} ${entry.path} ${entry.language} ${entry.notes}`
 					.toLowerCase()
 					.includes(search.trim().toLowerCase())
 		)
@@ -133,13 +133,14 @@
 		aria-label="Contribution compatibility table"
 		tabindex="0"
 	>
-		<table class="w-full min-w-[760px] text-left text-sm">
+		<table class="w-full min-w-[960px] text-left text-sm">
 			<caption class="sr-only"
 				>OSIPI contributions, implementation languages and source based Pyodide assessments</caption
 			>
 			<thead class="bg-muted text-xs text-muted-foreground">
 				<tr>
 					<th scope="col" class="p-3 font-medium">Tool / contribution</th>
+					<th scope="col" class="p-3 font-medium">What it does</th>
 					<th scope="col" class="p-3 font-medium">Collection</th>
 					<th scope="col" class="p-3 font-medium">Language</th>
 					<th scope="col" class="p-3 font-medium">Pyodide assessment</th>
@@ -149,7 +150,7 @@
 			<tbody class="divide-y">
 				{#each listed as entry (`${entry.collection}/${entry.path}`)}
 					<tr class="align-top hover:bg-muted/40">
-						<th scope="row" class="w-1/4 p-3 font-medium">
+						<th scope="row" class="w-1/5 p-3 font-medium">
 							<a
 								href={`https://github.com/${collections[entry.collection].repo}/tree/${collections[entry.collection].sha}/${collections[entry.collection].prefix}${entry.path}`}
 								target="_blank"
@@ -163,6 +164,7 @@
 									href={resolve('/browser-ivim')}>Open existing IVIM demo</a
 								>{/if}
 						</th>
+						<td class="w-1/5 p-3 text-xs leading-relaxed">{entry.description}</td>
 						<td class="p-3 text-xs">{entry.collection}</td>
 						<td class="p-3 text-xs">{entry.language}</td>
 						<td class="p-3 text-xs"
@@ -173,7 +175,7 @@
 					</tr>
 				{:else}
 					<tr
-						><td colspan="5" class="p-6 text-center text-muted-foreground"
+						><td colspan="6" class="p-6 text-center text-muted-foreground"
 							>No matching contributions. Clear the search or change the filters.</td
 						></tr
 					>

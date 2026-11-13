@@ -8,6 +8,7 @@ dist/
 build/
 .coverage
 .DS_Store
+.playwright-mcp/
 .idea/
 .env
 .env.*
