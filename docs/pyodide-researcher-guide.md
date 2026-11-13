@@ -13,6 +13,18 @@ Documentation was consulted on **2026-10-07**. Always check the documentation an
 package catalogue for the exact runtime you deploy: `stable` can describe a newer
 runtime with different Python, ABI, package versions, and restrictions.
 
+## Architecture and working example
+
+![Browser-local frontend and Pyodide worker architecture](images/pyodide-worker-architecture.svg)
+
+The diagram describes the isolated numeric-signal demo, not an arbitrary-package
+execution service. Downloads cross the browser boundary; fitting inputs do not.
+
+![The IVIM demo displaying synthetic samples, fitted predictions and parameter estimates](images/browser-ivim-demo-desktop.png)
+
+Screenshot captured on 2026-10-07 from the isolated `/browser-ivim` demo. It shows
+a synthetic single-voxel result, not a patient dataset or a whole-volume benchmark.
+
 ## What can run?
 
 There is no permanent exhaustive list of “allowed packages.” Compatibility has
@@ -205,8 +217,9 @@ UI has no upload button.
   behavior, package loading errors and denied storage.
 - [ ] Inspect network traffic; establish and document privacy, caching and any
   offline guarantees separately.
-- [ ] Run the project's focused tests, type checks, lint and build at finalization.
-  Document actual browser versions and remaining limits.
+- [ ] Document the validation actually performed, browser versions and remaining
+  limits. Run or modify automated tests only when explicitly requested; do not
+  describe unperformed checks as passing.
 
 ## OSIPY adaptation map
 
@@ -214,7 +227,7 @@ UI has no upload button.
 | --- | --- | --- |
 | IVIM numeric fitting | Six combinations verified for one synthetic voxel in the demo | Noisy/degenerate data, ROI and volume performance, richer diagnostics. |
 | DCE, DSC, ASL scientific modules | Source inspection suggests predominantly Python/NumPy | Exercise real entry points and validate each method; not yet browser-certified. |
-| Backend dispatch | Demo calls Python directly in a worker | A shared analysis interface would be needed to integrate the existing viewer. |
+| Backend dispatch | Demo calls Python directly in a worker; current main also contains a browser analysis client for the viewer | Consult `frontend/src/lib/browser-analysis-client.svelte.ts` for viewer integration; the historical demo checks above do not verify that newer integration. |
 | CPU/GPU configuration | Demo explicitly selects CPU and one Python worker | Browser-level scheduling only if measurement justifies it. |
 | NIfTI, BIDS and DICOM I/O | Existing browser viewer already has some local import/export paths | Assess OSIPY I/O dependency builds and codecs independently. |
 | `dcm2niix` | Existing wrapper launches a native subprocess | A separately validated WASM converter or explicit unsupported capability; no conversion in this demo. |

@@ -81,6 +81,7 @@ const tokens = [
 	'simplified',
 	'segmented',
 	'full',
+	'bayesian',
 	'local',
 	'browser',
 	'visible',
