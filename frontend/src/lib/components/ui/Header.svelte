@@ -53,7 +53,7 @@
 			<a
 				href={resolve('/packages')}
 				aria-current={page.route.id === '/packages' ? 'page' : undefined}
-				class="aria-[current=page]:text-foreground">Code catalog</a
+				class="aria-[current=page]:text-foreground">OSIPY methods</a
 			>
 			<Diagnostics />
 			<a href="https://github.com/OSIPI/dashboard/issues/new" target="_blank" rel="noreferrer"
