@@ -13,6 +13,14 @@
 - Do not add DaisyUI, DaisyUI classes, or `data-theme` themes.
 - Keep the interface responsive, accessible, and visually consistent with the compact application workspace.
 
+## Capability Catalog
+
+- Update the `/packages` catalog alongside relevant development, not as a later cleanup: scientific method coverage, dashboard tools, workflow availability, OSIPY upgrades and tracked roadmap changes must stay aligned with the actual implementation.
+- Maintain `src/lib/osipy-capabilities.ts` for the version-pinned library registry, descriptions and implementation links; maintain `src/lib/catalog-progress.ts` for dashboard tool coverage and issue/PR-backed roadmap status. Update `src/routes/packages/+page.svelte` and `../docs/contribution-catalog.md` when presentation or counting rules change.
+- Distinguish library implementation from usable dashboard functionality. Mark a feature “In dashboard” only when available in the current code; open or unmerged implementation PRs remain “In progress.” Mark work “Planned” only with an agreed tracking issue; library-only methods are not an implicit backlog. Reconcile roadmap entries when work lands or is cancelled.
+- Refresh snapshot dates only for data actually inspected. For OSIPY upgrades, inspect the installed release registries and source locations rather than inferring support from enums. Preserve derived counts, shared-ID deduplication and documented aliases; distinguish models/strategies from independent scientific pipelines.
+- Keep method/tool actions, prerequisites, limitations and source/tracking links accurate when routes or workflows change. Do not imply runtime verification, publication or clinical readiness from implementation alone.
+
 ## Port Contract
 
 - Direct Vite development listens on host port `60010`.

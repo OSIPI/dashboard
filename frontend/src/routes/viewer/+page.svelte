@@ -275,6 +275,8 @@
 
 	onMount(() => {
 		alive = true;
+		// Capture once: restoring a scan replaces its URL with the scan identity.
+		const requestedPanel = page.url.searchParams.get('panel');
 		void analysis.connect();
 		const stopRetry =
 			!import.meta.env.DEV && !__LOCAL_API_PROXY__
@@ -289,12 +291,25 @@
 					)
 				: undefined;
 		void listStoredScans()
-			.then((items) => {
+			.then(async (items) => {
 				if (!alive) return;
 				catalog = items;
 				const id = page.url.searchParams.get('scan') || items[0]?.id;
-				if (id) void loadSaved(id);
-				else {
+				if (id) {
+					await loadSaved(id);
+					const tab = inspectorTabs.find((value) => value === requestedPanel);
+					if (alive && dataset && tab) {
+						preferences.current.panel = 'Inspector';
+						if (tab === 'ROI') preferences.current.roiOpen = true;
+						if (tab === 'Saved') preferences.current.savedVoxelsOpen = true;
+						if (tab === 'Analyze') preferences.current.analysisOpen = true;
+						if (tab === 'Data & export') {
+							preferences.current.workspaceOpen = true;
+							preferences.current.exportOpen = true;
+						}
+						await selectInspectorTab(tab);
+					}
+				} else {
 					dataError = 'No dataset is saved yet. Open the library to import data from your device.';
 					restoring = false;
 				}

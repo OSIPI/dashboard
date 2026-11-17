@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onDestroy } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import { diagnosticOperation, diagnosticError } from '$lib/diagnostics';
 	import {
 		IVIM_METHODS,
@@ -23,6 +23,11 @@
 
 	let model: IvimModel = $state('biexponential');
 	let method: IvimMethod = $state('segmented');
+	onMount(() => {
+		const params = new URLSearchParams(window.location.search);
+		model = IVIM_MODELS.find((value) => value === params.get('model')) ?? model;
+		method = IVIM_METHODS.find((value) => value === params.get('strategy')) ?? method;
+	});
 	let bThreshold = $state(200);
 	let bValuesText = $state(SYNTHETIC_B_VALUES.join(', '));
 	let signalText = $state(SYNTHETIC_SIGNAL.map(String).join(', '));

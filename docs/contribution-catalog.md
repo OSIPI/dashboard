@@ -22,6 +22,41 @@ common fitting/AIF functionality. This is not a complete inventory of all OSIPY
 utilities and does not count aliases as distinct scientific algorithms. For
 example, `fritz-hansen` and `fritz_hansen` are both registered AIF keys.
 
+The visual catalog has three sections:
+
+- **Scientific methods:** 36 distinct method IDs across the 14 groups, with
+  descriptions and implementation-file/line links from the installed release.
+  The Fritz-Hansen alias is folded, and repeated shared IDs count once globally.
+  Per-modality counts use the same rule within that modality; shared IDs mean the
+  modality subtotals are not additive. These IDs are not 36 independent pipelines.
+- **Dashboard tools:** eight implemented workflow families covering import,
+  discovery, viewing, ROIs/masks, scan comparison, bookmarks, workspace files and
+  exports. Their count is separate from scientific methods. Viewer tools require
+  a saved compatible dataset; DICOM discovery is headers only.
+- **Roadmap:** existing tracked work only, as inspected on 2026-11-17. The four
+  open implementation PRs [#24](https://github.com/OSIPI/dashboard/pull/24),
+  [#25](https://github.com/OSIPI/dashboard/pull/25),
+  [#26](https://github.com/OSIPI/dashboard/pull/26) and
+  [#27](https://github.com/OSIPI/dashboard/pull/27) are shown as in progress, not
+  available on main. DICOM decoding follows OHIF-41 in
+  [#23](https://github.com/OSIPI/dashboard/issues/23), and contrast administration
+  follows [#12](https://github.com/OSIPI/dashboard/issues/12). Priorities reflect
+  the linked backlog, not release commitments or dates. Library-only methods
+  without an agreed tracking item are not automatically called planned.
+
+The five dashboard scientific entries are **two IVIM models plus three fitting
+strategies**, not five complete analysis workflows. Each has a **Try browser
+demo** action that selects the requested model or strategy without starting a
+fit. The demo uses synthetic inputs. **Open scan analysis** opens the Analyze
+inspector for a saved scan. Shared-tool links similarly select the relevant
+inspector where applicable; they do not execute analysis, edit ROIs or export
+anything automatically. Unrecognized query options are ignored.
+
+Registry data lives in `frontend/src/lib/osipy-capabilities.ts`; dashboard/tool
+and roadmap metadata lives in `frontend/src/lib/catalog-progress.ts`. Both are
+curated snapshots. Refresh the roadmap when its linked work changes state; the
+catalog does not fetch live GitHub status or infer completion from a PR title.
+
 The snapshot distinguishes three concepts:
 
 - **Implemented in OSIPY:** a registered implementation exists in this release.
