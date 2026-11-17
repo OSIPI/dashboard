@@ -1,4 +1,7 @@
-/** Static source assessment, not an executable package registry. */
+/** Historical source/reference inventory, not dependencies or an integration backlog.
+ * The old assessments/notes are preserved as dated static research only;
+ * the page presents OSIPY's own registry snapshot as its functionality catalog.
+ */
 export const assessedOn = '2026-11-10';
 export const runtime = 'Pyodide 0.27.7 / Python 3.12.7';
 
@@ -47,7 +50,8 @@ export type Contribution = {
 export const contributions: Contribution[] = [
 	{
 		name: 'OSIPY 0.1.4 · numeric IVIM',
-		description: 'Fits IVIM signal decay using biexponential or simplified models with segmented, full or Bayesian estimation.',
+		description:
+			'Fits IVIM signal decay using biexponential or simplified models with segmented, full or Bayesian estimation.',
 		collection: 'OSIPY',
 		path: 'frontend/src/lib/browser-ivim.worker.ts',
 		language: 'Python',
@@ -58,7 +62,8 @@ export const contributions: Contribution[] = [
 	},
 	{
 		name: 'pydcemri · Vanderbilt',
-		description: 'Converts DCE signals to contrast concentration, estimates T1 and fits Tofts or extended Tofts models.',
+		description:
+			'Converts DCE signals to contrast concentration, estimates T1 and fits Tofts or extended Tofts models.',
 		collection: 'DCE/DSC',
 		path: 'DS_BW_VanderBiltUMC_USA',
 		language: 'Python',
@@ -69,7 +74,8 @@ export const contributions: Contribution[] = [
 	},
 	{
 		name: 'Automatic AIF selection · Gothenburg',
-		description: 'Selects arterial input functions from DSC MRI data using automated or semi-automated methods.',
+		description:
+			'Selects arterial input functions from DSC MRI data using automated or semi-automated methods.',
 		collection: 'DCE/DSC',
 		path: 'JBJA_GUSahlgrenska_SWE',
 		language: 'Python',
@@ -80,7 +86,8 @@ export const contributions: Contribution[] = [
 	},
 	{
 		name: 'DCE/DSC functions · Laura Bell',
-		description: 'Converts DCE and DSC signals to concentration or relaxation changes and fits the DCE Tofts model.',
+		description:
+			'Converts DCE and DSC signals to concentration or relaxation changes and fits the DCE Tofts model.',
 		collection: 'DCE/DSC',
 		path: 'LCB_BNI_USA',
 		language: 'Python',
@@ -91,7 +98,8 @@ export const contributions: Contribution[] = [
 	},
 	{
 		name: 'Pharmacokinetic modelling · Lucy Kershaw',
-		description: 'Provides DCE pharmacokinetic forward models, bolus arrival estimation and signal-to-concentration conversion.',
+		description:
+			'Provides DCE pharmacokinetic forward models, bolus arrival estimation and signal-to-concentration conversion.',
 		collection: 'DCE/DSC',
 		path: 'LEK_UoEdinburgh_UK',
 		language: 'Python',
@@ -102,7 +110,8 @@ export const contributions: Contribution[] = [
 	},
 	{
 		name: 'QbiPy subset · Manchester',
-		description: 'Provides DCE input functions, compartment models, concentration conversion and variable-flip-angle T1 calculations.',
+		description:
+			'Provides DCE input functions, compartment models, concentration conversion and variable-flip-angle T1 calculations.',
 		collection: 'DCE/DSC',
 		path: 'MB_QBI_UoManchester_UK',
 		language: 'Python',
@@ -113,7 +122,8 @@ export const contributions: Contribution[] = [
 	},
 	{
 		name: 'SEPAL · Michael Thrippleton',
-		description: 'Simulates and fits DCE signals with configurable pharmacokinetic, pulse-sequence and water-exchange models.',
+		description:
+			'Simulates and fits DCE signals with configurable pharmacokinetic, pulse-sequence and water-exchange models.',
 		collection: 'DCE/DSC',
 		path: 'MJT_UoEdinburgh_UK',
 		language: 'Python',
@@ -124,7 +134,8 @@ export const contributions: Contribution[] = [
 	},
 	{
 		name: 'Variable-density DCE correction · Amsterdam',
-		description: 'Extends DCE modelling to account for variable-density acquisitions that oversample the centre of k-space.',
+		description:
+			'Extends DCE modelling to account for variable-density acquisitions that oversample the centre of k-space.',
 		collection: 'DCE/DSC',
 		path: 'NK_OG_MO_AUMC_ICR_RMH_NL_UK',
 		language: 'Python',
@@ -135,7 +146,8 @@ export const contributions: Contribution[] = [
 	},
 	{
 		name: 'MRImageAnalysis · Oslo',
-		description: 'Simulates and analyses DCE MRI, including arterial input functions and pharmacokinetic model fitting.',
+		description:
+			'Simulates and analyses DCE MRI, including arterial input functions and pharmacokinetic model fitting.',
 		collection: 'DCE/DSC',
 		path: 'OGJ_OsloU_NOR',
 		language: 'Python',
@@ -146,7 +158,8 @@ export const contributions: Contribution[] = [
 	},
 	{
 		name: 'Extended Tofts · Gurney-Champion / Orton',
-		description: 'Fits the extended Tofts model and provides arterial input functions, signal conversion and T1 estimation.',
+		description:
+			'Fits the extended Tofts model and provides arterial input functions, signal conversion and T1 estimation.',
 		collection: 'DCE/DSC',
 		path: 'OG_MO_AUMC_ICR_RMH_NL_UK',
 		language: 'Python',
@@ -157,7 +170,8 @@ export const contributions: Contribution[] = [
 	},
 	{
 		name: 'Population AIFs · Netherlands Cancer Institute',
-		description: 'Generates Parker and Georgiou population arterial input functions for DCE analysis.',
+		description:
+			'Generates Parker and Georgiou population arterial input functions for DCE analysis.',
 		collection: 'DCE/DSC',
 		path: 'PvH_NKI_NL',
 		language: 'Python',
@@ -168,7 +182,8 @@ export const contributions: Contribution[] = [
 	},
 	{
 		name: 'DSC processing · Ragunathan / Bell',
-		description: 'Provides AIF deconvolution, BSW leakage correction and DSC blood-volume, blood-flow and transit-time calculations.',
+		description:
+			'Provides AIF deconvolution, BSW leakage correction and DSC blood-volume, blood-flow and transit-time calculations.',
 		collection: 'DCE/DSC',
 		path: 'SR_TBG_BNIPhoenix_USA',
 		language: 'Python',
@@ -179,7 +194,8 @@ export const contributions: Contribution[] = [
 	},
 	{
 		name: 'DCE models and T1 mapping · Sydney',
-		description: 'Provides DCE input functions and compartment models, variable-flip-angle T1 mapping and signal conversion.',
+		description:
+			'Provides DCE input functions and compartment models, variable-flip-angle T1 mapping and signal conversion.',
 		collection: 'DCE/DSC',
 		path: 'ST_USyd_AUS',
 		language: 'Python',
@@ -201,7 +217,8 @@ export const contributions: Contribution[] = [
 	},
 	{
 		name: 'ASL Angio Reader',
-		description: 'Reads ASL angiography images and supplies maximum-intensity-projection and NIfTI output utilities.',
+		description:
+			'Reads ASL angiography images and supplies maximum-intensity-projection and NIfTI output utilities.',
 		collection: 'ASL',
 		path: 'ASL_Angio_Reader',
 		language: 'MATLAB',
@@ -212,7 +229,8 @@ export const contributions: Contribution[] = [
 	},
 	{
 		name: 'ASL-MRICloud',
-		description: 'Calculates ASL difference and cerebral blood-flow maps, with supporting registration and brain masking.',
+		description:
+			'Calculates ASL difference and cerebral blood-flow maps, with supporting registration and brain masking.',
 		collection: 'ASL',
 		path: 'ASL_MRIcloud',
 		language: 'MATLAB',
@@ -223,7 +241,8 @@ export const contributions: Contribution[] = [
 	},
 	{
 		name: 'ASLtbx',
-		description: 'Preprocesses ASL images and calculates perfusion maps, including control-label subtraction and quantification.',
+		description:
+			'Preprocesses ASL images and calculates perfusion maps, including control-label subtraction and quantification.',
 		collection: 'ASL',
 		path: 'ASL_TBX',
 		language: 'MATLAB',
@@ -234,7 +253,8 @@ export const contributions: Contribution[] = [
 	},
 	{
 		name: 'BASIL',
-		description: 'Estimates ASL perfusion parameters through Bayesian kinetic-model inference within the FSL ecosystem.',
+		description:
+			'Estimates ASL perfusion parameters through Bayesian kinetic-model inference within the FSL ecosystem.',
 		collection: 'ASL',
 		path: 'BASIL',
 		language: 'Shell / Python',
@@ -245,7 +265,8 @@ export const contributions: Contribution[] = [
 	},
 	{
 		name: 'DLASL',
-		description: 'Denoises ASL perfusion images using deep learning and transfer learning with pretrained models.',
+		description:
+			'Denoises ASL perfusion images using deep learning and transfer learning with pretrained models.',
 		collection: 'ASL',
 		path: 'DLASL',
 		language: 'Python',
@@ -256,7 +277,8 @@ export const contributions: Contribution[] = [
 	},
 	{
 		name: 'DeepASL',
-		description: 'Denoises ASL images with a residual neural network trained using a kinetic-model-informed loss.',
+		description:
+			'Denoises ASL images with a residual neural network trained using a kinetic-model-informed loss.',
 		collection: 'ASL',
 		path: 'DeepASL',
 		language: 'Python (referenced)',
@@ -267,7 +289,8 @@ export const contributions: Contribution[] = [
 	},
 	{
 		name: 'ExploreASL',
-		description: 'Provides an ASL processing and analysis pipeline covering image preparation, quantification and quality control.',
+		description:
+			'Provides an ASL processing and analysis pipeline covering image preparation, quantification and quality control.',
 		collection: 'ASL',
 		path: 'ExploreASL',
 		language: 'MATLAB (referenced)',
@@ -278,7 +301,8 @@ export const contributions: Contribution[] = [
 	},
 	{
 		name: 'Oxford ASL',
-		description: 'Orchestrates ASL kinetic-model fitting, calibration and registration to produce quantified perfusion images.',
+		description:
+			'Orchestrates ASL kinetic-model fitting, calibration and registration to produce quantified perfusion images.',
 		collection: 'ASL',
 		path: 'OXFORD-ASL',
 		language: 'Shell / Python / C++',
@@ -289,7 +313,8 @@ export const contributions: Contribution[] = [
 	},
 	{
 		name: 'Preclinical ASL · Jiadi Xu / Kevin Xie',
-		description: 'Provides an application for ASL image preparation, interactive masking and cerebral blood-flow visualization.',
+		description:
+			'Provides an application for ASL image preparation, interactive masking and cerebral blood-flow visualization.',
 		collection: 'ASL',
 		path: 'Preclinical_ASL_Codes/JiadiXu',
 		language: 'MATLAB',
@@ -300,7 +325,8 @@ export const contributions: Contribution[] = [
 	},
 	{
 		name: 'Preclinical ASL · Ni Ruiqing',
-		description: 'Fits selective and global T1 signals to calculate cerebral blood flow from mouse FAIR-EPI acquisitions.',
+		description:
+			'Fits selective and global T1 signals to calculate cerebral blood flow from mouse FAIR-EPI acquisitions.',
 		collection: 'ASL',
 		path: 'Preclinical_ASL_Codes/NiRuiqing',
 		language: 'MATLAB',
@@ -311,7 +337,8 @@ export const contributions: Contribution[] = [
 	},
 	{
 		name: 'Preclinical ASL · Zhiliang Wei',
-		description: 'Provides mouse ASL image-processing scripts and acquisition-specific preparation steps.',
+		description:
+			'Provides mouse ASL image-processing scripts and acquisition-specific preparation steps.',
 		collection: 'ASL',
 		path: 'Preclinical_ASL_Codes/ZhiliangWei',
 		language: 'MATLAB',
@@ -322,7 +349,8 @@ export const contributions: Contribution[] = [
 	},
 	{
 		name: 'PyASL (pyasl-osipi)',
-		description: 'Combines human and preclinical ASL workflows, including adaptations of ASLtbx, MRICloud and denoising tools.',
+		description:
+			'Combines human and preclinical ASL workflows, including adaptations of ASLtbx, MRICloud and denoising tools.',
 		collection: 'ASL',
 		path: 'PyASL',
 		language: 'Python',
@@ -333,7 +361,8 @@ export const contributions: Contribution[] = [
 	},
 	{
 		name: 'MRI-QAMPER IVIM · Memorial Sloan Kettering',
-		description: 'Fits IVIM diffusion data and generates parameter maps using the MRI-QAMPER MATLAB implementation.',
+		description:
+			'Fits IVIM diffusion data and generates parameter maps using the MRI-QAMPER MATLAB implementation.',
 		collection: 'IVIM',
 		path: 'fitting/ASD_MemorialSloanKettering',
 		language: 'MATLAB',
@@ -344,7 +373,8 @@ export const contributions: Contribution[] = [
 	},
 	{
 		name: 'IVIM data utilities · DK / Amsterdam UMC',
-		description: 'Loads, normalizes, sorts, masks and reshapes diffusion signals for IVIM analysis.',
+		description:
+			'Loads, normalizes, sorts, masks and reshapes diffusion signals for IVIM analysis.',
 		collection: 'IVIM',
 		path: 'fitting/DK_OGC_AmsterdamUMC',
 		language: 'Python',
@@ -355,7 +385,8 @@ export const contributions: Contribution[] = [
 	},
 	{
 		name: 'Weighted / robust IVIM fitting · IIIT Nagpur',
-		description: 'Estimates IVIM parameters using weighted or robust linear regression with a b-value cutoff.',
+		description:
+			'Estimates IVIM parameters using weighted or robust linear regression with a b-value cutoff.',
 		collection: 'IVIM',
 		path: 'fitting/DT_IIITN',
 		language: 'Python',
@@ -366,7 +397,8 @@ export const contributions: Contribution[] = [
 	},
 	{
 		name: 'Linear IVIM fitting · Eric Peterson',
-		description: 'Estimates IVIM parameters through a linear-fitting approach to diffusion signal decay.',
+		description:
+			'Estimates IVIM parameters through a linear-fitting approach to diffusion signal decay.',
 		collection: 'IVIM',
 		path: 'fitting/ETP_SRI',
 		language: 'Python',
@@ -377,7 +409,8 @@ export const contributions: Contribution[] = [
 	},
 	{
 		name: 'IVIM model suite · Ivan Rashid / Lund',
-		description: 'Provides several IVIM estimators, including nonlinear, segmented, variable-projection, linear and simplified fits.',
+		description:
+			'Provides several IVIM estimators, including nonlinear, segmented, variable-projection, linear and simplified fits.',
 		collection: 'IVIM',
 		path: 'fitting/IAR_LundUniversity',
 		language: 'Python',
@@ -388,7 +421,8 @@ export const contributions: Contribution[] = [
 	},
 	{
 		name: 'IVIM-NET · Amsterdam UMC',
-		description: 'Estimates IVIM parameters with a self-supervised neural network, with fitting and simulation examples.',
+		description:
+			'Estimates IVIM parameters with a self-supervised neural network, with fitting and simulation examples.',
 		collection: 'IVIM',
 		path: 'fitting/OGC_AUMC_IVIMNET',
 		language: 'Python',
@@ -399,7 +433,8 @@ export const contributions: Contribution[] = [
 	},
 	{
 		name: 'LSQ / segmented / Bayesian IVIM · Amsterdam UMC',
-		description: 'Fits biexponential IVIM signals using least-squares, segmented and Bayesian methods, with tri-exponential variants.',
+		description:
+			'Fits biexponential IVIM signals using least-squares, segmented and Bayesian methods, with tri-exponential variants.',
 		collection: 'IVIM',
 		path: 'fitting/OGC_AmsterdamUMC',
 		language: 'Python',
@@ -410,7 +445,8 @@ export const contributions: Contribution[] = [
 	},
 	{
 		name: 'Segmented / Bayesian IVIM · Oscar Jalnefjord',
-		description: 'Provides segmented and Bayesian IVIM estimators; the contributed Python implementation covers segmented fitting.',
+		description:
+			'Provides segmented and Bayesian IVIM estimators; the contributed Python implementation covers segmented fitting.',
 		collection: 'IVIM',
 		path: 'fitting/OJ_GU',
 		language: 'Python / MATLAB',
@@ -421,7 +457,8 @@ export const contributions: Contribution[] = [
 	},
 	{
 		name: 'Two-step / tri-exponential IVIM · Maastricht',
-		description: 'Provides two-step IVIM fitting and tri-exponential least-squares or nonnegative least-squares estimation.',
+		description:
+			'Provides two-step IVIM fitting and tri-exponential least-squares or nonnegative least-squares estimation.',
 		collection: 'IVIM',
 		path: 'fitting/PV_MUMC',
 		language: 'Python',
@@ -432,7 +469,8 @@ export const contributions: Contribution[] = [
 	},
 	{
 		name: 'ADC / IVIM maps · Netherlands Cancer Institute',
-		description: 'Calculates ADC and IVIM parameter maps using selected b-values and a two-step fitting approach.',
+		description:
+			'Calculates ADC and IVIM parameter maps using selected b-values and a two-step fitting approach.',
 		collection: 'IVIM',
 		path: 'fitting/PvH_KB_NKI',
 		language: 'Python',
@@ -443,7 +481,8 @@ export const contributions: Contribution[] = [
 	},
 	{
 		name: 'SUPER-IVIM-DC · Technion',
-		description: 'Estimates IVIM parameters using supervised learning with data consistency and provides classical fitting alternatives.',
+		description:
+			'Estimates IVIM parameters using supervised learning with data consistency and provides classical fitting alternatives.',
 		collection: 'IVIM',
 		path: 'fitting/TCML_TechnionIIT',
 		language: 'Python (external package)',
@@ -454,7 +493,8 @@ export const contributions: Contribution[] = [
 	},
 	{
 		name: 'Consensus segmented IVIM · TF reference',
-		description: 'Provides the task force reference implementation of segmented IVIM parameter estimation.',
+		description:
+			'Provides the task force reference implementation of segmented IVIM parameter estimation.',
 		collection: 'IVIM',
 		path: 'fitting/TF_reference',
 		language: 'Python',
@@ -465,7 +505,8 @@ export const contributions: Contribution[] = [
 	},
 	{
 		name: 'Brain IVIM preprocessing · Elina Petersson',
-		description: 'Provides brain diffusion preprocessing and outlier-removal routines before IVIM fitting.',
+		description:
+			'Provides brain diffusion preprocessing and outlier-removal routines before IVIM fitting.',
 		collection: 'IVIM',
 		path: 'preprocessing/EP_GU',
 		language: 'Python',
@@ -476,7 +517,8 @@ export const contributions: Contribution[] = [
 	},
 	{
 		name: 'TOPED / FSL preprocessing · Lund',
-		description: 'Builds and runs FSL preprocessing commands for diffusion MRI before downstream analysis.',
+		description:
+			'Builds and runs FSL preprocessing commands for diffusion MRI before downstream analysis.',
 		collection: 'IVIM',
 		path: 'preprocessing/MG_LU',
 		language: 'Python',
@@ -487,7 +529,8 @@ export const contributions: Contribution[] = [
 	},
 	{
 		name: 'Abdomen IVIM preprocessing · Mario Negri',
-		description: 'Prepares abdominal diffusion images through denoising, Gibbs-ringing removal, motion and distortion correction, and bias-field correction.',
+		description:
+			'Prepares abdominal diffusion images through denoising, Gibbs-ringing removal, motion and distortion correction, and bias-field correction.',
 		collection: 'IVIM',
 		path: 'preprocessing/SP_IRFMN',
 		language: 'Python',
