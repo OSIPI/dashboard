@@ -166,7 +166,12 @@ export function autoWindow(
 }
 
 export type SignalSeries = { label: string; values: number[] };
-export type FittedCurve = { parameters: Record<string, number>; valid: boolean; model: string };
+export type FittedCurve = {
+	parameters: Record<string, number>;
+	valid: boolean;
+	model: string;
+	comparison?: 'A' | 'B';
+};
 const escape = (value: unknown) =>
 	String(value).replace(
 		/[&<>"']/g,
@@ -178,11 +183,12 @@ export function chartSvg(
 	series: SignalSeries[],
 	selected: number,
 	dark: boolean,
-	fit?: FittedCurve,
+	fit?: FittedCurve | FittedCurve[],
 	compact = false,
 	interactive = false,
 	xRange?: [number, number]
 ): string {
+	const fits = fit ? (Array.isArray(fit) ? fit : [fit]) : [];
 	const foreground = dark ? '#ddd' : '#242424';
 	const background = dark ? '#171717' : '#fff';
 	const muted = dark ? '#a3a3a3' : '#666';
@@ -202,11 +208,11 @@ export function chartSvg(
 	const inRange = (b: number) => b >= startB && b <= endB;
 	const all = [
 		...series.flatMap((s) => s.values.filter((_, i) => inRange(dataset.bValues[i]))),
-		...(fit
-			? Array.from({ length: 161 }, (_, i) =>
-					predictIvim(startB + (i / 160) * (endB - startB), fit.parameters)
-				)
-			: [])
+		...fits.flatMap((curve) =>
+			Array.from({ length: 161 }, (_, i) =>
+				predictIvim(startB + (i / 160) * (endB - startB), curve.parameters)
+			)
+		)
 	];
 	const min = Math.min(0, ...all);
 	const observedMax = Math.max(0, ...all);
@@ -215,11 +221,10 @@ export function chartSvg(
 	const py = (s: number) => 355 - ((s - min) / (max - min)) * 270;
 	const labels = [
 		...series.map((s, i) => (compact && i === 0 ? 'Measured samples' : s.label)),
-		...(fit
-			? [
-					`${fit.model} fit${compact ? (fit.valid ? '' : ' · flagged') : ` · ${fit.valid ? 'quality checks passed' : 'flagged estimate — inspect quality'}`}`
-				]
-			: [])
+		...fits.map(
+			(curve, index) =>
+				`${curve.comparison ? `Fit ${curve.comparison} · ` : fits.length > 1 ? `Fit ${index ? 'B' : 'A'} · ` : ''}${curve.model} fit${compact ? (curve.valid ? '' : ' · flagged') : ` · ${curve.valid ? 'quality checks passed' : 'flagged estimate — inspect quality'}`}`
+		)
 	];
 	let legendX = 24;
 	let legendRow = 0;
@@ -236,11 +241,11 @@ export function chartSvg(
 		legendX += width;
 		return position;
 	});
-	const legendRows = compact ? series.length + (fit ? 1 : 0) : legendRow + 1;
+	const legendRows = compact ? series.length + fits.length : legendRow + 1;
 	const height = compact
-		? 440 + series.length * 23 + (fit ? 23 : 0) - 52
-		: 456 + legendRows * 23 + (fit ? 210 : 0);
-	let body = `<rect width="800" height="${height}" fill="${background}"/><g font-family="system-ui,sans-serif" font-size="${compact ? 23 : 13}" fill="${foreground}"${compact ? ' transform="translate(0,-52)"' : ''}>${compact ? '' : `<text x="90" y="28" font-size="15" font-weight="600">${escape(dataset.name)}</text><text x="90" y="48" font-size="11" fill="${muted}">${fit ? 'Acquired signals + fitted model · repeats kept separate' : 'Acquired signals · repeats kept separate'}</text>`}<text x="90" y="70" font-size="11" fill="${muted}">Signal (a.u.)</text>`;
+		? 440 + series.length * 23 + fits.length * 23 - 52
+		: 456 + legendRows * 23 + (fits.length === 1 ? 210 : 0);
+	let body = `<rect width="800" height="${height}" fill="${background}"/><g font-family="system-ui,sans-serif" font-size="${compact ? 23 : 13}" fill="${foreground}"${compact ? ' transform="translate(0,-52)"' : ''}>${compact ? '' : `<text x="90" y="28" font-size="15" font-weight="600">${escape(dataset.name)}</text><text x="90" y="48" font-size="11" fill="${muted}">${fits.length ? 'Acquired signals + fitted model · repeats kept separate' : 'Acquired signals · repeats kept separate'}</text>`}<text x="90" y="70" font-size="11" fill="${muted}">Signal (a.u.)</text>`;
 	const tickFormat = new Intl.NumberFormat('en', {
 		notation: 'compact',
 		maximumSignificantDigits: 3
@@ -268,20 +273,35 @@ export function chartSvg(
 		});
 		body += `<text x="${legendPositions[si].x}" y="${legendPositions[si].y}" fill="${color}">${si % 2 ? '■' : '●'} ${escape(labels[si])}</text>`;
 	});
-	if (fit) {
-		const color = dark ? '#b1c4df' : '#365e8b';
+	fits.forEach((curveFit, fitIndex) => {
+		const comparison = fits.length > 1 || !!curveFit.comparison;
+		const comparisonB = curveFit.comparison ? curveFit.comparison === 'B' : fitIndex === 1;
+		const color = comparison
+			? !comparisonB
+				? dark
+					? '#ed746b'
+					: '#ad4942'
+				: dark
+					? '#70b7e8'
+					: '#24638f'
+			: dark
+				? '#b1c4df'
+				: '#365e8b';
 		const curve = Array.from({ length: 161 }, (_, i) => {
 			const b = startB + (i / 160) * (endB - startB);
-			return `${px(b)},${py(predictIvim(b, fit.parameters))}`;
+			return `${px(b)},${py(predictIvim(b, curveFit.parameters))}`;
 		}).join(' ');
-		if (interactive)
-			curveHit = `<polyline points="${curve}" fill="none" stroke="transparent" stroke-width="18" data-chart-fit tabindex="0" role="group" aria-label="${escape(fit.model)} fitted curve${fit.valid ? '' : ', flagged estimate'}. Hover or use arrow keys to inspect predicted signal" style="cursor:crosshair"/>`;
-		body += `<polyline points="${curve}" fill="none" stroke="${color}" stroke-width="3"${fit.valid ? '' : ' stroke-dasharray="6 4"'}${interactive ? ' pointer-events="none"' : ''}/><text x="${legendPositions[series.length].x}" y="${legendPositions[series.length].y}" fill="${color}">— ${escape(labels[series.length])}</text>`;
-	}
-	if (fit && !compact) {
+		if (interactive && fits.length === 1)
+			curveHit = `<polyline points="${curve}" fill="none" stroke="transparent" stroke-width="18" data-chart-fit tabindex="0" role="group" aria-label="${escape(curveFit.model)} fitted curve${curveFit.valid ? '' : ', flagged estimate'}. Hover or use arrow keys to inspect predicted signal" style="cursor:crosshair"/>`;
+		const dashed = comparison ? comparisonB : !curveFit.valid;
+		const legend = legendPositions[series.length + fitIndex];
+		body += `<polyline points="${curve}" fill="none" stroke="${color}" stroke-width="3"${dashed ? ` stroke-dasharray="${comparison ? '8 5' : '6 4'}"` : ''}${interactive ? ' pointer-events="none"' : ''}/><text x="${legend.x}" y="${legend.y}" fill="${color}">${dashed ? '┄' : '—'} ${escape(labels[series.length + fitIndex])}</text>`;
+	});
+	if (fits.length === 1 && !compact) {
+		const singleFit = fits[0];
 		const color = dark ? '#b1c4df' : '#365e8b';
 		const residuals = series[0].values.map(
-			(v, i) => v - predictIvim(dataset.bValues[i], fit.parameters)
+			(v, i) => v - predictIvim(dataset.bValues[i], singleFit.parameters)
 		);
 		const extent = Math.max(
 			1e-12,
@@ -301,7 +321,7 @@ export function chartSvg(
 			sha256: dataset.sha256,
 			selectedVolume: selected + 1,
 			series: series.map((s) => s.label),
-			fit
+			fit: fits
 		})
 	);
 	return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 ${height}" width="800" height="${height}" role="${interactive ? 'group' : 'img'}" aria-label="Acquired voxel samples with labelled comparisons"><metadata>${provenance}</metadata>${interactive ? `<style>.chart-focus-ring{opacity:0}g:focus-visible .chart-focus-ring{opacity:1}polyline[data-chart-fit]:focus-visible{stroke:${dark ? '#b1c4df' : '#365e8b'};stroke-opacity:.4}</style>` : ''}${body.slice(0, pointsStart)}${curveHit}${body.slice(pointsStart)}</g></svg>`;
