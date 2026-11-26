@@ -8,6 +8,7 @@
 		slice,
 		center = 500,
 		width = 1000,
+		invert = false,
 		overlay,
 		roi,
 		thumbnail = false,
@@ -18,6 +19,7 @@
 		slice: number;
 		center?: number;
 		width?: number;
+		invert?: boolean;
 		overlay?: ImageOverlay;
 		roi?: RoiOverlay;
 		thumbnail?: boolean;
@@ -41,11 +43,12 @@
 				Math.min(ny - 1, Math.floor(((Math.floor(i / renderWidth) + 0.5) / renderHeight) * ny)) *
 					nx +
 				Math.min(nx - 1, Math.floor((((i % renderWidth) + 0.5) / renderWidth) * nx));
-			const value = windowPixel(
+			const gray = windowPixel(
 				volume[sourceIndex] * dataset.slope + dataset.intercept,
 				center,
 				width
 			);
+			const value = invert ? 255 - gray : gray;
 			image.data[i * 4] = value;
 			image.data[i * 4 + 1] = value;
 			image.data[i * 4 + 2] = value;

@@ -1,12 +1,19 @@
 import { parseBookmarks, type Bookmark, type Dataset, type VoxelVolume } from './ivim';
 import { predictIvim } from './analysis';
+import type { DisplayTransform } from './display-coordinates';
 
 export const minimumWindow = (dataset: Dataset) =>
 	Math.min(1, 10 ** (Math.floor(Math.log10(dataset.signalRange[1] - dataset.signalRange[0])) - 2));
 export const displayStep = (dataset: Dataset) =>
 	Math.min(0.1, 10 ** Math.floor(Math.log10(minimumWindow(dataset))));
 
-export type Display = { zoom: number; panX: number; panY: number; center: number; width: number };
+export type Display = DisplayTransform & {
+	zoom: number;
+	panX: number;
+	panY: number;
+	center: number;
+	width: number;
+};
 
 export function zoomAtPointer(
 	view: Display,
@@ -78,6 +85,10 @@ export function parseWorkspace(raw: string, dataset: Dataset): Workspace {
 		Number.isFinite(v) && v >= min && v <= max && (!integer || Number.isInteger(v));
 	const display = (d: Display) =>
 		d &&
+		(d.rotation === undefined || [0, 90, 180, 270].includes(d.rotation)) &&
+		['flipX', 'flipY', 'invert'].every(
+			(key) => d[key as keyof Display] === undefined || typeof d[key as keyof Display] === 'boolean'
+		) &&
 		bounded(d.zoom, 1, 4) &&
 		bounded(d.panX, -10000, 10000) &&
 		bounded(d.panY, -10000, 10000) &&

@@ -1,5 +1,12 @@
 <script lang="ts">
 	import IvimImage from './IvimImage.svelte';
+	import PixelInspection from './viewer/PixelInspection.svelte';
+	import {
+		displayToNative,
+		displayGeometry,
+		orientationEdges,
+		type Point2
+	} from '$lib/display-coordinates';
 	import type { Dataset, VoxelVolume } from '$lib/ivim';
 	import { autoWindow, zoomAtPointer, type Display, type WindowRegion } from '$lib/workspace';
 	import { dragWindow } from '$lib/windowing';
@@ -23,6 +30,7 @@
 		onslice,
 		onshortcut,
 		temporaryPan = false,
+		magnification = 0,
 		active = true,
 		scrollable = false,
 		linkedViews = false,
@@ -47,6 +55,7 @@
 		onslice?: (slice: number) => void;
 		onshortcut?: (event: KeyboardEvent) => void;
 		temporaryPan?: boolean;
+		magnification?: number;
 		active?: boolean;
 		scrollable?: boolean;
 		linkedViews?: boolean;
@@ -57,6 +66,17 @@
 	} = $props();
 	let layer: HTMLDivElement;
 	let drag: { id: number; x: number; y: number; view: Display; mode: 'pan' | 'window' } | undefined;
+	let imageWidth = $state(0);
+	let imageHeight = $state(0);
+	let probe = $state<Point2>();
+	function observeSize(node: HTMLDivElement) {
+		const observer = new ResizeObserver(([entry]) => {
+			imageWidth = entry.contentRect.width;
+			imageHeight = entry.contentRect.height;
+		});
+		observer.observe(node);
+		return { destroy: () => observer.disconnect() };
+	}
 	let drawing = $state<PixelPoint[]>([]);
 	let drawMode = $state<'rectangle' | 'freehand' | 'window-region'>();
 	let drawSlice = 0;
@@ -107,7 +127,17 @@
 	});
 	const nx = $derived(dataset.dimensions[0]);
 	const ny = $derived(dataset.dimensions[1]);
-	const aspect = $derived((nx * dataset.spacing[0]) / (ny * dataset.spacing[1]));
+	const geometry = $derived(displayGeometry(dataset, view));
+	const aspect = $derived(geometry.aspect);
+	const edges = $derived(orientationEdges(dataset, view));
+	function nativePoint(e: PointerEvent): PixelPoint {
+		const r = layer.getBoundingClientRect();
+		const [u, v] = displayToNative(
+			[(e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height],
+			view
+		);
+		return [u * nx, v * ny];
+	}
 	function wheelZoom(node: HTMLButtonElement) {
 		let accumulated = 0;
 		let lastWheel = 0;
@@ -158,6 +188,7 @@
 	}
 	function down(e: PointerEvent) {
 		if (e.button !== 0) return;
+		probe = undefined;
 		onactivate();
 		(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
 		if (panning || tool === 'window')
@@ -170,32 +201,26 @@
 			};
 		else if (slicing && onslice) sliceDrag = { id: e.pointerId, y: e.clientY, slice };
 		else if (tool === 'window-region' || ((tool === 'rectangle' || tool === 'freehand') && onroi)) {
-			const r = layer.getBoundingClientRect();
-			const point: [number, number] = [
-				((e.clientX - r.left) / r.width) * nx,
-				((e.clientY - r.top) / r.height) * ny
-			];
+			const point = nativePoint(e);
 			if (point[0] >= 0 && point[0] <= nx && point[1] >= 0 && point[1] <= ny) {
 				drawing = [point];
 				drawMode = tool;
 				drawSlice = slice;
 			}
 		} else {
-			const r = layer.getBoundingClientRect();
-			const vx = Math.floor(((e.clientX - r.left) / r.width) * nx);
-			const vy = Math.floor(((e.clientY - r.top) / r.height) * ny);
+			const [px, py] = nativePoint(e);
+			const vx = Math.floor(px);
+			const vy = Math.floor(py);
 			if (vx >= 0 && vx < nx && vy >= 0 && vy < ny) onselect(vx, vy);
 		}
 	}
 	function move(e: PointerEvent) {
 		if (sliceDrag?.id === e.pointerId)
 			selectSlice(sliceDrag.slice + Math.trunc((e.clientY - sliceDrag.y) / 24));
+		const [px, py] = nativePoint(e);
+		probe = px >= 0 && px < nx && py >= 0 && py < ny ? [Math.floor(px), Math.floor(py)] : undefined;
 		if (drawing.length && drawMode) {
-			const r = layer.getBoundingClientRect();
-			const point: PixelPoint = [
-				Math.max(0, Math.min(nx, ((e.clientX - r.left) / r.width) * nx)),
-				Math.max(0, Math.min(ny, ((e.clientY - r.top) / r.height) * ny))
-			];
+			const point: PixelPoint = [Math.max(0, Math.min(nx, px)), Math.max(0, Math.min(ny, py))];
 			if (drawMode === 'rectangle' || drawMode === 'window-region') drawing = [drawing[0], point];
 			else if (Math.hypot(point[0] - drawing.at(-1)![0], point[1] - drawing.at(-1)![1]) > 0.25) {
 				if (drawing.length >= 512) drawing = drawing.filter((_, i) => i % 2 === 0);
@@ -270,11 +295,15 @@
 				panX: Math.max(-10000, Math.min(10000, view.panX + delta[0] * 12)),
 				panY: Math.max(-10000, Math.min(10000, view.panY + delta[1] * 12))
 			});
-		else
+		else {
+			probe = undefined;
+			const origin = displayToNative([0.5, 0.5], view);
+			const moved = displayToNative([0.5 + delta[0], 0.5 + delta[1]], view);
 			onselect(
-				Math.max(0, Math.min(nx - 1, x + delta[0])),
-				Math.max(0, Math.min(ny - 1, y + delta[1]))
+				Math.max(0, Math.min(nx - 1, x + moved[0] - origin[0])),
+				Math.max(0, Math.min(ny - 1, y + moved[1] - origin[1]))
 			);
+		}
 	}
 	function cancelGesture() {
 		drag = undefined;
@@ -315,6 +344,7 @@
 					: 'Click or arrow keys to select voxel'}"
 	onpointerdown={down}
 	onpointermove={move}
+	onpointerleave={() => (probe = undefined)}
 	onpointerup={(e) => {
 		sliceDrag = undefined;
 		drag = undefined;
@@ -347,69 +377,107 @@
 >
 	<div
 		class="relative"
+		data-display-bounds
 		bind:this={layer}
+		use:observeSize
 		style:width="min(86cqw, {86 * aspect}cqh)"
 		style:aspect-ratio={aspect}
 		style:transform="translate({view.panX}px, {view.panY}px) scale({view.zoom})"
 	>
-		<IvimImage
-			{roi}
-			{overlay}
-			{volume}
-			{dataset}
-			{slice}
-			center={view.center}
-			width={view.width}
-			label="Acquired native slice"
-		/>
-		<svg
-			class="pointer-events-none absolute inset-0 size-full fill-none stroke-selection stroke-[0.4]"
-			viewBox="0 0 {nx} {ny}"
-			preserveAspectRatio="none"
-			aria-hidden="true"
+		<div
+			class="absolute top-1/2 left-1/2"
+			style:width="{geometry.width}%"
+			style:height="{geometry.height}%"
+			style:transform={geometry.transform}
 		>
-			<circle cx={x + 0.5} cy={y + 0.5} r="2.4" /><path
-				d="M {x - 4} {y + 0.5} h 3 M {x + 2} {y + 0.5} h 3 M {x + 0.5} {y - 4} v 3 M {x + 0.5} {y +
-					2} v 3"
+			<IvimImage
+				{roi}
+				{overlay}
+				{volume}
+				{dataset}
+				{slice}
+				center={view.center}
+				width={view.width}
+				invert={view.invert}
+				label="Acquired native slice"
 			/>
-		</svg>
-		{#if drawing.length > 1}<svg
-				class="pointer-events-none absolute inset-0 size-full fill-selection/15 stroke-selection stroke-[0.5]"
-				viewBox="0 0 {nx} {ny}"
-				preserveAspectRatio="none"
-				aria-hidden="true"
-				>{#if drawMode === 'rectangle' || drawMode === 'window-region'}<rect
-						x={Math.min(drawing[0][0], drawing.at(-1)![0])}
-						y={Math.min(drawing[0][1], drawing.at(-1)![1])}
-						width={Math.abs(drawing[0][0] - drawing.at(-1)![0])}
-						height={Math.abs(drawing[0][1] - drawing.at(-1)![1])}
-					/>{:else}<polygon points={drawing.map((p) => p.join(',')).join(' ')} />{/if}</svg
-			>{/if}
-		{#if windowRegion}<svg
-				class="pointer-events-none absolute inset-0 size-full fill-none stroke-selection stroke-[0.5]"
+			<svg
+				class="pointer-events-none absolute inset-0 size-full fill-none stroke-selection stroke-[0.4]"
 				viewBox="0 0 {nx} {ny}"
 				preserveAspectRatio="none"
 				aria-hidden="true"
 			>
-				<rect
-					x={windowRegion.bounds.x0}
-					y={windowRegion.bounds.y0}
-					width={windowRegion.bounds.x1 - windowRegion.bounds.x0}
-					height={windowRegion.bounds.y1 - windowRegion.bounds.y0}
-					stroke-dasharray="2 1"
+				<circle cx={x + 0.5} cy={y + 0.5} r="2.4" /><path
+					d="M {x - 4} {y + 0.5} h 3 M {x + 2} {y + 0.5} h 3 M {x + 0.5} {y - 4} v 3 M {x +
+						0.5} {y + 2} v 3"
 				/>
-			</svg>{/if}
+			</svg>
+			{#if drawing.length > 1}<svg
+					class="pointer-events-none absolute inset-0 size-full fill-selection/15 stroke-selection stroke-[0.5]"
+					viewBox="0 0 {nx} {ny}"
+					preserveAspectRatio="none"
+					aria-hidden="true"
+					>{#if drawMode === 'rectangle' || drawMode === 'window-region'}<rect
+							x={Math.min(drawing[0][0], drawing.at(-1)![0])}
+							y={Math.min(drawing[0][1], drawing.at(-1)![1])}
+							width={Math.abs(drawing[0][0] - drawing.at(-1)![0])}
+							height={Math.abs(drawing[0][1] - drawing.at(-1)![1])}
+						/>{:else}<polygon points={drawing.map((p) => p.join(',')).join(' ')} />{/if}</svg
+				>{/if}
+			{#if windowRegion}<svg
+					class="pointer-events-none absolute inset-0 size-full fill-none stroke-selection stroke-[0.5]"
+					viewBox="0 0 {nx} {ny}"
+					preserveAspectRatio="none"
+					aria-hidden="true"
+				>
+					<rect
+						x={windowRegion.bounds.x0}
+						y={windowRegion.bounds.y0}
+						width={windowRegion.bounds.x1 - windowRegion.bounds.x0}
+						height={windowRegion.bounds.y1 - windowRegion.bounds.y0}
+						stroke-dasharray="2 1"
+					/>
+				</svg>{/if}
+		</div>
 	</div>
+	{#if dataset.xformCode !== 0}
+		<span
+			data-orientation="left"
+			class="pointer-events-none absolute top-1/2 left-1 -translate-y-1/2 text-xs [text-shadow:0_1px_3px_#000]"
+			>{edges[0]}</span
+		>
+		<span
+			data-orientation="right"
+			class="pointer-events-none absolute top-1/2 right-1 -translate-y-1/2 text-xs [text-shadow:0_1px_3px_#000]"
+			>{edges[1]}</span
+		>
+		<span
+			data-orientation="top"
+			class="pointer-events-none absolute top-6 left-1/2 -translate-x-1/2 text-xs [text-shadow:0_1px_3px_#000]"
+			>{edges[2]}</span
+		>
+		<span
+			data-orientation="bottom"
+			class="pointer-events-none absolute bottom-14 left-1/2 -translate-x-1/2 text-xs [text-shadow:0_1px_3px_#000]"
+			>{edges[3]}</span
+		>
+	{/if}
 	<span
 		class="pointer-events-none absolute top-1.5 right-2 left-2 text-left font-mono text-xs leading-normal [text-shadow:0_1px_3px_#000]"
 		>Vol {index + 1} · b {dataset.bValues[index]} s/mm²</span
 	>
-	<span
-		class="pointer-events-none absolute right-2 bottom-1.5 left-2 text-left font-mono text-xs leading-normal [text-shadow:0_1px_3px_#000]"
-		>Slice {slice + 1}/{dataset.dimensions[2]} · ({x}, {y}, {slice}) · {view.zoom.toFixed(1)}×<br
-		/>W {Number(view.width.toPrecision(5))} · L {Number(view.center.toPrecision(5))} a.u.
-		{#if tool === 'window'}<br />Drag → widen · ↑ raise level{:else if tool === 'window-region'}<br
-			/>Draw window region · Escape cancels · analysis ROIs unchanged{/if}
-		{#if windowMessage}<br /><span role="status">{windowMessage}</span>{/if}</span
-	>
+	<PixelInspection
+		{dataset}
+		{volume}
+		{slice}
+		{index}
+		{view}
+		{magnification}
+		{imageWidth}
+		{imageHeight}
+		{windowMessage}
+		showWindow={tool === 'window' || tool === 'window-region'}
+		x={probe?.[0] ?? x}
+		y={probe?.[1] ?? y}
+	/>
 </button>
