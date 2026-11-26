@@ -8,6 +8,7 @@ dist/
 build/
 .coverage
 .DS_Store
+.playwright-mcp/
 .idea/
 .env
 .env.*
@@ -20,3 +21,4 @@ build/
 .rseng-agent-skills-*
 .rseng-backup-*
 .rseng-check-waivers
+docs/mockups/

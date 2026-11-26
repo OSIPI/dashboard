@@ -45,12 +45,15 @@
 		linked,
 		showLink = true,
 		navigationOpen = $bindable(false),
+		compareMode = $bindable(false),
 		onlink,
+		oncompare,
 		singleScan = false,
 		gridLayout = $bindable('auto'),
 		tool = $bindable('inspect'),
 		panel,
 		controls,
+		comparison,
 		onselect,
 		onspatialselect,
 		ondisplay,
@@ -75,12 +78,15 @@
 		linked: boolean;
 		showLink?: boolean;
 		navigationOpen: boolean;
+		compareMode?: boolean;
 		onlink?: () => void;
+		oncompare?: () => void;
 		singleScan?: boolean;
 		gridLayout: GridLayout;
 		tool: ViewerTool;
 		panel: string;
 		controls: Snippet;
+		comparison?: Snippet;
 		onselect: (x: number, y: number) => void;
 		onspatialselect: (x: number, y: number, z: number) => void;
 		ondisplay: (view: Display, index: number) => void;
@@ -219,6 +225,7 @@
 />
 
 <section
+	data-diagnostic="view"
 	class="viewer-panel card @container min-h-0 min-w-0 flex-col overflow-hidden {panel === 'Image' ||
 	panel === 'Controls'
 		? 'flex'
@@ -241,23 +248,38 @@
 					popovertarget={menuId}
 					bind:this={layoutTrigger}
 					aria-label="Choose view layout"
-					onclick={() => (spatial = false)}
+					onclick={() => {
+						spatial = false;
+						compareMode = false;
+					}}
 					><GridIcon class="size-4" /><span class="max-[899px]:hidden"
 						>{montage ? 'Multiview' : 'Native view'}</span
 					><span class="min-[900px]:hidden">View</span> ▾</button
 				>
+				{#if comparison}<button
+						class="button button-ghost text-xs max-[899px]:h-11"
+						aria-pressed={compareMode}
+						onclick={() => {
+							compareMode = !compareMode;
+							spatial = false;
+							if (compareMode) oncompare?.();
+						}}>Compare<span class="max-[899px]:hidden"> fits</span></button
+					>{/if}
 				<button
 					class="button button-ghost text-xs max-[899px]:h-11 max-[899px]:px-1"
 					aria-label="3D + slices"
 					aria-pressed={spatial}
 					title="Open linked spatial views (overlays are shown in Native view)"
-					onclick={() => (spatial = !spatial)}
+					onclick={() => {
+						spatial = !spatial;
+						compareMode = false;
+					}}
 					><BoxIcon class="size-4" aria-hidden="true" /><span class="max-[899px]:hidden"
 						>3D + slices</span
 					><span class="min-[900px]:hidden">3D</span></button
 				>
 			</div>{/if}
-		{#if showLink && selected.length > 1}<button
+		{#if showLink && selected.length > 1 && !compareMode}<button
 				class="button button-ghost gap-2 px-2 text-xs max-[899px]:col-span-3 max-[899px]:row-start-3 max-[899px]:h-11"
 				aria-label="Link views: zoom, pan, window, level and display transforms"
 				aria-pressed={linked}
@@ -279,7 +301,9 @@
 		<div
 			class="ml-auto flex flex-wrap items-center justify-end gap-1 max-[899px]:contents max-[899px]:[&_.button]:h-11"
 		>
-			{#if !spatial}<details class="relative max-[899px]:col-start-2 max-[899px]:row-start-1">
+			{#if !spatial && !compareMode}<details
+					class="relative max-[899px]:col-start-2 max-[899px]:row-start-1"
+				>
 					<summary
 						class="button button-ghost flex cursor-pointer list-none items-center px-2 [&::-webkit-details-marker]:hidden"
 						aria-label="Display transforms and inspection controls">Display ▾</summary
@@ -294,7 +318,7 @@
 						/>
 					</div>
 				</details>{/if}
-			{#if !spatial && gridPages > 1}<div
+			{#if !spatial && !compareMode && gridPages > 1}<div
 					class="flex items-center gap-1 text-xs max-[899px]:col-span-3 max-[899px]:row-start-4"
 				>
 					<button
@@ -309,7 +333,7 @@
 						onclick={() => (active = selected[(gridPage + 1) * grid.capacity])}>›</button
 					>
 				</div>{/if}
-			{#if !spatial}<div
+			{#if !spatial && !compareMode}<div
 					class="flex items-center gap-0.5 rounded-lg border bg-muted/20 p-0.5 max-[899px]:col-span-3 max-[899px]:row-start-2 max-[899px]:justify-center [&_.button]:px-2.5 [&_.button]:text-xs max-[899px]:[&_.button]:min-w-11 max-[899px]:[&_.button]:gap-1 max-[899px]:[&_.button]:px-1"
 					role="group"
 					aria-label="Image tools"
@@ -454,7 +478,7 @@
 			</details>
 		</div>
 	</div>
-	{#if onslice && onvolume && !spatial}
+	{#if onslice && onvolume && !spatial && !compareMode}
 		<button
 			class="button button-ghost shrink-0 rounded-none border-b text-xs min-[900px]:hidden {panel ===
 			'Controls'
@@ -477,7 +501,9 @@
 			</div>
 		</div>
 	{/if}
-	{#if spatial}
+	{#if compareMode && comparison}
+		{@render comparison()}
+	{:else if spatial}
 		<div
 			class="min-h-0 flex-1 flex-col {panel === 'Controls' ? 'hidden min-[900px]:flex' : 'flex'}"
 		>

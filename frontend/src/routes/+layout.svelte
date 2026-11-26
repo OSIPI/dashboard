@@ -6,9 +6,13 @@
 	import { onMount } from 'svelte';
 	import { dev, version } from '$app/environment';
 	import { base } from '$app/paths';
+	import { afterNavigate } from '$app/navigation';
+	import { startDiagnostics, diagnosticNavigation } from '$lib/diagnostics';
 
 	let { children } = $props();
 	let updateAvailable = $state(false);
+	onMount(startDiagnostics);
+	afterNavigate(() => diagnosticNavigation(page.route.id));
 	const appRoute = $derived(
 		page.route.id === '/' || page.route.id === '/viewer' || page.route.id === '/nifti'
 	);

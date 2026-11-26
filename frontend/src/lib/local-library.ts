@@ -3,6 +3,7 @@ import type { Scan, ScanMetadata } from './imports/scan';
 import type { Workspace } from './workspace';
 import type { Roi } from './roi';
 import type { FitResult } from './analysis';
+import { diagnosticOperation, diagnosticError } from './diagnostics';
 
 export type StoredScanSummary = {
 	id: string;
@@ -73,23 +74,35 @@ let connection: Promise<IDBDatabase> | undefined;
 function database(): Promise<IDBDatabase> {
 	if (!connection)
 		connection = new Promise((resolve, reject) => {
+			const trace = diagnosticOperation('library', { stage: 'connect' });
 			if (typeof indexedDB === 'undefined') {
+				trace.end('failed', { category: 'storage' });
 				reject(new Error('This browser does not support local dataset storage.'));
 				return;
 			}
-			const request = indexedDB.open(NAME, 1);
+			let request: IDBOpenDBRequest;
+			try {
+				request = indexedDB.open(NAME, 1);
+			} catch (error) {
+				trace.end('failed', { category: diagnosticError(error) });
+				reject(error);
+				return;
+			}
 			request.onupgradeneeded = () => {
 				for (const store of STORES) request.result.createObjectStore(store);
 			};
 			request.onerror = () => {
+				trace.end('failed', { category: diagnosticError(request.error) });
 				connection = undefined;
 				reject(request.error);
 			};
 			request.onblocked = () => {
+				trace.end('failed', { category: 'storage' });
 				connection = undefined;
 				reject(new Error('Close other OSIPY tabs to open local storage.'));
 			};
 			request.onsuccess = () => {
+				trace.end('success');
 				const db = request.result;
 				db.onversionchange = () => {
 					db.close();
@@ -103,13 +116,24 @@ function database(): Promise<IDBDatabase> {
 const requestValue = <T>(request: IDBRequest<T>) =>
 	new Promise<T>((resolve, reject) => {
 		request.onsuccess = () => resolve(request.result);
-		request.onerror = () => reject(request.error);
+		request.onerror = () => {
+			diagnosticOperation('library', { stage: 'read' }).end('failed', {
+				category: diagnosticError(request.error)
+			});
+			reject(request.error);
+		};
 	});
 function completed(transaction: IDBTransaction): Promise<void> {
+	const trace = diagnosticOperation('library');
 	return new Promise((resolve, reject) => {
-		transaction.oncomplete = () => resolve();
-		transaction.onerror = transaction.onabort = () =>
+		transaction.oncomplete = () => {
+			trace.end('success');
+			resolve();
+		};
+		transaction.onerror = transaction.onabort = () => {
+			trace.end('failed', { category: diagnosticError(transaction.error) });
 			reject(transaction.error ?? new Error('Local storage transaction failed.'));
+		};
 	});
 }
 export function storageError(error: unknown): string {

@@ -1,6 +1,7 @@
 import { parseDicom } from 'dicom-parser';
 import { readSidecar } from './nifti';
 import { validDate, type ScanMetadata, type ValidationIssue } from './scan';
+import { diagnosticOperation, diagnosticError } from '$lib/diagnostics';
 
 export type Candidate = {
 	id: string;
@@ -38,6 +39,36 @@ export function bidsIdentity(path: string, json: Record<string, unknown> = {}): 
 }
 
 export async function discoverFiles(
+	files: File[],
+	signal?: AbortSignal
+): Promise<{ candidates: Candidate[]; issues: ValidationIssue[] }> {
+	const trace = diagnosticOperation('discovery', {
+		files: files.length,
+		bytes: files.reduce((sum, file) => sum + file.size, 0)
+	});
+	try {
+		const result = await indexFiles(files, signal);
+		trace.end('success', {
+			candidates: result.candidates.length,
+			niftiCount: result.candidates.filter((candidate) => candidate.kind === 'nifti').length,
+			dicomCount: result.candidates.filter((candidate) => candidate.kind === 'dicom').length,
+			warnings: [
+				...result.issues,
+				...result.candidates.flatMap((candidate) => candidate.issues)
+			].filter((issue) => issue.severity === 'warning').length,
+			errors: [
+				...result.issues,
+				...result.candidates.flatMap((candidate) => candidate.issues)
+			].filter((issue) => issue.severity === 'error').length
+		});
+		return result;
+	} catch (error) {
+		trace.end(signal?.aborted ? 'cancelled' : 'failed', { category: diagnosticError(error) });
+		throw error;
+	}
+}
+
+async function indexFiles(
 	files: File[],
 	signal?: AbortSignal
 ): Promise<{ candidates: Candidate[]; issues: ValidationIssue[] }> {

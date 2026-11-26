@@ -47,7 +47,7 @@
 	);
 </script>
 
-<div class="border-b p-3">
+<div data-diagnostic="series" class="border-b p-3">
 	<div class="mb-3 flex items-center justify-between gap-2">
 		<h2 class="text-base font-semibold">
 			Series browser <span class="text-muted-foreground">/ {dataset.bValues.length}</span>
@@ -134,7 +134,10 @@
 		</div>
 	{/if}
 </div>
-<div class="series-grid grid gap-2 p-3 {layout === 'grid' ? 'grid-cols-2' : 'grid-cols-1'}">
+<div
+	data-diagnostic="series"
+	class="series-grid grid gap-2 p-3 {layout === 'grid' ? 'grid-cols-2' : 'grid-cols-1'}"
+>
 	{#each filtered as series (series.index)}
 		<button
 			type="button"

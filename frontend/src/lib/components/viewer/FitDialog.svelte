@@ -48,8 +48,16 @@
 	);
 	const ready = $derived(dataset.bValues.includes(0) && new Set(dataset.bValues).size >= 4);
 	const model = $derived(client.catalog?.models.find((item) => item.id === method));
+	const scopeCount = $derived(
+		scope === 'voxel'
+			? 1
+			: scope === 'roi'
+				? roiIndices.length
+				: dataset.dimensions.slice(0, 3).reduce((a, b) => a * b, 1)
+	);
+	const scopeTooLarge = $derived(scopeCount > client.maxVoxels);
 	$effect(() => {
-		const selection = `${method}:${strategy}`;
+		const selection = `${client.engine}:${client.catalog?.osipyVersion}:${method}:${strategy}`;
 		if (client.catalog && model && configuredSelection !== selection) {
 			configuredSelection = selection;
 			config = { ...$state.snapshot(client.catalog.defaults), model: method, method: strategy };
@@ -94,6 +102,7 @@
 			!ready ||
 			client.busy ||
 			runningJob ||
+			scopeTooLarge ||
 			(scope === 'roi' && !roiIndices.length)
 		)
 			return;
@@ -179,6 +188,12 @@
 				<p class="text-sm text-muted-foreground">
 					OSIPY {client.catalog.osipyVersion} · {model.reference}
 				</p>
+				<p class="text-xs text-muted-foreground">
+					{dataset.name} · {dataset.bValues.length} acquired samples per voxel, including repetitions.
+					{client.engine === 'browser'
+						? 'Runs entirely in this browser; scan signals are not uploaded.'
+						: 'Runs on your local Python REST API.'}
+				</p>
 				{#if runningJob}<div class="space-y-2 text-sm" role="status">
 						<progress class="w-full accent-selection" max="1" value={runningJob.progress}
 						></progress>
@@ -217,8 +232,8 @@
 							/></label
 						>{/if}
 					<p class="text-xs text-muted-foreground sm:col-span-2">
-						Optimizer settings use the installed OSIPY defaults; the report records their effective
-						values.
+						Optimizer settings use the installed OSIPY defaults. The report records the selected
+						model, strategy and effective threshold.
 					</p>
 				</fieldset>
 				<fieldset class="border-t pt-4" disabled={client.busy || !!runningJob}>
@@ -261,6 +276,10 @@
 					{#if !ready}<p class="mt-2 text-sm text-destructive">
 							Fitting needs b=0 and at least four distinct b-values.
 						</p>{/if}
+					{#if scopeTooLarge}<p class="mt-2 text-sm text-destructive" role="status">
+							This selection has {scopeCount.toLocaleString()} voxels. Browser mode supports up to {client.maxVoxels.toLocaleString()}
+							per run. Choose a smaller ROI or switch to Local Python.
+						</p>{/if}
 				</fieldset>
 				<div class="flex flex-wrap justify-end gap-2 border-t pt-4">
 					<button class="button button-outline" type="button" onclick={close}>Close</button>
@@ -269,6 +288,7 @@
 						type="submit"
 						disabled={client.busy ||
 							!!runningJob ||
+							scopeTooLarge ||
 							!ready ||
 							(scope === 'roi' && !roiIndices.length)}>Run fitting</button
 					>

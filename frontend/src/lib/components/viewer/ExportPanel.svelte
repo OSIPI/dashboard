@@ -9,6 +9,7 @@
 	import type { ScanMetadata } from '$lib/imports/scan';
 	import type { Point } from '$lib/spatial';
 	import { download, type Workspace } from '$lib/workspace';
+	import { diagnosticDataset, diagnosticError, diagnosticOperation } from '$lib/diagnostics';
 	let {
 		dataset,
 		volumes,
@@ -34,14 +35,24 @@
 		stage = $state(''),
 		error = $state('');
 	let worker: Worker | undefined;
-	onDestroy(() => worker?.terminate());
+	let trace: ReturnType<typeof diagnosticOperation> | undefined;
+	onDestroy(() => {
+		trace?.end('cancelled');
+		worker?.terminate();
+	});
 	function cancel() {
+		trace?.end('cancelled');
 		worker?.terminate();
 		worker = undefined;
 		busy = false;
 		stage = 'Export cancelled';
 	}
 	function exportBundle() {
+		trace = diagnosticOperation('bundle', {
+			dataset: diagnosticDataset(dataset),
+			bytes: dataset.byteLength,
+			volumes: volumes.length
+		});
 		busy = true;
 		error = '';
 		stage = 'Preparing export worker…';
@@ -51,6 +62,8 @@
 			});
 			worker.onmessage = (event) => {
 				if (event.data.stage) {
+					// Worker progress text is deliberately not logged; it can evolve to include metadata.
+					trace?.stage('export');
 					stage = event.data.stage;
 					return;
 				}
@@ -58,6 +71,7 @@
 				worker?.terminate();
 				worker = undefined;
 				if (event.data.error) {
+					trace?.end('failed');
 					error = event.data.error;
 					return;
 				}
@@ -66,8 +80,10 @@
 					'osipy-viewer-bundle.zip'
 				);
 				stage = 'Bundle exported';
+				trace?.end('success', { bytes: event.data.bytes.byteLength });
 			};
 			worker.onerror = () => {
+				trace?.end('failed');
 				cancel();
 				error = 'Export worker failed.';
 			};
@@ -84,13 +100,17 @@
 				})
 			);
 		} catch (e) {
+			trace?.end('failed', { category: diagnosticError(e) });
 			cancel();
 			error = e instanceof Error ? e.message : 'Export failed';
 		}
 	}
 </script>
 
-<section class="card space-y-3 p-3 text-xs {open ? '' : '[&>*:not(:first-child)]:hidden'}">
+<section
+	data-diagnostic="export"
+	class="card space-y-3 p-3 text-xs {open ? '' : '[&>*:not(:first-child)]:hidden'}"
+>
 	<h2>
 		<button
 			type="button"

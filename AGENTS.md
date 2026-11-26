@@ -6,6 +6,10 @@
 - Repository-level automation, release entry points, CI, Docker packaging (`Dockerfile`, `docker/`), and project/governance metadata (`CITATION.cff`, `codemeta.json`, `.zenodo.json`, `CHANGELOG.md`, `CONTRIBUTING.md`, `SECURITY.md`, `GOVERNANCE.md`, `CODE_OF_CONDUCT.md`, `ROADMAP.md`) live at the root.
 - Keep project-specific implementation guidance in `frontend/AGENTS.md`.
 
+## Capability Catalog Maintenance
+
+- Keep the `/packages` capability catalog current in the same change that adds, changes or removes scientific methods or dashboard functionality, upgrades OSIPY, or changes tracked roadmap status. This applies to frontend and backend work; follow the catalog guidance in `frontend/AGENTS.md`.
+
 ## Releases
 
 Follow [docs/releases.md](docs/releases.md). Releases are intentional local operations. GitHub Actions validate changes and build and deploy every pushed `main` commit to Pages, but never publish a GitHub Release automatically.

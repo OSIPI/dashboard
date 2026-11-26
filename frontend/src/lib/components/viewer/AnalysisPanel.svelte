@@ -4,8 +4,9 @@
 	import ChevronRightIcon from '~icons/lucide/chevron-right';
 	import MethodsMenu from '$lib/components/viewer/MethodsMenu.svelte';
 	import type { Dataset } from '$lib/ivim';
+	import { voxelIndex } from '$lib/ivim';
 	import type { AnalysisClient } from '$lib/analysis-client.svelte';
-	import type { FitResult } from '$lib/analysis';
+	import { commonFitParameters, compatibleFitResults, type FitResult } from '$lib/analysis';
 	import { download } from '$lib/workspace';
 	import { niftiBytes } from '$lib/nifti-export';
 	let {
@@ -14,8 +15,16 @@
 		result,
 		selectedMethod,
 		selectedStrategy,
+		compareMode = false,
+		fitA = $bindable(''),
+		fitB = $bindable(''),
+		parameter = $bindable(''),
+		x = 0,
+		y = 0,
+		slice = 0,
 		openPanel = $bindable(true),
 		onopen,
+		onengine,
 		onselect
 	}: {
 		client: AnalysisClient;
@@ -23,17 +32,41 @@
 		result?: FitResult;
 		selectedMethod?: string;
 		selectedStrategy?: string;
+		compareMode?: boolean;
+		fitA?: string;
+		fitB?: string;
+		parameter?: string;
+		x?: number;
+		y?: number;
+		slice?: number;
 		openPanel: boolean;
 		onopen: () => void;
+		onengine: (engine: 'browser' | 'local') => void;
 		onselect: (id: string, strategy: string) => void;
 	} = $props();
 	const running = $derived(
 		client.runs.find((r) => ['pending', 'running', 'cancelling'].includes(r.state))
 	);
 	const ready = $derived(dataset.bValues.includes(0) && new Set(dataset.bValues).size >= 4);
+	const compatible = $derived(compatibleFitResults(client.results, dataset));
+	const comparisonA = $derived(compatible.find((item) => item.id === fitA));
+	const comparisonB = $derived(compatible.find((item) => item.id === fitB));
+	const commonParameters = $derived(commonFitParameters(comparisonA, comparisonB));
+	const voxel = $derived(voxelIndex(x, y, slice, dataset.dimensions));
+	const comparisonParameter = $derived(commonParameters.find((item) => item.name === parameter));
+	const resultLabel = (item: FitResult) =>
+		`${item.report.model} · ${item.report.config.method} · ${item.report.scope} · ${item.id.slice(0, 8)}`;
+	const voxelValue = (item?: FitResult) => {
+		const value = item && comparisonParameter ? item.maps[comparisonParameter.name]?.[voxel] : NaN;
+		if (!Number.isFinite(value)) return 'Unavailable';
+		return `${value.toPrecision(4)}${item?.maps.Valid?.[voxel] === 1 ? '' : ' · flagged invalid'}`;
+	};
 </script>
 
-<section class="card space-y-3 p-3 {openPanel ? '' : '[&>*:not(:first-child)]:hidden'}">
+<section
+	data-diagnostic="analysis"
+	class="card space-y-3 p-3 {openPanel ? '' : '[&>*:not(:first-child)]:hidden'}"
+>
 	<h2 id="ivim-analysis" tabindex="-1" class="scroll-mt-3">
 		<button
 			type="button"
@@ -63,6 +96,33 @@
 				/>{/if}
 		</button>
 	</h2>
+	<fieldset class="space-y-2" disabled={client.busy || !!running}>
+		<legend class="mb-2 text-xs font-medium">Fit on this computer</legend>
+		<div
+			class="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1"
+			role="group"
+			aria-label="Fitting engine"
+		>
+			{#each [{ value: 'browser' as const, label: 'Browser' }, { value: 'local' as const, label: 'Local Python' }] as engine (engine.value)}
+				<button
+					type="button"
+					class="button min-h-11 text-xs {client.engine === engine.value
+						? 'bg-card text-foreground shadow-sm'
+						: 'button-ghost text-muted-foreground'}"
+					aria-pressed={client.engine === engine.value}
+					onclick={() => onengine(engine.value)}>{engine.label}</button
+				>
+			{/each}
+		</div>
+	</fieldset>
+	<p class="text-xs text-muted-foreground">
+		{#if client.engine === 'browser'}
+			Fits this scan's acquired signals in a Python browser worker. No Docker or scan uploads. First
+			fit downloads Python, NumPy and OSIPY from public CDNs. Up to {client.maxVoxels.toLocaleString()}
+			voxels per run.
+		{:else}Fits with OSIPY through your loopback REST API. Use local Python for larger ROI and
+			whole-scan runs.{/if}
+	</p>
 	{#if !client.catalog}<p class="text-xs text-muted-foreground">
 			Open Local analysis at the top right to connect before fitting.
 		</p>{/if}
@@ -79,6 +139,50 @@
 	{#if client.catalog}<div class="flex justify-end text-xs">
 			<button class="button button-outline" onclick={onopen}>Open analysis</button>
 		</div>{/if}
+	{#if compareMode}
+		<div class="space-y-2 border-t pt-3 text-xs">
+			<h3 class="font-semibold">Fit comparison</h3>
+			{#if compatible.length < 2}
+				<p class="text-muted-foreground">Two completed fits for this exact dataset are required.</p>
+			{:else}
+				<label class="block"
+					>Fit A<select class="input mt-1 w-full text-xs" bind:value={fitA}>
+						{#each compatible as item (item.id)}<option value={item.id} disabled={item.id === fitB}
+								>{resultLabel(item)}</option
+							>{/each}
+					</select></label
+				>
+				<label class="block"
+					>Fit B<select class="input mt-1 w-full text-xs" bind:value={fitB}>
+						{#each compatible as item (item.id)}<option value={item.id} disabled={item.id === fitA}
+								>{resultLabel(item)}</option
+							>{/each}
+					</select></label
+				>
+				<label class="block"
+					>Common parameter<select class="input mt-1 w-full text-xs" bind:value={parameter}>
+						{#each commonParameters as item (item.name)}<option value={item.name}
+								>{item.name}{item.unit ? ` · ${item.unit}` : ''}</option
+							>{/each}
+					</select></label
+				>
+				{#if comparisonParameter}<div class="grid grid-cols-2 gap-2 tabular-nums">
+						<div class="rounded border p-2">
+							<span class="text-selection">A</span><strong class="mt-1 block"
+								>{voxelValue(comparisonA)}</strong
+							>
+						</div>
+						<div class="rounded border p-2">
+							<span class="text-sky-400">B</span><strong class="mt-1 block"
+								>{voxelValue(comparisonB)}</strong
+							>
+						</div>
+					</div>
+					<p class="text-muted-foreground">Voxel {x}, {y}, {slice}</p>
+				{:else}<p class="text-muted-foreground">No parameter has matching name and units.</p>{/if}
+			{/if}
+		</div>
+	{/if}
 	{#if !ready}<p class="text-xs text-muted-foreground">
 			Fitting needs b=0 and at least four distinct b-values.
 		</p>{/if}
@@ -174,8 +278,9 @@
 			{/if}
 			<div class="flex flex-wrap items-center justify-between gap-2">
 				<p class="text-muted-foreground">
-					Result · {client.catalog?.models.find((m) => m.id === result.report.model)?.label ??
-						result.report.model}
+					{result.report.provenance?.engine === 'browser' ? 'Browser' : 'Local Python'} result · {client.catalog?.models.find(
+						(m) => m.id === result.report.model
+					)?.label ?? result.report.model}
 				</p>
 			</div>
 		</div>
@@ -200,8 +305,11 @@
 							class="mt-1 ml-3 underline"
 							disabled={job.state === 'completed' &&
 								!client.results.some((item) => item.id === job.id)}
-							title="Free an API run slot. Already downloaded maps stay in your browser; API voxel detail for this run becomes unavailable."
-							onclick={() => client.release(job)}>Free API slot</button
+							title={client.engine === 'browser'
+								? 'Remove this run and its maps from this session.'
+								: 'Free an API run slot. Already downloaded maps stay in your browser; API voxel detail for this run becomes unavailable.'}
+							onclick={() => client.release(job)}
+							>{client.engine === 'browser' ? 'Remove run' : 'Free API slot'}</button
 						>{/if}
 				</div>{/each}
 		</div>

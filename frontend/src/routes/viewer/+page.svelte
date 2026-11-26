@@ -1,9 +1,16 @@
 <script lang="ts">
+	import {
+		diagnostic,
+		diagnosticDataset,
+		diagnosticOperation,
+		diagnosticError
+	} from '$lib/diagnostics';
 	import ClipboardCheckIcon from '~icons/lucide/clipboard-check';
 	import ChevronDownIcon from '~icons/lucide/chevron-down';
 	import ChevronRightIcon from '~icons/lucide/chevron-right';
 	import { onMount, onDestroy, tick } from 'svelte';
 	import { AnalysisClient } from '$lib/analysis-client.svelte';
+	import { BrowserAnalysisClient } from '$lib/browser-analysis-client.svelte';
 	import { retryUntilConnected } from '$lib/api-retry';
 	import LocalAnalysisSetup from '$lib/components/LocalAnalysisSetup.svelte';
 	import AnalysisPanel from '$lib/components/viewer/AnalysisPanel.svelte';
@@ -44,6 +51,7 @@
 	import ViewerPanel from '$lib/components/viewer/ViewerPanel.svelte';
 	import ImageControls from '$lib/components/viewer/ImageControls.svelte';
 	import SignalPanel from '$lib/components/viewer/SignalPanel.svelte';
+	import FitComparison from '$lib/components/viewer/FitComparison.svelte';
 	import SavedVoxels from '$lib/components/viewer/SavedVoxels.svelte';
 	import WorkspaceFiles from '$lib/components/viewer/WorkspaceFiles.svelte';
 	import DatasetDetails from '$lib/components/viewer/DatasetDetails.svelte';
@@ -178,11 +186,28 @@
 	let storageMessage = $state('Saved only in this browser.');
 	let message = $state('');
 	let workspaceWidth = $state(900);
-	const analysis = new AnalysisClient();
+	const localAnalysis = new AnalysisClient();
+	const browserAnalysis = new BrowserAnalysisClient();
+	let fittingEngine = $state<'browser' | 'local'>('browser');
+	const analysis = $derived(fittingEngine === 'browser' ? browserAnalysis : localAnalysis);
+	function changeFittingEngine(engine: 'browser' | 'local') {
+		if (
+			analysis.busy ||
+			analysis.runs.some((r) => ['running', 'pending', 'cancelling'].includes(r.state))
+		)
+			return;
+		fittingEngine = engine;
+		fitDialogOpen = false;
+		if (!analysis.catalog) void analysis.connect();
+	}
 	let fitDialogOpen = $state(false);
 	let fitDialogTab = $state<'configure' | 'results'>('configure');
 	let fitMethod = $state('biexponential');
 	let fitStrategy = $state('segmented');
+	let compareMode = $state(false);
+	let comparisonFitA = $state('');
+	let comparisonFitB = $state('');
+	let comparisonParameter = $state('');
 	function configureFit(method: string, strategy: string) {
 		fitMethod = method;
 		fitStrategy = strategy;
@@ -193,7 +218,7 @@
 		fitDialogTab = fitResult ? 'results' : 'configure';
 		fitDialogOpen = true;
 	}
-	analysis.onresult = (result) => {
+	localAnalysis.onresult = browserAnalysis.onresult = (result) => {
 		for (const item of catalog.filter((s) => s.sha256 === result.report.dataset.sha256))
 			void saveResult(item.id, result).catch(
 				(e) => (message = `Result not saved locally: ${storageError(e)}`)
@@ -203,7 +228,8 @@
 		alive = false;
 		loadSequence++;
 		flushWorkspace();
-		analysis.dispose();
+		localAnalysis.dispose();
+		browserAnalysis.dispose();
 	});
 	const fitResult = $derived(
 		analysis.results.find(
@@ -254,22 +280,41 @@
 
 	onMount(() => {
 		alive = true;
+		// Capture once: restoring a scan replaces its URL with the scan identity.
+		const requestedPanel = page.url.searchParams.get('panel');
 		void analysis.connect();
 		const stopRetry =
 			!import.meta.env.DEV && !__LOCAL_API_PROXY__
 				? retryUntilConnected(
-						() => !!analysis.catalog,
-						() => !document.hidden && !analysis.busy && !analysis.catalog,
-						() => analysis.connect()
+						() => !!localAnalysis.catalog,
+						() =>
+							fittingEngine === 'local' &&
+							!document.hidden &&
+							!localAnalysis.busy &&
+							!localAnalysis.catalog,
+						() => localAnalysis.connect()
 					)
 				: undefined;
 		void listStoredScans()
-			.then((items) => {
+			.then(async (items) => {
 				if (!alive) return;
 				catalog = items;
 				const id = page.url.searchParams.get('scan') || items[0]?.id;
-				if (id) void loadSaved(id);
-				else {
+				if (id) {
+					await loadSaved(id);
+					const tab = inspectorTabs.find((value) => value === requestedPanel);
+					if (alive && dataset && tab) {
+						preferences.current.panel = 'Inspector';
+						if (tab === 'ROI') preferences.current.roiOpen = true;
+						if (tab === 'Saved') preferences.current.savedVoxelsOpen = true;
+						if (tab === 'Analyze') preferences.current.analysisOpen = true;
+						if (tab === 'Data & export') {
+							preferences.current.workspaceOpen = true;
+							preferences.current.exportOpen = true;
+						}
+						await selectInspectorTab(tab);
+					}
+				} else {
 					dataError = 'No dataset is saved yet. Open the library to import data from your device.';
 					restoring = false;
 				}
@@ -294,6 +339,7 @@
 		}
 	}
 	async function loadSaved(id: string, activate = true) {
+		const trace = diagnosticOperation('library', { stage: 'read' });
 		const sequence = ++loadSequence;
 		flushWorkspace();
 		restoring = true;
@@ -321,7 +367,10 @@
 				readSavedRois(id),
 				readSavedResult(id)
 			]);
-			if (!alive || sequence !== loadSequence) return;
+			if (!alive || sequence !== loadSequence) {
+				trace.end('cancelled');
+				return;
+			}
 			if (!scans.some((s) => s.id === id)) scans = [...scans, scan];
 			if (savedView && !scanViews.has(id)) {
 				try {
@@ -344,16 +393,23 @@
 				roiSessions.set(id, session);
 			}
 			const validFit = savedFit && validSavedResult(savedFit, scan.dataset) ? savedFit : undefined;
-			if (validFit && !analysis.results.some((r) => r.id === validFit.id))
-				analysis.results = [...analysis.results, validFit];
+			const resultClient =
+				validFit?.report.provenance?.engine === 'browser' ? browserAnalysis : localAnalysis;
+			if (validFit && !resultClient.results.some((r) => r.id === validFit.id))
+				resultClient.results = [...resultClient.results, validFit];
 			if (activate) {
 				activateScan(scan);
-				if (validFit) analysis.selected = validFit.id;
+				if (validFit) resultClient.selected = validFit.id;
 				let destination = resolve('/viewer');
 				destination += `?scan=${encodeURIComponent(id)}`;
 				replaceState(destination, page.state);
 			}
+			trace.end('success', {
+				dataset: diagnosticDataset(scan.dataset),
+				bytes: scan.dataset.byteLength
+			});
 		} catch (e) {
+			trace.end('failed', { category: diagnosticError(e) });
 			if (alive && sequence === loadSequence) dataError = storageError(e);
 		} finally {
 			if (sequence === loadSequence) restoring = false;
@@ -369,6 +425,11 @@
 		if (currentId === primary && scans.some((s) => s.id === id)) comparisonId = id;
 	}
 	function activateScan(scan: Scan) {
+		diagnostic('dataset.active', {
+			dataset: diagnosticDataset(scan.dataset),
+			bytes: scan.dataset.byteLength,
+			volumes: scan.volumes.length
+		});
 		if (dataset && currentId && volumes.length) scanViews.set(currentId, workspaceData());
 		paneStorage = undefined;
 		currentId = scan.id;
@@ -441,6 +502,7 @@
 	}
 	function removeScan(id: string) {
 		if (id === currentId) return;
+		diagnostic('interaction', { action: 'scan-remove' });
 		scans = scans.filter((s) => s.id !== id);
 		scanViews.delete(id);
 	}
@@ -606,7 +668,10 @@
 				>{dataset.dimensions[2]} slices</span
 			>
 		</div>{/if}
-	<div class="ml-auto"><LocalAnalysisSetup client={analysis} /></div>
+	<div class="ml-auto">
+		{#if fittingEngine === 'local'}<LocalAnalysisSetup client={localAnalysis} />
+		{:else}<span class="badge">Browser fitting · no server</span>{/if}
+	</div>
 </Header>
 <main
 	class="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-3 max-[899px]:gap-1 max-[899px]:p-1"
@@ -740,7 +805,9 @@
 				{tiles}
 				linked={preferences.current.linked}
 				bind:navigationOpen={preferences.current.navigationOpen}
+				bind:compareMode
 				onlink={toggleLink}
+				oncompare={() => (preferences.current.inspectorTab = 'Analyze')}
 				bind:gridLayout={preferences.current.gridLayout}
 				bind:tool
 				panel={preferences.current.panel}
@@ -756,6 +823,24 @@
 				ondisplay={setDisplay}
 				onreset={resetView}
 			>
+				{#snippet comparison()}<FitComparison
+						dataset={dataset!}
+						{volumes}
+						{active}
+						{slice}
+						{x}
+						{y}
+						display={activeDisplay}
+						results={analysis.results}
+						bind:fitA={comparisonFitA}
+						bind:fitB={comparisonFitB}
+						bind:parameter={comparisonParameter}
+						onselect={(vx, vy) => {
+							x = vx;
+							y = vy;
+						}}
+						ondisplay={(value) => setDisplay(value, active)}
+					/>{/snippet}
 				{#snippet controls()}<ImageControls
 						dataset={dataset!}
 						volume={volumes[active]}
@@ -790,23 +875,23 @@
 				aria-label="Inspector"
 				tabindex="0"
 			>
-				<SignalPanel
-					{roiMean}
-					fit={fitResult?.maps['D*'] ? fitResult : undefined}
-					{dataset}
-					{volumes}
-					{active}
-					{x}
-					{y}
-					{slice}
-					{bookmarks}
-					{compared}
-					bind:open={preferences.current.signalOpen}
-					bind:valuesOpen={preferences.current.signalValuesOpen}
-					onerror={(text) => (message = text)}
-					onselect={selectVolume}
-					onanalysis={showAnalysis}
-				/>
+				{#if !compareMode}<SignalPanel
+						{roiMean}
+						fit={fitResult?.maps['D*'] ? fitResult : undefined}
+						{dataset}
+						{volumes}
+						{active}
+						{x}
+						{y}
+						{slice}
+						{bookmarks}
+						{compared}
+						bind:open={preferences.current.signalOpen}
+						bind:valuesOpen={preferences.current.signalValuesOpen}
+						onerror={(text) => (message = text)}
+						onselect={selectVolume}
+						onanalysis={showAnalysis}
+					/>{/if}
 				<div
 					class="sticky top-0 z-10 grid grid-cols-4 gap-1 rounded-lg border bg-card p-1"
 					role="tablist"
@@ -859,10 +944,18 @@
 				>
 					<AnalysisPanel
 						client={analysis}
+						onengine={changeFittingEngine}
 						{dataset}
 						result={fitResult}
 						selectedMethod={fitMethod}
 						selectedStrategy={fitStrategy}
+						{compareMode}
+						bind:fitA={comparisonFitA}
+						bind:fitB={comparisonFitB}
+						bind:parameter={comparisonParameter}
+						{x}
+						{y}
+						{slice}
 						bind:openPanel={preferences.current.analysisOpen}
 						onopen={openAnalysis}
 						onselect={configureFit}

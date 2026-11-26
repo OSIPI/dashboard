@@ -107,12 +107,17 @@
 	}
 </script>
 
-<button class={triggerClass} aria-label={triggerLabel} onclick={() => dialog.showModal()}
+<button
+	class={triggerClass}
+	data-diagnostic="scans"
+	aria-label={triggerLabel}
+	onclick={() => dialog.showModal()}
 	><span class="max-[899px]:hidden">{triggerLabel}</span><span class="min-[900px]:hidden"
 		>{triggerLabel === 'Scans / Import' ? 'Scans' : triggerLabel}</span
 	></button
 >
 <dialog
+	data-diagnostic="scans"
 	bind:this={dialog}
 	onclose={() => controller?.abort()}
 	class="m-auto max-h-[calc(100dvh-16px)] w-[min(1000px,calc(100vw-16px))] overflow-auto rounded-xl border bg-card p-0 text-foreground backdrop:bg-black/65"
