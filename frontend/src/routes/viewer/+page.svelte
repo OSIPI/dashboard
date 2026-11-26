@@ -18,7 +18,7 @@
 	import RoiPanel from '$lib/components/viewer/RoiPanel.svelte';
 	import ExportPanel from '$lib/components/viewer/ExportPanel.svelte';
 	import { RoiSession } from '$lib/roi-session.svelte';
-	import { roiOverlay, type ViewerTool } from '$lib/roi';
+	import { roiIndexAtOrAfter, roiOverlay, type ViewerTool } from '$lib/roi';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
@@ -158,10 +158,46 @@
 	const roiSessions = new SvelteMap<string, RoiSession>();
 	const roiSession = $derived(roiSessions.get(currentId));
 	const regionOverlay = $derived(
-		dataset && preferences.current.roiVisible
-			? roiOverlay(roiSession?.current, dataset, preferences.current.roiOpacity)
+		dataset && roiSession
+			? roiOverlay(
+					roiSession.rois,
+					dataset.dimensions,
+					slice,
+					preferences.current.roiOpacity,
+					preferences.current.roiVisible,
+					roiSession.opacityPreview
+				)
 			: undefined
 	);
+	const roiTarget = $derived(roiSession?.current);
+	const roiTargetVisible = $derived(roiTarget?.visible ?? preferences.current.roiVisible);
+	$effect(() => {
+		if (!roiTarget && (tool === 'rectangle' || tool === 'freehand' || tool === 'roi-inspect'))
+			tool = 'inspect';
+	});
+	function pickRoi(vx: number, vy: number, z: number) {
+		const session = roiSession;
+		if (!dataset || !session) return;
+		const [nx, ny] = dataset.dimensions;
+		const index = (z * ny + vy) * nx + vx;
+		const { roiVisible, roiOpacity } = preferences.current;
+		const roi = session.rois.findLast(
+			(r) =>
+				(r.visible ?? roiVisible) &&
+				(r.opacity ?? roiOpacity) > 0 &&
+				r.indices[roiIndexAtOrAfter(r.indices, index)] === index
+		);
+		if (roi) session.selected = roi.id;
+	}
+	const drawRoi = $derived.by(() => {
+		const session = roiSession,
+			id = roiTarget?.id,
+			visible = preferences.current.roiVisible;
+		if (!session || !id || !roiTargetVisible) return undefined;
+		return (...[points, z, rectangle]: Parameters<RoiSession['draw']>) => {
+			if (roiSession === session) session.draw(points, z, rectangle, visible, id);
+		};
+	});
 	const roiMean = $derived.by(() => {
 		const roi = roiSession?.current;
 		if (!dataset || !preferences.current.roiMean || !roi?.indices.length) return undefined;
@@ -768,8 +804,20 @@
 			/>
 			<ViewerPanel
 				roi={regionOverlay}
-				onroi={(points, z, rectangle) => roiSession?.draw(points, z, rectangle)}
+				onroi={drawRoi}
+				onpickroi={pickRoi}
 				onundo={() => roiSession?.undo()}
+				canUndo={!!roiSession?.history.length}
+				roiEdit={roiTarget && roiSession
+					? {
+							name: roiTarget.name,
+							visible: roiTargetVisible,
+							erase: roiSession.erase,
+							toggleErase: () => {
+								if (roiSession) roiSession.erase = !roiSession.erase;
+							}
+						}
+					: undefined}
 				{overlay}
 				{dataset}
 				{volumes}
@@ -919,10 +967,9 @@
 							{dataset}
 							{volumes}
 							{active}
-							{tool}
 							result={fitResult}
-							bind:visible={preferences.current.roiVisible}
-							bind:opacity={preferences.current.roiOpacity}
+							defaultVisible={preferences.current.roiVisible}
+							defaultOpacity={preferences.current.roiOpacity}
 							bind:meanVisible={preferences.current.roiMean}
 							bind:open={preferences.current.roiOpen}
 							onstart={(value) => {

@@ -1,9 +1,17 @@
 import { voxelIndex, type Dataset, type VoxelVolume } from './ivim';
 
-export type ViewerTool = 'inspect' | 'pan' | 'rectangle' | 'freehand';
+export type ViewerTool = 'inspect' | 'pan' | 'rectangle' | 'freehand' | 'roi-inspect';
 export type PixelPoint = [number, number];
-export type Roi = { id: string; label: number; name: string; color: string; indices: number[] };
-export type RoiOverlay = { mask: Uint8Array; color: [number, number, number]; opacity: number };
+export type Roi = {
+	id: string;
+	label: number;
+	name: string;
+	color: string;
+	indices: number[];
+	visible?: boolean;
+	opacity?: number;
+};
+export type RoiOverlay = Uint8ClampedArray;
 export const ROI_COLORS = ['#ed746b', '#b1c4df', '#d3bd91', '#b3c6ac', '#c7b1ce'];
 export const MAX_ROI_VOXELS = 2_000_000;
 
@@ -68,23 +76,46 @@ export function editRoi(existing: number[], stroke: number[], erase: boolean): n
 	if (result.length > MAX_ROI_VOXELS) throw new Error('ROI exceeds the two-million-voxel limit.');
 	return result;
 }
+export function roiIndexAtOrAfter(indices: number[], index: number): number {
+	let low = 0,
+		high = indices.length;
+	while (low < high) {
+		const mid = (low + high) >>> 1;
+		if (indices[mid] < index) low = mid + 1;
+		else high = mid;
+	}
+	return low;
+}
 export function roiOverlay(
-	roi: Roi | undefined,
-	dataset: Dataset,
-	opacity: number
+	rois: Roi[],
+	[nx, ny]: Dataset['dimensions'],
+	slice: number,
+	defaultOpacity: number,
+	defaultVisible: boolean,
+	preview?: { id: string; opacity: number }
 ): RoiOverlay | undefined {
-	if (!roi || !roi.indices.length) return;
-	const mask = new Uint8Array(dataset.dimensions.slice(0, 3).reduce((a, b) => a * b, 1));
-	for (const i of roi.indices) mask[i] = 1;
-	return {
-		mask,
-		color: [1, 3, 5].map((i) => parseInt(roi.color.slice(i, i + 2), 16)) as [
-			number,
-			number,
-			number
-		],
-		opacity
-	};
+	const size = nx * ny;
+	const start = slice * size;
+	let pixels: RoiOverlay | undefined;
+	for (const roi of rois) {
+		if (!(roi.visible ?? defaultVisible)) continue;
+		const opacity = (preview?.id === roi.id ? preview.opacity : roi.opacity) ?? defaultOpacity;
+		if (!opacity) continue;
+		const [r, g, b] = [1, 3, 5].map((i) => parseInt(roi.color.slice(i, i + 2), 16));
+		const keep = 1 - opacity;
+		// Composite premultiplied colors once for the displayed slice, shared across acquisitions.
+		for (let j = roiIndexAtOrAfter(roi.indices, start); j < roi.indices.length; j++) {
+			const i = roi.indices[j] - start;
+			if (i >= size) break;
+			pixels ??= new Uint8ClampedArray(size * 4);
+			const p = i * 4;
+			pixels[p] = r * opacity + pixels[p] * keep;
+			pixels[p + 1] = g * opacity + pixels[p + 1] * keep;
+			pixels[p + 2] = b * opacity + pixels[p + 2] * keep;
+			pixels[p + 3] = 255 * opacity + pixels[p + 3] * keep;
+		}
+	}
+	return pixels;
 }
 export function sameGeometry(a: Dataset, b: Dataset): boolean {
 	return (
@@ -119,6 +150,8 @@ export function maskRois(mask: VoxelVolume, maskDataset: Dataset, target: Datase
 		label,
 		name: `Label ${label}`,
 		color: ROI_COLORS[i % ROI_COLORS.length],
+		visible: true,
+		opacity: 0.25,
 		indices
 	}));
 }

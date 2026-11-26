@@ -61,11 +61,13 @@
 						value * (1 - overlay.opacity) + color[channel] * overlay.opacity
 					);
 			}
-			if (roi?.mask[sourceIndex])
+			const roiPixel = (sourceIndex - offset) * 4;
+			if (roi?.[roiPixel + 3]) {
+				const keep = 1 - roi[roiPixel + 3] / 255;
 				for (let channel = 0; channel < 3; channel++)
-					image.data[i * 4 + channel] = Math.round(
-						image.data[i * 4 + channel] * (1 - roi.opacity) + roi.color[channel] * roi.opacity
-					);
+					image.data[i * 4 + channel] =
+						image.data[i * 4 + channel] * keep + roi[roiPixel + channel];
+			}
 		}
 		context.putImageData(image, 0, 0);
 	});

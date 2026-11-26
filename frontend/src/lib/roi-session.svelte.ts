@@ -6,16 +6,30 @@ export class RoiSession {
 	selected = $state('');
 	erase = $state(false);
 	error = $state('');
-	history = $state.raw<Roi[][]>([]);
+	history = $state.raw<{ rois: Roi[]; selected: string; notice?: string }[]>([]);
+	opacityPreview = $state.raw<{ id: string; opacity: number }>();
 	constructor(readonly dataset: Dataset) {}
 	get current() {
 		return this.rois.find((r) => r.id === this.selected);
 	}
-	update(rois: Roi[]) {
-		this.history = [...this.history.slice(-9), this.rois];
+	update(rois: Roi[], notice?: string) {
+		this.history = [
+			...this.history.slice(-9),
+			{ rois: this.rois, selected: this.selected, notice }
+		];
 		this.rois = rois;
 		this.error = '';
-		if (!rois.some((r) => r.id === this.selected)) this.selected = rois[0]?.id ?? '';
+		if (!rois.some((r) => r.id === this.selected)) this.selected = rois.at(-1)?.id ?? '';
+	}
+	edit(
+		id: string,
+		changes: Partial<Pick<Roi, 'name' | 'color' | 'visible' | 'opacity' | 'indices'>>,
+		notice?: string
+	) {
+		this.update(
+			this.rois.map((roi) => (roi.id === id ? { ...roi, ...changes } : roi)),
+			notice
+		);
 	}
 	add() {
 		if (this.dataset.dimensions.slice(0, 3).reduce((a, b) => a * b, 1) > 5_000_000) {
@@ -33,22 +47,39 @@ export class RoiSession {
 			label,
 			name: `ROI ${label}`,
 			color: ROI_COLORS[this.rois.length % ROI_COLORS.length],
+			visible: true,
+			opacity: 0.25,
 			indices: []
 		};
 		this.update([...this.rois, roi]);
 		this.selected = roi.id;
+		this.erase = false;
+		return roi;
 	}
-	draw(points: PixelPoint[], slice: number, rectangle: boolean) {
+	draw(
+		points: PixelPoint[],
+		slice: number,
+		rectangle: boolean,
+		defaultVisible = true,
+		target = this.selected
+	) {
 		try {
-			if (!this.current) this.add();
-			const roi = this.current;
+			const roi = this.rois.find((r) => r.id === target);
 			if (!roi) return;
+			if (!(roi.visible ?? defaultVisible)) {
+				this.error = `Show ${roi.name} before drawing on it.`;
+				return;
+			}
 			const indices = editRoi(
 				roi.indices,
 				rasterizeRoi(points, slice, this.dataset.dimensions, rectangle),
 				this.erase
 			);
-			this.update(this.rois.map((r) => (r.id === roi.id ? { ...r, indices } : r)));
+			if (
+				indices.length !== roi.indices.length ||
+				indices.some((index, i) => index !== roi.indices[i])
+			)
+				this.edit(roi.id, { indices });
 		} catch (e) {
 			this.error = e instanceof Error ? e.message : 'ROI drawing failed.';
 		}
@@ -57,8 +88,8 @@ export class RoiSession {
 		const previous = this.history.at(-1);
 		if (!previous) return;
 		this.history = this.history.slice(0, -1);
-		this.rois = previous;
-		if (!previous.some((r) => r.id === this.selected)) this.selected = previous[0]?.id ?? '';
+		this.rois = previous.rois;
+		this.selected = previous.selected;
 		this.error = '';
 	}
 }

@@ -2,12 +2,10 @@
 	import ScanIcon from '~icons/lucide/scan';
 	import ChevronDownIcon from '~icons/lucide/chevron-down';
 	import ChevronRightIcon from '~icons/lucide/chevron-right';
-	import SquareDashedIcon from '~icons/lucide/square-dashed';
-	import PencilLineIcon from '~icons/lucide/pencil-line';
-	import CrosshairIcon from '~icons/lucide/crosshair';
 	import InfoIcon from '~icons/lucide/info';
 	import PlusIcon from '~icons/lucide/plus';
-	import { onDestroy } from 'svelte';
+	import { onDestroy, tick } from 'svelte';
+	import RoiLayer from './RoiLayer.svelte';
 	import type { Dataset, VoxelVolume } from '$lib/ivim';
 	import type { RoiSession } from '$lib/roi-session.svelte';
 	import { maskRois, roiStatistics, type Roi, type ViewerTool } from '$lib/roi';
@@ -21,10 +19,9 @@
 		volumes,
 		active,
 		slice,
-		tool,
 		onstart,
-		visible = $bindable(true),
-		opacity = $bindable(0.25),
+		defaultVisible,
+		defaultOpacity,
 		meanVisible = $bindable(false),
 		open = $bindable(true),
 		result
@@ -34,10 +31,9 @@
 		volumes: VoxelVolume[];
 		active: number;
 		slice: number;
-		tool: ViewerTool;
 		onstart: (tool: ViewerTool) => void;
-		visible: boolean;
-		opacity: number;
+		defaultVisible: boolean;
+		defaultOpacity: number;
 		meanVisible: boolean;
 		open: boolean;
 		result?: FitResult;
@@ -47,8 +43,23 @@
 	let importing = $state(false);
 	let pending = $state.raw<Roi[]>([]);
 	let dialog: HTMLDialogElement;
+	let undoButton: HTMLButtonElement;
+	let addButton: HTMLButtonElement;
+	let actions = $state('');
 	let controller: AbortController | undefined;
 	const current = $derived(session.current);
+	const notice = $derived(session.history.at(-1)?.notice);
+	async function removeLayer(roi: Roi, clear: boolean) {
+		actions = '';
+		if (clear) session.edit(roi.id, { indices: [] }, `${roi.name} mask cleared.`);
+		else
+			session.update(
+				session.rois.filter((r) => r.id !== roi.id),
+				`${roi.name} deleted.`
+			);
+		await tick();
+		undoButton?.focus();
+	}
 	$effect(() => {
 		if (metric !== 'signal' && !result?.maps[metric]) metric = 'signal';
 	});
@@ -126,7 +137,8 @@
 				aria-expanded={open}
 				onclick={() => (open = !open)}
 			>
-				<ScanIcon class="size-4 shrink-0" aria-hidden="true" />Regions of interest
+				<ScanIcon class="size-4 shrink-0" aria-hidden="true" />ROI layers
+				<span class="text-xs font-normal text-muted-foreground">{session.rois.length}</span>
 				{#if open}<ChevronDownIcon class="ml-auto size-4" />{:else}<ChevronRightIcon
 						class="ml-auto size-4"
 					/>{/if}
@@ -134,94 +146,52 @@
 		</h2>
 		{#if open}
 			<button
+				bind:this={addButton}
 				class="button button-outline h-8 gap-1 px-2 text-xs max-[899px]:h-11"
 				onclick={() => {
-					session.add();
-					onstart('rectangle');
-				}}><PlusIcon class="size-4" aria-hidden="true" />New</button
+					if (session.add()) onstart('rectangle');
+				}}><PlusIcon class="size-4" aria-hidden="true" />New ROI</button
 			>
 		{/if}
 	</div>
 	{#if session.rois.length}
-		<select class="input w-full text-xs" aria-label="Active ROI" bind:value={session.selected}
-			>{#each session.rois as roi (roi.id)}<option value={roi.id}
-					>{roi.name} · {roi.indices.length} voxels</option
-				>{/each}</select
-		>
-		{#if current}
-			<div class="flex gap-2">
-				<input
-					class="input min-w-0 flex-1 px-2 py-1 text-xs"
-					aria-label="ROI name"
-					maxlength="80"
-					value={current.name}
-					onchange={(e) =>
-						session.update(
-							session.rois.map((r) =>
-								r.id === current.id
-									? { ...r, name: e.currentTarget.value.trim() || `ROI ${r.label}` }
-									: r
-							)
-						)}
-				/><input
-					class="h-8 w-10"
-					aria-label="ROI color"
-					type="color"
-					value={current.color}
-					onchange={(e) =>
-						session.update(
-							session.rois.map((r) =>
-								r.id === current.id ? { ...r, color: e.currentTarget.value } : r
-							)
-						)}
+		<ul class="space-y-1" aria-label="ROI layers">
+			{#each [...session.rois].reverse() as roi (roi.id)}
+				<RoiLayer
+					{roi}
+					{session}
+					{defaultVisible}
+					{defaultOpacity}
+					open={actions === roi.id}
+					ontoggle={() => (actions = actions === roi.id ? '' : roi.id)}
+					onremove={(clear) => removeLayer(roi, clear)}
 				/>
-			</div>
-			<div class="grid grid-cols-3 gap-1" role="group" aria-label="ROI drawing tool">
-				<button
-					class="button button-ghost h-8 min-w-0 gap-1 px-1 text-xs max-[899px]:h-11"
-					aria-pressed={tool === 'rectangle'}
-					onclick={() => onstart('rectangle')}
-					><SquareDashedIcon class="size-4 shrink-0" aria-hidden="true" />Rect</button
-				><button
-					class="button button-ghost h-8 min-w-0 gap-1 px-1 text-xs max-[899px]:h-11"
-					aria-pressed={tool === 'freehand'}
-					onclick={() => onstart('freehand')}
-					><PencilLineIcon class="size-4 shrink-0" aria-hidden="true" />Draw</button
-				><button
-					class="button button-ghost h-8 min-w-0 gap-1 px-1 text-xs max-[899px]:h-11"
-					aria-pressed={tool === 'inspect'}
-					onclick={() => onstart('inspect')}
-					><CrosshairIcon class="size-4 shrink-0" aria-hidden="true" />Inspect</button
-				>
-			</div>
-			<div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-				<label class="flex items-center gap-1"
-					><input type="checkbox" bind:checked={session.erase} />Erase</label
-				><label class="flex items-center gap-1"
-					><input type="checkbox" bind:checked={visible} />Show</label
-				><button class="underline" disabled={!session.history.length} onclick={() => session.undo()}
-					>Undo</button
-				>
-			</div>
-			<label class="flex items-center gap-2 text-xs"
-				><span class="shrink-0">Opacity</span><input
-					class="min-w-0 flex-1 accent-selection"
-					type="range"
-					min="0"
-					max="1"
-					step="0.05"
-					bind:value={opacity}
-				/></label
+			{/each}
+		</ul>
+	{:else}
+		<p class="rounded-md border border-dashed px-3 py-3 text-xs text-muted-foreground">
+			No layers yet. Add an ROI to start drawing on the image.
+		</p>
+	{/if}
+	{#if notice}
+		<div
+			class="flex items-center justify-between gap-2 rounded-md border bg-muted/35 px-2 py-1 text-xs"
+		>
+			<p role="status" class="min-w-0 wrap-break-word">{notice}</p>
+			<button
+				type="button"
+				bind:this={undoButton}
+				class="button button-ghost h-8 px-2 text-xs max-[899px]:h-11"
+				onclick={async () => {
+					session.undo();
+					await tick();
+					addButton?.focus();
+				}}>Undo</button
 			>
-			<details class="text-xs text-muted-foreground">
-				<summary class="inline-flex cursor-pointer items-center gap-1 text-foreground"
-					><InfoIcon class="size-3.5" aria-hidden="true" />Drawing tips</summary
-				>
-				<p class="mt-1">
-					Draw on native slices. Freehand closes on release; Escape cancels. Undo retains 10 edits.
-					No automatic slice propagation.
-				</p>
-			</details>
+		</div>
+	{/if}
+	{#if session.rois.length}
+		{#if current}
 			<details class="text-xs">
 				<summary class="cursor-pointer">Coordinates</summary>
 				<p class="my-2 text-muted-foreground">
@@ -248,23 +218,11 @@
 								[rectangle[2], rectangle[3]]
 							],
 							slice,
-							true
+							true,
+							defaultVisible
 						)}>Apply rectangle</button
 				>
 			</details>
-			<div class="flex gap-3 text-xs">
-				<button
-					class="underline"
-					onclick={() =>
-						session.update(
-							session.rois.map((r) => (r.id === current.id ? { ...r, indices: [] } : r))
-						)}>Clear ROI</button
-				><button
-					class="underline"
-					onclick={() => session.update(session.rois.filter((r) => r.id !== current.id))}
-					>Delete ROI</button
-				>
-			</div>
 		{/if}
 	{/if}
 	{#if session.error}<p class="text-xs text-destructive" role="alert">{session.error}</p>{/if}
@@ -288,11 +246,11 @@
 		>
 	</details>
 	{#if current?.indices.length}
-		<div class="space-y-2 border-t pt-2 text-xs">
-			<div class="flex items-center justify-between gap-2">
-				<h3 class="font-semibold">Summary</h3>
+		<details class="space-y-2 border-t pt-2 text-xs">
+			<summary class="cursor-pointer font-medium">
+				Measurements
 				<span class="text-muted-foreground">{current.indices.length} voxels</span>
-			</div>
+			</summary>
 			<label class="flex items-center gap-2"
 				><input type="checkbox" bind:checked={meanVisible} />Show mean in chart</label
 			>
@@ -349,7 +307,7 @@
 					</p>
 				</details>
 			</div>
-		</div>
+		</details>
 	{/if}
 </section>
 <dialog

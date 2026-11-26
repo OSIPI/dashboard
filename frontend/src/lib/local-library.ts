@@ -31,6 +31,9 @@ export function validateSavedRois(value: SavedRois, dataset: Dataset): SavedRois
 				typeof r.name !== 'string' ||
 				r.name.length > 256 ||
 				!/^#[0-9a-f]{6}$/i.test(r.color) ||
+				(r.visible !== undefined && typeof r.visible !== 'boolean') ||
+				(r.opacity !== undefined &&
+					(!Number.isFinite(r.opacity) || r.opacity < 0 || r.opacity > 1)) ||
 				!Number.isInteger(r.label) ||
 				r.label < 1 ||
 				r.label > 65535 ||
@@ -41,7 +44,14 @@ export function validateSavedRois(value: SavedRois, dataset: Dataset): SavedRois
 		(value.selected && !value.rois.some((r) => r.id === value.selected))
 	)
 		throw new Error('Saved ROI data does not match this dataset.');
-	return value;
+	return {
+		...value,
+		rois: value.rois.map((r) =>
+			r.indices.some((index, i) => i > 0 && index <= r.indices[i - 1])
+				? { ...r, indices: Array.from(new Set(r.indices)).sort((a, b) => a - b) }
+				: r
+		)
+	};
 }
 export function validSavedResult(result: FitResult, dataset: Dataset): boolean {
 	const count = dataset.dimensions.slice(0, 3).reduce((a, b) => a * b, 1);

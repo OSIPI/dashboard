@@ -16,6 +16,7 @@
 		overlay,
 		roi,
 		onroi,
+		onpickroi,
 		tool,
 		temporaryPan = false,
 		active = true,
@@ -35,6 +36,7 @@
 		overlay?: ImageOverlay;
 		roi?: RoiOverlay;
 		onroi?: (points: PixelPoint[], slice: number, rectangle: boolean) => void;
+		onpickroi?: (x: number, y: number, slice: number) => void;
 		tool: ViewerTool;
 		temporaryPan?: boolean;
 		active?: boolean;
@@ -49,6 +51,7 @@
 	let drawing = $state<PixelPoint[]>([]);
 	let drawMode = $state<'rectangle' | 'freehand'>();
 	let drawSlice = 0;
+	let commitStroke: typeof onroi;
 	const panning = $derived(tool === 'pan' || temporaryPan);
 	$effect(() => {
 		if (!panning) drag = undefined;
@@ -94,11 +97,12 @@
 		return { destroy };
 	}
 	function down(e: PointerEvent) {
-		if (e.button !== 0) return;
+		if (e.button !== 0 || !e.isPrimary) return;
 		onactivate();
 		(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
 		if (panning) drag = { id: e.pointerId, x: e.clientX, y: e.clientY, view: { ...view } };
-		else if ((tool === 'rectangle' || tool === 'freehand') && onroi) {
+		else if (tool === 'rectangle' || tool === 'freehand') {
+			if (!onroi) return;
 			const r = layer.getBoundingClientRect();
 			const point: [number, number] = [
 				((e.clientX - r.left) / r.width) * nx,
@@ -108,12 +112,16 @@
 				drawing = [point];
 				drawMode = tool;
 				drawSlice = slice;
+				commitStroke = onroi;
 			}
 		} else {
 			const r = layer.getBoundingClientRect();
 			const vx = Math.floor(((e.clientX - r.left) / r.width) * nx);
 			const vy = Math.floor(((e.clientY - r.top) / r.height) * ny);
-			if (vx >= 0 && vx < nx && vy >= 0 && vy < ny) onselect(vx, vy);
+			if (vx >= 0 && vx < nx && vy >= 0 && vy < ny) {
+				if (tool === 'roi-inspect') onpickroi?.(vx, vy, slice);
+				else onselect(vx, vy);
+			}
 		}
 	}
 	function move(e: PointerEvent) {
@@ -179,12 +187,17 @@
 			: 'cursor-crosshair touch-none'}"
 	aria-label="Volume {index + 1}, b {dataset.bValues[index]}, slice {slice + 1}. {panning
 		? 'Drag or arrow keys to pan'
-		: 'Click or arrow keys to select voxel'}"
+		: tool === 'rectangle' || tool === 'freehand'
+			? 'Drag to draw an ROI'
+			: tool === 'roi-inspect'
+				? 'Click to select an ROI layer'
+				: 'Click or arrow keys to select voxel'}"
 	onpointerdown={down}
 	onpointermove={move}
 	onpointerup={(e) => {
 		drag = undefined;
-		if (drawMode && drawing.length > 1) onroi?.(drawing, drawSlice, drawMode === 'rectangle');
+		if (e.isPrimary && drawMode && drawing.length > 1)
+			commitStroke?.(drawing, drawSlice, drawMode === 'rectangle');
 		drawing = [];
 		drawMode = undefined;
 		if (e.button === 2) setTimeout(onlayout, 0);

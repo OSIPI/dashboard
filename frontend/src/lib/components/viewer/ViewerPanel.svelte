@@ -15,6 +15,10 @@
 	import XIcon from '~icons/lucide/x';
 	import MouseIcon from '~icons/lucide/mouse';
 	import KeyboardIcon from '~icons/lucide/keyboard';
+	import SquareDashedIcon from '~icons/lucide/square-dashed';
+	import PencilLineIcon from '~icons/lucide/pencil-line';
+	import EraserIcon from '~icons/lucide/eraser';
+	import UndoIcon from '~icons/lucide/undo-2';
 	let {
 		dataset,
 		volumes,
@@ -27,7 +31,10 @@
 		overlay,
 		roi,
 		onroi,
+		onpickroi,
 		onundo,
+		canUndo = false,
+		roiEdit,
 		tiles,
 		linked,
 		showLink = true,
@@ -54,7 +61,10 @@
 		overlay?: ImageOverlay;
 		roi?: RoiOverlay;
 		onroi?: (points: PixelPoint[], slice: number, rectangle: boolean) => void;
+		onpickroi?: (x: number, y: number, slice: number) => void;
 		onundo?: () => void;
+		canUndo?: boolean;
+		roiEdit?: { name: string; visible: boolean; erase: boolean; toggleErase: () => void };
 		tiles: Record<string, Display>;
 		linked: boolean;
 		showLink?: boolean;
@@ -128,6 +138,10 @@
 	}
 	const montage = $derived(selected.length > 1);
 	const grid = $derived(GRID_LAYOUTS.find((g) => g.id === gridLayout)!);
+	const drawing = $derived(tool === 'rectangle' || tool === 'freehand');
+	$effect(() => {
+		if (drawing) spatial = false;
+	});
 	const gridPage = $derived(
 		grid.capacity ? Math.floor(Math.max(0, selected.indexOf(active)) / grid.capacity) : 0
 	);
@@ -185,8 +199,10 @@
 					class="button button-ghost text-xs max-[899px]:h-11"
 					aria-pressed={spatial}
 					title="Open linked spatial views (overlays are shown in Native view)"
-					onclick={() => (spatial = !spatial)}
-					><BoxIcon class="size-4" aria-hidden="true" />3D + slices</button
+					onclick={() => {
+						spatial = !spatial;
+						if (spatial && drawing) tool = 'inspect';
+					}}><BoxIcon class="size-4" aria-hidden="true" />3D + slices</button
 				>
 			</div>{/if}
 		{#if showLink && selected.length > 1}<button
@@ -245,8 +261,12 @@
 			<details class="relative text-xs" bind:open={navigationOpen}>
 				<summary
 					class="button button-ghost flex cursor-pointer list-none items-center gap-1.5 text-muted-foreground hover:text-foreground max-[899px]:h-11 [&::-webkit-details-marker]:hidden"
-					aria-label="View navigation shortcuts"
-					title="View navigation shortcuts"
+					aria-label={roiEdit && !spatial
+						? 'Viewer shortcuts and ROI drawing tips'
+						: 'View navigation shortcuts'}
+					title={roiEdit && !spatial
+						? 'Viewer shortcuts and ROI drawing tips'
+						: 'View navigation shortcuts'}
 					><CircleHelpIcon class="size-4" aria-hidden="true" /></summary
 				>
 				<div
@@ -294,6 +314,15 @@
 							>
 						</li>
 					</ul>
+					{#if roiEdit && !spatial}
+						<div class="mt-3 border-t pt-2">
+							<p class="font-semibold">ROI drawing</p>
+							<p class="text-muted-foreground">
+								Draw on the current native slice. Freehand closes on release; Escape cancels the
+								stroke. Undo retains 10 edits. Masks don’t extend to other slices automatically.
+							</p>
+						</div>
+					{/if}
 					<p class="mt-3 border-t pt-2 text-muted-foreground">
 						{showLink
 							? 'Slice and voxel stay linked.'
@@ -308,6 +337,68 @@
 			</details>
 		</div>
 	</div>
+	{#if !spatial && roiEdit}
+		<div
+			class="flex shrink-0 flex-wrap items-center gap-1 border-b px-2 py-1 text-xs"
+			role="group"
+			aria-label="ROI drawing tools"
+		>
+			<button
+				class="button button-ghost h-8 gap-1 px-2 max-[899px]:h-11"
+				aria-pressed={tool === 'rectangle'}
+				onclick={() => (tool = 'rectangle')}
+			>
+				<SquareDashedIcon class="size-4" aria-hidden="true" />Rectangle
+			</button>
+			<button
+				class="button button-ghost h-8 gap-1 px-2 max-[899px]:h-11"
+				aria-pressed={tool === 'freehand'}
+				onclick={() => (tool = 'freehand')}
+			>
+				<PencilLineIcon class="size-4" aria-hidden="true" />Freehand
+			</button>
+			<button
+				class="button button-ghost h-8 gap-1 px-2 max-[899px]:h-11"
+				aria-pressed={tool === 'roi-inspect'}
+				title="Select a layer by clicking its overlay"
+				onclick={() => (tool = 'roi-inspect')}
+			>
+				<CrosshairIcon class="size-4" aria-hidden="true" />Inspect ROI
+			</button>
+			<button
+				class="button button-ghost h-8 gap-1 px-2 max-[899px]:h-11"
+				aria-pressed={roiEdit.erase}
+				onclick={() => {
+					roiEdit.toggleErase();
+					if (!drawing) tool = 'rectangle';
+				}}
+			>
+				<EraserIcon class="size-4" aria-hidden="true" />Erase
+			</button>
+			<button
+				class="button button-ghost h-8 px-2 max-[899px]:h-11"
+				aria-label="Undo ROI edit"
+				title="Undo ROI edit"
+				disabled={!canUndo}
+				onclick={onundo}
+			>
+				<UndoIcon class="size-4" aria-hidden="true" />
+			</button>
+			{#if drawing}
+				<span class="min-w-0 truncate px-2 text-muted-foreground" aria-live="polite">
+					{roiEdit.visible
+						? `${roiEdit.erase ? 'Erasing from' : 'Drawing on'} ${roiEdit.name}`
+						: `Show ${roiEdit.name} to draw`}
+				</span>
+			{/if}
+		</div>
+	{:else if !spatial && canUndo}
+		<div class="border-b px-2 py-1">
+			<button class="button button-ghost h-8 gap-1 px-2 text-xs max-[899px]:h-11" onclick={onundo}>
+				<UndoIcon class="size-4" aria-hidden="true" />Undo ROI edit
+			</button>
+		</div>
+	{/if}
 	{#if spatial}
 		<div
 			class="min-h-0 flex-1 flex-col {panel === 'Controls' ? 'hidden min-[900px]:flex' : 'flex'}"
@@ -346,6 +437,7 @@
 					<ViewerTile
 						{roi}
 						{onroi}
+						{onpickroi}
 						{overlay}
 						volume={volumes[index]}
 						{dataset}
