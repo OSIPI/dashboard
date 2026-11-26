@@ -1,12 +1,16 @@
 <script lang="ts">
-	import type { Dataset } from '$lib/ivim';
+	import type { Dataset, VoxelVolume } from '$lib/ivim';
 	import { minimumWindow, displayStep, type Display } from '$lib/workspace';
+	import { MRI_WINDOW_PRESETS, presetWindow, type MriWindowPreset } from '$lib/windowing';
 	import NumericControl from '../NumericControl.svelte';
 	let {
 		dataset,
 		slice,
 		active,
 		display,
+		volume,
+		linked = false,
+		onregion,
 		scope = $bindable('slice'),
 		onslice,
 		onvolume,
@@ -17,12 +21,25 @@
 		slice: number;
 		active: number;
 		display: Display;
+		volume?: VoxelVolume;
+		linked?: boolean;
+		onregion?: () => void;
 		scope: 'slice' | 'volume';
 		onslice: (value: number) => void;
 		onvolume: (index: number) => void;
 		ondisplay: (value: Display) => void;
 		onauto: (robust: boolean) => void;
 	} = $props();
+	let preset = $state<MriWindowPreset>('balanced');
+	let feedback = $state('');
+	function applyPreset() {
+		if (!volume) return;
+		ondisplay({
+			...display,
+			...presetWindow(volume, dataset, scope === 'slice' ? slice : undefined, preset)
+		});
+		feedback = `${MRI_WINDOW_PRESETS.find((p) => p.id === preset)!.label} · source: vol ${active + 1}, ${scope === 'slice' ? `slice ${slice + 1}` : 'whole volume'} · applied to ${linked ? 'linked displays' : 'active display'}.`;
+	}
 </script>
 
 <div class="grid gap-3 @min-[640px]:grid-cols-2 @min-[960px]:grid-cols-[1fr_1.15fr_1fr]">
@@ -89,6 +106,15 @@
 	>
 		<legend class="mb-2 text-xs font-semibold">Windowing</legend>
 		<div class="flex flex-wrap items-center gap-2 @min-[960px]:flex-col @min-[960px]:items-stretch">
+			{#if volume}<label class="flex items-center gap-2 text-xs"
+					>Preset <select
+						aria-label="MRI window preset"
+						class="input h-8 min-w-0 flex-1 py-1 text-xs max-[899px]:h-11"
+						bind:value={preset}
+						>{#each MRI_WINDOW_PRESETS as p (p.id)}<option value={p.id}>{p.label}</option
+							>{/each}</select
+					></label
+				>{/if}
 			<label class="flex items-center gap-2 text-xs"
 				>Auto scope <select
 					class="input h-8 min-w-0 flex-1 py-1 text-xs max-[899px]:h-11"
@@ -98,21 +124,38 @@
 				></label
 			>
 			<div class="flex flex-wrap gap-1.5">
-				<button
-					class="button button-outline h-8 px-2 text-xs max-[899px]:h-11"
-					onclick={() => onauto(true)}>Auto 2–98%</button
-				>
-				<button
-					class="button button-outline h-8 px-2 text-xs max-[899px]:h-11"
-					onclick={() => onauto(false)}>Full range</button
-				>
+				{#if volume}<button
+						class="button button-outline h-8 px-2 text-xs max-[899px]:h-11"
+						onclick={applyPreset}>Apply preset</button
+					>{:else}
+					<button
+						class="button button-outline h-8 px-2 text-xs max-[899px]:h-11"
+						onclick={() => onauto(true)}>Auto 2–98%</button
+					>
+					<button
+						class="button button-outline h-8 px-2 text-xs max-[899px]:h-11"
+						onclick={() => onauto(false)}>Full range</button
+					>
+				{/if}
+				{#if onregion}<button
+						class="button button-outline h-8 px-2 text-xs max-[899px]:h-11"
+						onclick={onregion}>Draw window region</button
+					>{/if}
 				<button
 					class="button button-ghost h-8 px-2 text-xs max-[899px]:h-11"
 					onclick={() =>
 						ondisplay({ ...display, center: dataset.window[0], width: dataset.window[1] })}
-					>Dataset preset</button
+					>Reset W/L</button
 				>
 			</div>
 		</div>
+		<p class="mt-2 text-[11px] text-muted-foreground">
+			Data-derived MRI windows · scaled a.u., not HU. {linked
+				? 'Linked displays'
+				: 'Active display only'}. Regions use current slice 2–98%; analysis ROIs stay unchanged.
+		</p>
+		{#if feedback}<p class="mt-1 text-[11px] text-muted-foreground" role="status">
+				{feedback}
+			</p>{/if}
 	</fieldset>
 </div>

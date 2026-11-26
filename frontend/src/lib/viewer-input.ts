@@ -2,6 +2,8 @@ export const INPUT_ACTIONS = [
 	['inspect', 'Voxel tool', 'v'],
 	['pan', 'Pan tool', 'p'],
 	['slice', 'Slice drag tool', 's'],
+	['window', 'Window and level tool', 'w'],
+	['window-region', 'Regional window tool', 'e'],
 	['rectangle', 'Rectangle ROI tool', 'r'],
 	['freehand', 'Freehand ROI tool', 'f'],
 	['previousSlice', 'Previous slice', 'PageUp'],

@@ -3,12 +3,15 @@
 	import type { Dataset, VoxelVolume } from '$lib/ivim';
 	import { GRID_LAYOUTS, gridVolumes, type GridLayout, type Display } from '$lib/workspace';
 	import ViewerTile from '../ViewerTile.svelte';
+	import InspectionControls from './InspectionControls.svelte';
 	import type { ImageOverlay } from '$lib/analysis';
 	import type { ViewerTool, PixelPoint, RoiOverlay } from '$lib/roi';
 	import SpatialViewer from './SpatialViewer.svelte';
 	import CineControls from './CineControls.svelte';
 	import CrosshairIcon from '~icons/lucide/crosshair';
 	import HandIcon from '~icons/lucide/hand';
+	import ContrastIcon from '~icons/lucide/contrast';
+	import ScanIcon from '~icons/lucide/scan';
 	import RotateCcwIcon from '~icons/lucide/rotate-ccw';
 	import GridIcon from '~icons/lucide/layout-grid';
 	import BoxIcon from '~icons/lucide/box';
@@ -149,6 +152,8 @@
 	let spacePan = $state(false);
 	let spatial = $state(false);
 	let windowWidth = $state(0);
+	let magnification = $state(0);
+	let cineOpen = $state(false);
 	function startSpacePan(event: KeyboardEvent) {
 		if (event.defaultPrevented || event.isComposing || spatial) return;
 		const target = event.target instanceof Element ? event.target : undefined;
@@ -221,34 +226,42 @@
 	aria-label="Image viewer"
 >
 	<div
-		class="relative flex shrink-0 flex-wrap items-center gap-2 border-b px-3 py-2.5 max-[899px]:px-2 max-[899px]:py-1"
+		class="relative flex shrink-0 flex-wrap items-center gap-2 border-b px-3 py-2.5 max-[899px]:grid max-[899px]:grid-cols-[minmax(0,1fr)_auto_auto] max-[899px]:gap-1 max-[899px]:px-2 max-[899px]:py-1 {panel ===
+		'Controls'
+			? 'max-[899px]:hidden'
+			: ''}"
 	>
 		{#if singleScan}<h3 class="text-xs font-semibold">Native view</h3>{:else}<div
-				class="flex items-center gap-1"
+				class="flex items-center gap-1 max-[899px]:col-start-1 max-[899px]:row-start-1"
 				role="group"
 				aria-label="View modes"
 			>
 				<button
-					class="button button-ghost"
+					class="button button-ghost max-[899px]:h-11 max-[899px]:px-1"
 					popovertarget={menuId}
 					bind:this={layoutTrigger}
 					aria-label="Choose view layout"
 					onclick={() => (spatial = false)}
-					><GridIcon class="size-4" />{montage ? 'Multiview' : 'Native view'} ▾</button
+					><GridIcon class="size-4" /><span class="max-[899px]:hidden"
+						>{montage ? 'Multiview' : 'Native view'}</span
+					><span class="min-[900px]:hidden">View</span> ▾</button
 				>
 				<button
-					class="button button-ghost text-xs max-[899px]:h-11"
+					class="button button-ghost text-xs max-[899px]:h-11 max-[899px]:px-1"
+					aria-label="3D + slices"
 					aria-pressed={spatial}
 					title="Open linked spatial views (overlays are shown in Native view)"
 					onclick={() => (spatial = !spatial)}
-					><BoxIcon class="size-4" aria-hidden="true" />3D + slices</button
+					><BoxIcon class="size-4" aria-hidden="true" /><span class="max-[899px]:hidden"
+						>3D + slices</span
+					><span class="min-[900px]:hidden">3D</span></button
 				>
 			</div>{/if}
 		{#if showLink && selected.length > 1}<button
-				class="button button-ghost gap-2 px-2 text-xs max-[899px]:h-11 @min-[760px]:absolute @min-[760px]:top-1/2 @min-[760px]:left-1/2 @min-[760px]:-translate-x-1/2 @min-[760px]:-translate-y-1/2"
-				aria-label="Link views: zoom, pan, window and level"
+				class="button button-ghost gap-2 px-2 text-xs max-[899px]:col-span-3 max-[899px]:row-start-3 max-[899px]:h-11"
+				aria-label="Link views: zoom, pan, window, level and display transforms"
 				aria-pressed={linked}
-				title="Link zoom, pan, window and level across views. Slice and voxel stay linked."
+				title="Link zoom, pan, window, level, rotation, flips and inversion across views. Slice and voxel stay linked."
 				onclick={onlink}
 				>Link views
 				<span
@@ -263,8 +276,27 @@
 					></span></span
 				></button
 			>{/if}
-		<div class="ml-auto flex flex-wrap items-center justify-end gap-1 max-[899px]:[&_.button]:h-11">
-			{#if !spatial && gridPages > 1}<div class="flex items-center gap-1 text-xs">
+		<div
+			class="ml-auto flex flex-wrap items-center justify-end gap-1 max-[899px]:contents max-[899px]:[&_.button]:h-11"
+		>
+			{#if !spatial}<details class="relative max-[899px]:col-start-2 max-[899px]:row-start-1">
+					<summary
+						class="button button-ghost flex cursor-pointer list-none items-center px-2 [&::-webkit-details-marker]:hidden"
+						aria-label="Display transforms and inspection controls">Display ▾</summary
+					>
+					<div
+						class="absolute top-full right-0 z-30 mt-1 max-w-[calc(100vw-24px)] rounded-lg bg-card p-3 shadow-lg"
+					>
+						<InspectionControls
+							view={linked ? display : (tiles[active] ?? display)}
+							onchange={(view) => ondisplay(view, active)}
+							bind:magnification
+						/>
+					</div>
+				</details>{/if}
+			{#if !spatial && gridPages > 1}<div
+					class="flex items-center gap-1 text-xs max-[899px]:col-span-3 max-[899px]:row-start-4"
+				>
 					<button
 						class="button button-ghost"
 						aria-label="Previous grid page"
@@ -278,32 +310,56 @@
 					>
 				</div>{/if}
 			{#if !spatial}<div
-					class="flex items-center gap-0.5 rounded-lg border bg-muted/20 p-0.5 [&_.button]:px-2.5 [&_.button]:text-xs max-[899px]:[&_.button]:gap-1 max-[899px]:[&_.button]:px-1"
+					class="flex items-center gap-0.5 rounded-lg border bg-muted/20 p-0.5 max-[899px]:col-span-3 max-[899px]:row-start-2 max-[899px]:justify-center [&_.button]:px-2.5 [&_.button]:text-xs max-[899px]:[&_.button]:min-w-11 max-[899px]:[&_.button]:gap-1 max-[899px]:[&_.button]:px-1"
 					role="group"
 					aria-label="Image tools"
 				>
 					<button
 						class="button button-ghost"
 						aria-pressed={tool === 'inspect'}
-						onclick={() => (tool = 'inspect')}><CrosshairIcon class="size-4" />Voxel</button
+						onclick={() => (tool = 'inspect')}
+						><CrosshairIcon class="size-4" /><span class="max-[899px]:sr-only">Voxel</span></button
 					>
 					<button
 						class="button button-ghost"
 						aria-pressed={tool === 'pan'}
 						title="Pan tool. Hold Space over an image to pan temporarily."
-						onclick={() => (tool = 'pan')}><HandIcon class="size-4" />Pan</button
+						onclick={() => (tool = 'pan')}
+						><HandIcon class="size-4" /><span class="max-[899px]:sr-only">Pan</span></button
+					>
+					<button
+						class="button button-ghost max-[899px]:min-w-11"
+						aria-label="Window and level tool"
+						aria-pressed={tool === 'window'}
+						title="Drag right to widen the window, up to raise the level. Numeric controls are in Display."
+						onclick={() => (tool = 'window')}
+						><ContrastIcon class="size-4" /><span class="max-[899px]:sr-only">W/L</span></button
+					>
+					<button
+						class="button button-ghost max-[899px]:min-w-11"
+						aria-label="Regional window tool"
+						aria-pressed={tool === 'window-region'}
+						title="Draw a temporary rectangle: 2–98% of scaled native values, without changing analysis ROIs."
+						onclick={() => (tool = 'window-region')}
+						><ScanIcon class="size-4" /><span class="max-[899px]:sr-only">Region</span></button
 					>
 					<button class="button button-ghost" onclick={onreset}
-						><RotateCcwIcon class="size-4" />Reset</button
+						><RotateCcwIcon class="size-4" /><span class="max-[899px]:sr-only">Reset</span></button
 					>
 					<button
 						class="button button-ghost"
 						aria-pressed={tool === 'slice'}
 						title="Drag vertically to step through native slices. Arrow keys still select a voxel."
-						onclick={() => (tool = 'slice')}>Slice</button
+						onclick={() => (tool = 'slice')}
+						><MouseIcon class="hidden size-4 max-[899px]:block" /><span class="max-[899px]:sr-only"
+							>Slice</span
+						></button
 					>
 				</div>{/if}
-			<details class="relative text-xs" bind:open={navigationOpen}>
+			<details
+				class="relative text-xs max-[899px]:col-start-3 max-[899px]:row-start-1"
+				bind:open={navigationOpen}
+			>
 				<summary
 					class="button button-ghost flex cursor-pointer list-none items-center gap-1.5 text-muted-foreground hover:text-foreground max-[899px]:h-11 [&::-webkit-details-marker]:hidden"
 					aria-label="View navigation shortcuts"
@@ -335,10 +391,24 @@
 							<HandIcon aria-hidden="true" /><span><kbd>Space</kbd> + drag · Pan temporarily</span>
 						</li>
 						<li class="flex gap-2">
+							<ContrastIcon aria-hidden="true" /><span
+								><strong class="text-foreground">W/L</strong> · Drag right to widen, up to raise level.
+								Display has numeric controls and reset.</span
+							>
+						</li>
+						<li class="flex gap-2">
+							<ScanIcon aria-hidden="true" /><span
+								><strong class="text-foreground">Region</strong> · Draw a temporary rectangle for slice-local
+								2–98% windowing. Escape cancels; analysis ROIs are unchanged.</span
+							>
+						</li>
+						<li class="flex gap-2">
 							<KeyboardIcon aria-hidden="true" /><span
 								><kbd>Arrow keys</kbd> · {tool === 'pan'
 									? 'Pan the focused image'
-									: 'Move the selected voxel'}</span
+									: tool === 'window' || tool === 'window-region'
+										? 'Use Display numeric controls for windowing'
+										: 'Move the selected voxel'}</span
 							>
 						</li>
 						<li class="flex gap-2">
@@ -377,22 +447,35 @@
 							(linked
 								? ' Display applies to all linked views.'
 								: ` Display applies to volume ${active + 1}.`)}
-						Native indices · {dataset.axisCodes.join(' / ')} · No reorientation.
+						Native indices · {dataset.axisCodes.join(' / ')} · Display transforms never change source
+						voxels.
 					</p>
 				</div>
 			</details>
 		</div>
 	</div>
 	{#if onslice && onvolume && !spatial}
-		<CineControls
-			{dataset}
-			context={cineContext}
-			enabled={windowWidth >= 900 || panel === 'Image' || panel === 'Controls'}
-			{slice}
-			{active}
-			{onslice}
-			{onvolume}
-		/>
+		<button
+			class="button button-ghost shrink-0 rounded-none border-b text-xs min-[900px]:hidden {panel ===
+			'Controls'
+				? 'hidden'
+				: ''}"
+			aria-expanded={cineOpen}
+			onclick={() => (cineOpen = !cineOpen)}>Cine playback {cineOpen ? '▴' : '▾'}</button
+		>
+		<div class="shrink-0 {panel === 'Controls' ? 'max-[899px]:hidden' : ''}">
+			<div class={!cineOpen ? 'max-[899px]:hidden' : ''}>
+				<CineControls
+					{dataset}
+					context={cineContext}
+					enabled={windowWidth >= 900 || (panel === 'Image' && cineOpen)}
+					{slice}
+					{active}
+					{onslice}
+					{onvolume}
+				/>
+			</div>
+		</div>
 	{/if}
 	{#if spatial}
 		<div
@@ -444,6 +527,8 @@
 						dragBinding={input.current.drag}
 						onslice={selectSlice}
 						onshortcut={(event) => shortcut(event, index)}
+						linkedViews={linked && showLink}
+						magnification={index === active ? magnification : 0}
 						temporaryPan={spacePan}
 						active={montage && index === active}
 						scrollable={montage}
