@@ -787,6 +787,9 @@
 				onreset={resetLayout}
 			/>
 			<ViewerPanel
+				cineContext={technique}
+				onslice={(value) => (slice = value)}
+				onvolume={selectVolume}
 				roi={regionOverlay}
 				onroi={(points, z, rectangle) => roiSession?.draw(points, z, rectangle)}
 				onundo={() => roiSession?.undo()}
@@ -840,6 +843,12 @@
 					/>{/snippet}
 				{#snippet controls()}<ImageControls
 						dataset={dataset!}
+						volume={volumes[active]}
+						linked={preferences.current.linked}
+						onregion={() => {
+							tool = 'window-region';
+							preferences.current.panel = 'Image';
+						}}
 						{slice}
 						{active}
 						display={activeDisplay}

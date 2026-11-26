@@ -1,12 +1,19 @@
 import { parseBookmarks, type Bookmark, type Dataset, type VoxelVolume } from './ivim';
 import { predictIvim } from './analysis';
+import type { DisplayTransform } from './display-coordinates';
 
 export const minimumWindow = (dataset: Dataset) =>
 	Math.min(1, 10 ** (Math.floor(Math.log10(dataset.signalRange[1] - dataset.signalRange[0])) - 2));
 export const displayStep = (dataset: Dataset) =>
 	Math.min(0.1, 10 ** Math.floor(Math.log10(minimumWindow(dataset))));
 
-export type Display = { zoom: number; panX: number; panY: number; center: number; width: number };
+export type Display = DisplayTransform & {
+	zoom: number;
+	panX: number;
+	panY: number;
+	center: number;
+	width: number;
+};
 
 export function zoomAtPointer(
 	view: Display,
@@ -78,6 +85,10 @@ export function parseWorkspace(raw: string, dataset: Dataset): Workspace {
 		Number.isFinite(v) && v >= min && v <= max && (!integer || Number.isInteger(v));
 	const display = (d: Display) =>
 		d &&
+		(d.rotation === undefined || [0, 90, 180, 270].includes(d.rotation)) &&
+		['flipX', 'flipY', 'invert'].every(
+			(key) => d[key as keyof Display] === undefined || typeof d[key as keyof Display] === 'boolean'
+		) &&
 		bounded(d.zoom, 1, 4) &&
 		bounded(d.panX, -10000, 10000) &&
 		bounded(d.panY, -10000, 10000) &&
@@ -129,28 +140,54 @@ export function parseWorkspace(raw: string, dataset: Dataset): Workspace {
 	return { ...w, bookmarks };
 }
 
+export type WindowRegion = { x0: number; y0: number; x1: number; y1: number };
+
 // Exact histogram quantiles for the int16 source: bounded memory even for a whole volume.
 export function autoWindow(
 	volume: VoxelVolume,
 	dataset: Dataset,
 	slice: number | undefined,
-	robust: boolean
+	robust: boolean,
+	options: { region?: WindowRegion; percentiles?: readonly [number, number] } = {}
 ): Pick<Display, 'center' | 'width'> {
 	const size = dataset.dimensions[0] * dataset.dimensions[1];
 	const start = slice === undefined ? 0 : slice * size;
 	const end = slice === undefined ? volume.length : start + size;
+	const region = options.region;
+	if (
+		region &&
+		(slice === undefined ||
+			!Object.values(region).every(Number.isInteger) ||
+			region.x0 < 0 ||
+			region.y0 < 0 ||
+			region.x1 > dataset.dimensions[0] ||
+			region.y1 > dataset.dimensions[1] ||
+			region.x0 >= region.x1 ||
+			region.y0 >= region.y1)
+	)
+		throw new Error('Select a region containing at least one native voxel center.');
+	const count = region ? (region.x1 - region.x0) * (region.y1 - region.y0) : end - start;
+	const fractions = robust ? (options.percentiles ?? [0.02, 0.98]) : [0, 1];
+	const visit = (add: (value: number) => void) => {
+		if (region) {
+			for (let y = region.y0; y < region.y1; y++)
+				for (let x = region.x0; x < region.x1; x++)
+					add(volume[start + y * dataset.dimensions[0] + x]);
+		} else for (let i = start; i < end; i++) add(volume[i]);
+	};
 	if (!(volume instanceof Int16Array) || dataset.slope < 0) {
-		const values = Float64Array.from(
-			volume.subarray(start, end),
-			(v) => v * dataset.slope + dataset.intercept
-		).sort();
-		const low = values[Math.floor((values.length - 1) * (robust ? 0.02 : 0))];
-		const high = values[Math.floor((values.length - 1) * (robust ? 0.98 : 1))];
+		const values = new Float64Array(count);
+		let index = 0;
+		visit((v) => {
+			values[index++] = v * dataset.slope + dataset.intercept;
+		});
+		values.sort();
+		const low = values[Math.floor((values.length - 1) * fractions[0])];
+		const high = values[Math.floor((values.length - 1) * fractions[1])];
 		return { center: (low + high) / 2, width: Math.max(minimumWindow(dataset), high - low) };
 	}
 	const histogram = new Uint32Array(65536);
-	for (let i = start; i < end; i++) histogram[volume[i] + 32768]++;
-	const count = end - start;
+	visit((v) => histogram[v + 32768]++);
 	const quantile = (fraction: number) => {
 		const target = Math.floor((count - 1) * fraction);
 		let total = 0;
@@ -160,8 +197,8 @@ export function autoWindow(
 		}
 		return 0;
 	};
-	const low = quantile(robust ? 0.02 : 0);
-	const high = quantile(robust ? 0.98 : 1);
+	const low = quantile(fractions[0]);
+	const high = quantile(fractions[1]);
 	return { center: (low + high) / 2, width: Math.max(minimumWindow(dataset), high - low) };
 }
 

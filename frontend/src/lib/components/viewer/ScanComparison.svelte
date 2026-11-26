@@ -223,6 +223,7 @@
 				dataset={primary.dataset}
 				volumes={primary.volumes}
 				active={volume}
+				{onvolume}
 				selected={[volume]}
 				slice={point[2]}
 				x={point[0]}
@@ -240,6 +241,11 @@
 			>
 				{#snippet controls()}<ImageControls
 						dataset={primary.dataset}
+						volume={primary.volumes[volume]}
+						onregion={() => {
+							leftTool = 'window-region';
+							mobilePanel.current = 'Image';
+						}}
 						slice={point[2]}
 						active={volume}
 						{display}
@@ -287,6 +293,7 @@
 					dataset={secondary.dataset}
 					volumes={secondary.volumes}
 					active={rightVolume}
+					onvolume={(i) => (rightVolume = i)}
 					selected={[rightVolume]}
 					slice={rightPoint[2]}
 					x={rightPoint[0]}
@@ -304,6 +311,11 @@
 				>
 					{#snippet controls()}<ImageControls
 							dataset={secondary.dataset}
+							volume={secondary.volumes[rightVolume]}
+							onregion={() => {
+								rightTool = 'window-region';
+								mobilePanel.current = 'Image';
+							}}
 							slice={rightPoint[2]}
 							active={rightVolume}
 							display={rightDisplay}
