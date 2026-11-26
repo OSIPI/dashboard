@@ -436,20 +436,20 @@ test('container builds only the local REST API, never the frontend or datasets',
 	expect(workflow).toContain('releases/latest');
 	expect(workflow).toContain('refusing stale latest promotion');
 	expect(container.concurrency['cancel-in-progress']).toBe(false);
-	const dockerignore = readFileSync(new URL('.dockerignore', repositoryRoot), 'utf8');
-	expect(dockerignore).toContain('**/data\n');
-	expect(dockerignore).toContain('**/static/datasets\n');
-	const dockerfile = readFileSync(new URL('Dockerfile', repositoryRoot), 'utf8');
-	expect(dockerfile).toContain('COPY rest-api/src /app/rest-api/src');
+	const dockerignore = readFileSync(new URL('rest-api/.dockerignore', repositoryRoot), 'utf8');
+	expect(dockerignore).toContain('docs\n');
+	expect(dockerignore).toContain('tests\n');
+	const dockerfile = readFileSync(new URL('rest-api/Dockerfile', repositoryRoot), 'utf8');
+	expect(dockerfile).toContain('COPY src /app/rest-api/src');
 	expect(dockerfile).toContain('CMD ["sh", "/app/api-entrypoint.sh"]');
 	expect(dockerfile).not.toMatch(/COPY\s+(?:\.|(?:static|build|data)(?:\s|\/))/);
 	expect(dockerfile).not.toMatch(/COPY\s+docker(?:\s|\/)(?!api-entrypoint\.sh)/);
-	expect(container.jobs.publish.steps.at(-1)?.with.context).toBe('.');
+	expect(container.jobs.publish.steps.at(-1)?.with.context).toBe('rest-api');
 	const ciImage = checks.jobs.container.steps.find((step) =>
 		step.name?.includes('Build local dashboard image')
 	);
 	expect(ciImage?.['working-directory']).toBe('.');
-	expect(ciImage?.run).toBe('docker build -f Dockerfile .');
+	expect(ciImage?.run).toBe('docker build -f rest-api/Dockerfile rest-api');
 	const compose = readFileSync(new URL('docker-compose.yml', repositoryRoot), 'utf8');
 	expect(compose).toContain('127.0.0.1:60016:60016');
 });
